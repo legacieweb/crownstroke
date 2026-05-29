@@ -1,13 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    nodePolyfills(),
     {
       name: 'terminal-console',
       configureServer(server) {
@@ -29,11 +27,26 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      'perf_hooks': path.resolve(__dirname, 'src/perf-hooks-polyfill.ts'),
+      'fabric': path.resolve(__dirname, 'node_modules/fabric/dist/fabric.js'),
     },
   },
   define: {
     'global': 'globalThis',
+  },
+  build: {
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('fabric')) return 'vendor.fabric';
+            if (id.includes('lucide-react')) return 'vendor.icons';
+            if (id.includes('canvas-confetti')) return 'vendor.confetti';
+            return 'vendor';
+          }
+        }
+      }
+    }
   },
   server: {
     proxy: {
