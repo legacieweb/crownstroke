@@ -3,7 +3,7 @@ services:
     name: crownstroke-website
     runtime: node
     buildCommand: npm install && npm run build
-    startCommand: npm start
+    startCommand: node dist-server/server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -18,7 +18,7 @@ services:
       - key: VITE_PAYSTACK_PUBLIC_KEY
         sync: false
       - key: VITE_API_URL
-        value: /
+        value: ""
       - key: MAILNOVA_API_KEY
         sync: false
       - key: MAILNOVA_URL
@@ -35,3 +35,7 @@ services:
         sync: false
     autoDeploy: true
     healthCheckPath: "/api/health"
+
+databases:
+  - name: crownstroke-db
+    type: postgresql
