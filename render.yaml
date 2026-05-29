@@ -1,4 +1,11 @@
 services:
+  - type: static
+    name: crownstroke-frontend
+    staticSite:
+      source: ./dist
+      publicPath: /
+    autoDeploy: true
+
   - type: web
     name: crownstroke-website
     runtime: node

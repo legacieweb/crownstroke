@@ -18,15 +18,15 @@ const db = drizzle(queryClient, { schema });
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
 // Run migration for hero_image column
 (async () => {
