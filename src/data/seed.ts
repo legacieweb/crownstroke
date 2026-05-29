@@ -3,8 +3,8 @@ import { Product } from '../types';
 export const PRODUCT_DATA: any = {
   't-shirt': {
     '#ffffff': {
-      front: 'https://i.imgur.com/sHXEDY6.png',
-      back: 'https://i.imgur.com/cu2CzOH.png',
+      front: 'https://i.imgur.com/1PSq0jv.png',
+      back: 'https://i.imgur.com/oEenycn.png',
     },
     '#000000': {
       front: 'https://i.imgur.com/3J0YJ77.png',

@@ -48,6 +48,12 @@ export const designerDesigns = pgTable('designer_designs', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const siteSettings = pgTable('site_settings', {
+  id: text('id').primaryKey(),
+  bgVideoUrl: text('bg_video_url'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const orders = pgTable('orders', {
   id: uuid('id').defaultRandom().primaryKey(),
   customerName: text('customer_name').notNull(),

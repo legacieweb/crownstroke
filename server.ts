@@ -22,7 +22,7 @@ app.use(express.json({ limit: '500mb' }));
 const allowedOrigins = [
   'http://localhost:5173',
   'https://crownstroke.iyonicorp.com',
-  'https://bangkok-law-establishing-surprising.trycloudflare.com'
+  'https://tuning-montana-build-tomorrow.trycloudflare.com'
 ];
 
 app.use(cors({
@@ -122,6 +122,12 @@ app.get('/api/health', (req, res) => {
         payment_type TEXT NOT NULL,
         items JSONB NOT NULL,
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS site_settings (
+        id TEXT PRIMARY KEY,
+        bg_video_url TEXT,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
     `);
     

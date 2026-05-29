@@ -3,8 +3,8 @@ import Layout from '../components/layout/Layout';
 import { useAuth } from '../store/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 import { db } from '../db';
-import { users, designers, shops, orders, designerDesigns } from '../db/schema';
-import { Users, ShoppingBag, DollarSign, LogOut, Trash2, Eye, Store, Palette, Check, X, Loader2, RefreshCw } from 'lucide-react';
+import { users, designers, shops, orders, designerDesigns, siteSettings } from '../db/schema';
+import { Users, ShoppingBag, DollarSign, LogOut, Trash2, Eye, Store, Palette, Check, X, Loader2, RefreshCw, Video, Upload } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { eq } from 'drizzle-orm';
 
@@ -45,17 +45,17 @@ const AdminDashboard: React.FC = () => {
   });
   const [designs, setDesigns] = useState<Design[]>([]);
   const [designersList, setDesignersList] = useState<Designer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [bgVideoUrl, setBgVideoUrl] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateMsg, setUpdateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'designs' | 'designers'>('designs');
+  const [activeTab, setActiveTab] = useState<'designs' | 'designers' | 'bg-video'>('designs');
 
   useEffect(() => {
     fetchAllData();
+    loadBgVideo();
   }, []);
 
   const fetchAllData = async () => {
-    setIsLoading(true);
     try {
       const [userResults, designerResults, orderResults, allDesigns, allShops, allUsers] = await Promise.all([
         db.select().from(users),
@@ -103,8 +103,6 @@ const AdminDashboard: React.FC = () => {
       setDesignersList(designersWithShops);
     } catch (err) {
       console.error('Failed to fetch admin data:', err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -144,18 +142,62 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('video/')) {
+      setUpdateMsg({ type: 'error', text: 'Please select a valid video file' });
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setBgVideoUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveBgVideo = async () => {
+    if (!bgVideoUrl) return;
+    
+    setIsUpdating(true);
+    setUpdateMsg(null);
+    try {
+      const existing = await db.select().from(siteSettings).where(eq(siteSettings.id, 'default'));
+      
+      if (existing.length > 0) {
+        await db.update(siteSettings)
+          .set({ bgVideoUrl: bgVideoUrl })
+          .where(eq(siteSettings.id, 'default'));
+      } else {
+        await db.insert(siteSettings)
+          .values({ id: 'default', bgVideoUrl: bgVideoUrl });
+      }
+      
+      setUpdateMsg({ type: 'success', text: 'Background video updated successfully' });
+    } catch (err) {
+      console.error('Failed to save bg video:', err);
+      setUpdateMsg({ type: 'error', text: 'Failed to save background video' });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const loadBgVideo = async () => {
+    try {
+      const results = await db.select().from(siteSettings).where(eq(siteSettings.id, 'default'));
+      if (results.length > 0 && results[0].bgVideoUrl) {
+        setBgVideoUrl(results[0].bgVideoUrl);
+      }
+    } catch (err) {
+      console.error('Failed to load bg video:', err);
+    }
+  };
+
   if (!user) return <Navigate to="/login" />;
   if (user.role !== 'admin') return <Navigate to="/" />;
-
-  if (isLoading) {
-    return (
-      <Layout>
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-        </div>
-      </Layout>
-    );
-  }
 
   return (
     <Layout>
@@ -224,6 +266,17 @@ const AdminDashboard: React.FC = () => {
                 <Store className="w-4 h-4 inline mr-2" />
                 View Designers & Shops
               </button>
+              <button
+                onClick={() => setActiveTab('bg-video')}
+                className={`flex-1 px-8 py-6 text-sm font-black uppercase tracking-widest transition-all ${
+                  activeTab === 'bg-video' 
+                    ? 'text-primary-600 border-b-2 border-primary-600 bg-slate-50/50' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Video className="w-4 h-4 inline mr-2" />
+                Background Video
+              </button>
             </div>
 
             <div className="p-8">
@@ -233,10 +286,10 @@ const AdminDashboard: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 uppercase italic">Design Management</h2>
                     <button
                       onClick={fetchAllData}
-                      disabled={isLoading}
+                      disabled={false}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all disabled:opacity-50"
                     >
-                      <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      <RefreshCw className="w-4 h-4" />
                       Refresh
                     </button>
                   </div>
@@ -364,6 +417,72 @@ const AdminDashboard: React.FC = () => {
                         )}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'bg-video' && (
+                <div>
+                  <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-2xl font-black text-slate-900 uppercase italic">Background Video</h2>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-black text-slate-700 uppercase tracking-widest mb-3">
+                        Upload Video (MP4)
+                      </label>
+                      <input
+                        type="file"
+                        accept="video/mp4"
+                        onChange={handleVideoUpload}
+                        className="hidden"
+                        id="bg-video-upload"
+                      />
+                      <label
+                        htmlFor="bg-video-upload"
+                        className="flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-slate-100 text-slate-700 font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Choose Video File
+                      </label>
+                    </div>
+
+                    {bgVideoUrl && (
+                      <div className="space-y-4">
+                        <div className="relative rounded-xl overflow-hidden bg-slate-100 aspect-video max-w-md">
+                          <video
+                            src={bgVideoUrl}
+                            className="w-full h-full object-cover"
+                            muted
+                          />
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={saveBgVideo}
+                            disabled={isUpdating}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary-600 text-white font-black uppercase tracking-widest text-xs hover:bg-primary-700 transition-all disabled:opacity-50"
+                          >
+                            <Check className="w-4 h-4" />
+                            Save Video
+                          </button>
+                          <button
+                            onClick={() => setBgVideoUrl('')}
+                            disabled={isUpdating}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-200 text-slate-700 font-black uppercase tracking-widest text-xs hover:bg-slate-300 transition-all disabled:opacity-50"
+                          >
+                            <X className="w-4 h-4" />
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {!bgVideoUrl && (
+                      <p className="text-sm text-slate-500 font-medium">
+                        Upload an MP4 video to use as the website background. The video will be stored as a data URL in the database.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
