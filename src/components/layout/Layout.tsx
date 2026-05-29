@@ -17,9 +17,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isBackendOnline, setIsBackendOnline] = useState(true);
 
   useEffect(() => {
+    const API_URL = import.meta.env.VITE_API_URL || '';
+
     const checkBackend = async () => {
       try {
-        const response = await fetch('/api/health');
+        const response = await fetch(`${API_URL}/api/health`);
         setIsBackendOnline(response.ok);
       } catch (err) {
         setIsBackendOnline(false);

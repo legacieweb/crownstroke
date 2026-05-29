@@ -12,7 +12,8 @@ export const emailService = {
     // In a real app, this would call your backend or an email service API like Resend, SendGrid, or EmailJS
     // For now, we simulate the network request
     try {
-      const response = await fetch('/api/send-email', {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${API_URL}/api/send-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
