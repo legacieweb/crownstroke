@@ -17,7 +17,7 @@ const queryClient = postgres(dbUrl);
 const db = drizzle(queryClient, { schema });
 
 const app = express();
-app.use(express.json({ limit: '50mb' });
+app.use(express.json({ limit: '50mb' }));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -211,10 +211,8 @@ app.post('/api/send-email', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'dist')));
 
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-  }
+app.get(/^\/(?!api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3001;
