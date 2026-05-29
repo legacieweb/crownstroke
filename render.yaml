@@ -3,7 +3,7 @@ services:
     name: crownstroke-website
     runtime: node
     buildCommand: npm install && npm run build
-    startCommand: node dist-server/server.js
+    startCommand: npx tsx server.ts
     envVars:
       - key: NODE_ENV
         value: production
