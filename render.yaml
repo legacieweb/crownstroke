@@ -4,44 +4,11 @@ services:
     staticSite:
       source: ./dist
       publicPath: /
-    autoDeploy: true
-
-  - type: web
-    name: crownstroke-website
-    runtime: node
-    buildCommand: npm install && npm run build
-    startCommand: node dist-server/server.js
+    buildCommand: npm install && npm run build:client
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: VITE_DATABASE_URL
-        fromDatabase:
-          name: crownstroke-db
-          property: connectionString
-      - key: VITE_ADMIN_EMAIL
-        sync: false
-      - key: VITE_ADMIN_PASSWORD
-        sync: false
-      - key: VITE_PAYSTACK_PUBLIC_KEY
-        sync: false
       - key: VITE_API_URL
-        value: ""
-      - key: MAILNOVA_API_KEY
-        sync: false
-      - key: MAILNOVA_URL
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
+        value: https://ratings-cartoons-david-cameras.trycloudflare.com
     autoDeploy: true
-    healthCheckPath: "/api/health"
 
 databases:
   - name: crownstroke-db
