@@ -1,7 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { clsx } from 'clsx';
 import Layout, { BackendStatusContext } from '../components/layout/Layout';
+import Button from '../components/ui/Button';
 import { useCart } from '../store/CartContext';
+import { db } from '../db';
+import { designerDesigns, designers, shops } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import {
+  Zap,
+  Share2,
+  Filter,
+  Palette,
+  Heart,
+  Star,
+  ArrowRight,
+  LayoutGrid,
+} from 'lucide-react';
 
 const ShopPage: React.FC = () => {
   const { shopName } = useParams<{ shopName: string }>();
@@ -104,7 +120,7 @@ const ShopPage: React.FC = () => {
               playsInline
               className="w-full h-full object-cover"
             >
-              <source src="https://i.imgur.com/mtucSw1.mp4" type="video/mp4" />
+              <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           </>

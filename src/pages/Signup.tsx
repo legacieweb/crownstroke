@@ -44,7 +44,7 @@ const Signup: React.FC = () => {
           playsInline
           className="w-full h-full object-cover"
         >
-          <source src="https://i.imgur.com/mtucSw1.mp4" type="video/mp4" />
+          <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-black/90" />
       </div>

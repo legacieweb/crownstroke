@@ -199,7 +199,7 @@ const DesignerDashboard: React.FC = () => {
           playsInline
           className="w-full h-full object-cover"
         >
-          <source src="https://i.imgur.com/mtucSw1.mp4" type="video/mp4" />
+          <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       </div>
