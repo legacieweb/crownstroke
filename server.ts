@@ -22,7 +22,7 @@ app.use(express.json({ limit: '500mb' }));
 const allowedOrigins = [
   'http://localhost:5173',
   'https://crownstroke.iyonicorp.com',
-  'https://tuning-montana-build-tomorrow.trycloudflare.com'
+  'https://reg-amanda-mug-cologne.trycloudflare.com'
 ];
 
 app.use(cors({
@@ -34,7 +34,9 @@ app.use(cors({
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200,
 }));
 
 app.get('/api/health', (req, res) => {
@@ -126,8 +128,7 @@ app.get('/api/health', (req, res) => {
 
       CREATE TABLE IF NOT EXISTS site_settings (
         id TEXT PRIMARY KEY,
-        bg_video_url TEXT,
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        bg_video_url TEXT
       );
     `);
     
@@ -225,6 +226,24 @@ app.post('/api/send-email', async (req, res) => {
       message: 'Failed to send email', 
       error: error instanceof Error ? error.message : String(error)
     });
+  }
+});
+
+// Video upload endpoint - for now, just store the URL directly
+app.post('/api/upload-video', async (req, res) => {
+  const { videoData } = req.body;
+  
+  try {
+    if (!videoData || typeof videoData !== 'string') {
+      return res.status(400).json({ error: 'Invalid video data' });
+    }
+    
+    // For now, just return the data URL
+    // In production, you'd upload to cloud storage and return a proper URL
+    res.json({ videoUrl: videoData });
+  } catch (error) {
+    console.error('Video upload error:', error);
+    res.status(500).json({ error: 'Failed to upload video' });
   }
 });
 

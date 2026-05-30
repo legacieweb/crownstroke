@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import { Mail, Lock, LogIn, ChevronRight, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { authService } from '../services/auth';
-import videoSrc from '../assets/42154-431423229.mp4';
 
 const Login: React.FC = () => {
   const { login } = useAuth();
@@ -58,7 +57,7 @@ const Login: React.FC = () => {
           playsInline
           className="w-full h-full object-cover"
         >
-          <source src={videoSrc} type="video/mp4" />
+          <source src="https://i.imgur.com/mtucSw1.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-black/90" />
       </div>

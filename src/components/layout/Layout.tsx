@@ -2,13 +2,11 @@ import React, { useState, useEffect, createContext } from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import Preloader from '../ui/Preloader';
-import videoSrc from '../../assets/42154-431423229.mp4';
-import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../db';
 import { siteSettings } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
-export const BgVideoContext = createContext<{ bgVideoUrl: string | null }>({ bgVideoUrl: null });
+export const BgVideoContext = createContext<{ bgVideoUrl: string | null }>({ bgVideoUrl: 'https://i.imgur.com/d2d8Llz.mp4' });
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -20,7 +18,7 @@ export const BackendStatusContext = React.createContext<{ isOnline: boolean }>({
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
-  const [bgVideoUrl, setBgVideoUrl] = useState<string | null>(null);
+  const [bgVideoUrl, setBgVideoUrl] = useState<string | null>('https://i.imgur.com/d2d8Llz.mp4');
 
   useEffect(() => {
     const fetchBgVideo = async () => {
@@ -88,8 +86,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           onPlaying={handleVideoPlaying}
           className="w-full h-full object-cover"
         >
-          {bgVideoUrl && <source src={bgVideoUrl} type="video/mp4" />}
-          <source src={videoSrc} type="video/mp4" />
+          <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />
         </video>
         {/* Modern Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-black/90" />

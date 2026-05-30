@@ -2,27 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout, { BackendStatusContext } from '../components/layout/Layout';
 import { useCart } from '../store/CartContext';
-import { 
-  Palette, 
-  ShoppingBag, 
-  Star, 
-  Share2, 
-  ChevronRight,
-  Filter,
-  LayoutGrid,
-  Zap,
-  ShieldCheck,
-  Globe,
-  ArrowRight,
-  Heart
-} from 'lucide-react';
-import Button from '../components/ui/Button';
-import { motion, AnimatePresence } from 'framer-motion';
-import { db } from '../db';
-import { designerDesigns, shops, designers } from '../db/schema';
-import { eq } from 'drizzle-orm';
-import { clsx } from 'clsx';
-import videoSrc from '../assets/42154-431423229.mp4';
 
 const ShopPage: React.FC = () => {
   const { shopName } = useParams<{ shopName: string }>();
@@ -125,7 +104,7 @@ const ShopPage: React.FC = () => {
               playsInline
               className="w-full h-full object-cover"
             >
-              <source src={videoSrc} type="video/mp4" />
+              <source src="https://i.imgur.com/mtucSw1.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           </>

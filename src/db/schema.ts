@@ -51,7 +51,6 @@ export const designerDesigns = pgTable('designer_designs', {
 export const siteSettings = pgTable('site_settings', {
   id: text('id').primaryKey(),
   bgVideoUrl: text('bg_video_url'),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const orders = pgTable('orders', {

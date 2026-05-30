@@ -1,12 +1,25 @@
 import { drizzle } from 'drizzle-orm/pg-proxy';
 import * as schema from './schema';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+// Use relative URLs for better compatibility across environments
+const getApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl;
+  }
+  // Default to relative URLs (works with both dev proxy and production)
+  return '';
+};
+
+const API_URL = getApiUrl();
 
 const proxy = async (query: string, params: any[], method: 'all' | 'execute') => {
   console.log(`[DB Proxy] ${method} ${query.substring(0, 100)}${query.length > 100 ? '...' : ''}`, params);
 
-  const response = await fetch(`${API_URL}/api/db`, {
+  const url = `${API_URL}/api/db`;
+  console.log(`[DB Proxy] Fetching from: ${url}`);
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, params, isValues: method === 'all' }),

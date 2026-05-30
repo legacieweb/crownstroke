@@ -27,7 +27,7 @@ const PowerfulSimplicity: React.FC = () => {
   ];
 
   return (
-    <section className="py-24 bg-[#050505] relative overflow-hidden">
+    <section className="py-24 relative overflow-hidden">
       {/* Background Accents */}
       <div className="absolute top-0 left-0 w-full h-full">
         <div className="absolute top-1/2 left-1/4 w-[500px] h-[500px] bg-primary-500/5 blur-[120px] rounded-full" />

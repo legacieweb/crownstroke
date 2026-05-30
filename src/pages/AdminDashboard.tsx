@@ -151,12 +151,16 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setBgVideoUrl(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    // For large files, we should upload to cloud storage instead of encoding as base64
+    // For now, just show the file name and size
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    console.log(`Video selected: ${file.name} (${fileSizeMB} MB)`);
+    
+    // In production, implement actual file upload here
+    // For demo purposes, create a URL reference
+    const videoUrl = URL.createObjectURL(file);
+    setBgVideoUrl(videoUrl);
+    setUpdateMsg({ type: 'success', text: `Video loaded: ${file.name} (${fileSizeMB} MB)` });
   };
 
   const saveBgVideo = async () => {
@@ -165,6 +169,15 @@ const AdminDashboard: React.FC = () => {
     setIsUpdating(true);
     setUpdateMsg(null);
     try {
+      // For blob URLs, we need a different approach
+      // Ideally upload to cloud storage first, but for now we'll store what we can
+      if (bgVideoUrl.startsWith('blob:')) {
+        // This is a blob URL - in production, upload to cloud storage
+        setUpdateMsg({ type: 'error', text: 'Please use a video URL (not file upload in this version)' });
+        setIsUpdating(false);
+        return;
+      }
+      
       const existing = await db.select().from(siteSettings).where(eq(siteSettings.id, 'default'));
       
       if (existing.length > 0) {
@@ -179,7 +192,7 @@ const AdminDashboard: React.FC = () => {
       setUpdateMsg({ type: 'success', text: 'Background video updated successfully' });
     } catch (err) {
       console.error('Failed to save bg video:', err);
-      setUpdateMsg({ type: 'error', text: 'Failed to save background video' });
+      setUpdateMsg({ type: 'error', text: 'Failed to save background video. Please use a video URL instead of uploading a file.' });
     } finally {
       setIsUpdating(false);
     }
