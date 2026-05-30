@@ -22,7 +22,7 @@ app.use(express.json({ limit: '500mb' }));
 const allowedOrigins = [
   'http://localhost:5173',
   'https://crownstroke.iyonicorp.com',
-  'https://reg-amanda-mug-cologne.trycloudflare.com'
+  'https://tall-diesel-cemetery-present.trycloudflare.com'
 ];
 
 app.use(cors({
