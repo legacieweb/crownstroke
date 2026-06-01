@@ -22,7 +22,7 @@ app.use(express.json({ limit: '500mb' }));
 const allowedOrigins = [
   'http://localhost:5173',
   'https://crownstroke.iyonicorp.com',
-  'https://mime-newly-fifty-headers.trycloudflare.com'
+  'https://technology-think-practices-wages.trycloudflare.com'
 ];
 
 app.use(cors({

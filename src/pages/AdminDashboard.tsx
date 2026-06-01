@@ -3,7 +3,7 @@ import Layout from '../components/layout/Layout';
 import { useAuth } from '../store/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 import { db } from '../db';
-import { users, designers, shops, orders, designerDesigns, siteSettings } from '../db/schema';
+import { users, designers, shops, orders as ordersTable, designerDesigns, siteSettings } from '../db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { Users, ShoppingBag, DollarSign, LogOut, Trash2, Eye, Store, Palette, Check, X, Loader2, RefreshCw, Video, Upload, Package, BarChart3 } from 'lucide-react';
 import Button from '../components/ui/Button';
@@ -83,7 +83,7 @@ const AdminDashboard: React.FC = () => {
       const [userResults, designerResults, orderResults, allDesigns, allShops, allUsers] = await Promise.all([
         db.select().from(users),
         db.select().from(designers),
-        db.select().from(orders),
+        db.select().from(ordersTable),
         db.select().from(designerDesigns),
         db.select().from(shops),
         db.select().from(users)
