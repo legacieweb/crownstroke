@@ -4,9 +4,12 @@ import { useAuth } from '../store/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 import { db } from '../db';
 import { users, designers, shops, orders, designerDesigns, siteSettings } from '../db/schema';
-import { Users, ShoppingBag, DollarSign, LogOut, Trash2, Eye, Store, Palette, Check, X, Loader2, RefreshCw, Video, Upload } from 'lucide-react';
+import { eq, desc } from 'drizzle-orm';
+import { Users, ShoppingBag, DollarSign, LogOut, Trash2, Eye, Store, Palette, Check, X, Loader2, RefreshCw, Video, Upload, Package, BarChart3 } from 'lucide-react';
 import Button from '../components/ui/Button';
-import { eq } from 'drizzle-orm';
+import Preloader from '../components/ui/Preloader';
+import { motion, AnimatePresence } from 'framer-motion';
+import { clsx } from 'clsx';
 
 interface Design {
   id: string;
@@ -35,8 +38,25 @@ interface Designer {
   shopName: string | null;
 }
 
+interface Order {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  shippingAddress: string;
+  city: string;
+  country: string;
+  totalAmount: number;
+  depositAmount: number;
+  balanceAmount: number;
+  status: string;
+  paymentStatus: string;
+  paymentType: string;
+  createdAt: string | Date;
+}
+
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalDesigners: 0,
@@ -45,14 +65,17 @@ const AdminDashboard: React.FC = () => {
   });
   const [designs, setDesigns] = useState<Design[]>([]);
   const [designersList, setDesignersList] = useState<Designer[]>([]);
+  const [orders, setOrdersList] = useState<Order[]>([]);
   const [bgVideoUrl, setBgVideoUrl] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateMsg, setUpdateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'designs' | 'designers' | 'bg-video'>('designs');
+  const [activeTab, setActiveTab] = useState<'designs' | 'designers' | 'orders' | 'bg-video'>('designs');
 
   useEffect(() => {
-    fetchAllData();
-    loadBgVideo();
+    const loadAllData = async () => {
+      await Promise.all([fetchAllData(), loadBgVideo()]);
+    };
+    loadAllData();
   }, []);
 
   const fetchAllData = async () => {
@@ -66,7 +89,7 @@ const AdminDashboard: React.FC = () => {
         db.select().from(users)
       ]);
 
-      const revenue = orderResults.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+      const revenue = orderResults.reduce((sum: number, order) => sum + (order.totalAmount || 0), 0);
 
       const designsWithInfo = await Promise.all(allDesigns.map(async (d: any) => {
         const designer = allUsers.find(u => u.id === d.designerId?.toString() || u.id === d.designerId);
@@ -93,6 +116,11 @@ const AdminDashboard: React.FC = () => {
         shopName: allShops.find(s => s.designerId?.toString() === d.id.toString())?.name || null
       })) as Designer[];
 
+      const ordersFormatted = orderResults.map((o: any) => ({
+        ...o,
+        id: o.id?.toString() || '',
+      })) as Order[];
+
       setStats({
         totalUsers: userResults.length,
         totalDesigners: designerResults.length,
@@ -101,8 +129,11 @@ const AdminDashboard: React.FC = () => {
       });
       setDesigns(designsWithInfo);
       setDesignersList(designersWithShops);
+      setOrdersList(ordersFormatted);
     } catch (err) {
       console.error('Failed to fetch admin data:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -214,6 +245,8 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <Layout>
+      <Preloader isLoading={isLoading} />
+      
       <div className="min-h-screen bg-slate-50 py-12 md:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-12">
@@ -230,20 +263,46 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[
-              { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'text-primary-600' },
-              { label: 'Designers', value: stats.totalDesigners, icon: ShoppingBag, color: 'text-green-600' },
-              { label: 'Total Orders', value: stats.totalOrders, icon: ShoppingBag, color: 'text-purple-600' },
-              { label: 'Revenue', value: `KES ${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-yellow-600' },
-            ].map((stat, i) => (
-              <div key={i} className="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-100">
-                <div className={`w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mb-4 ${stat.color}`}>
-                  <stat.icon className="w-6 h-6" />
-                </div>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
-                <h3 className="text-2xl font-black text-slate-900">{stat.value}</h3>
+            <button 
+              onClick={() => setActiveTab('designers')}
+              className="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-100 hover:shadow-2xl transition-all text-left"
+            >
+              <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mb-4 text-primary-600">
+                <Users className="w-6 h-6" />
               </div>
-            ))}
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Total Users</p>
+              <h3 className="text-2xl font-black text-slate-900">{stats.totalUsers}</h3>
+            </button>
+            <button 
+              onClick={() => setActiveTab('designers')}
+              className="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-100 hover:shadow-2xl transition-all text-left"
+            >
+              <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mb-4 text-green-600">
+                <ShoppingBag className="w-6 h-6" />
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Designers</p>
+              <h3 className="text-2xl font-black text-slate-900">{stats.totalDesigners}</h3>
+            </button>
+            <button 
+              onClick={() => setActiveTab('orders')}
+              className="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-100 hover:shadow-2xl transition-all text-left"
+            >
+              <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mb-4 text-purple-600">
+                <ShoppingBag className="w-6 h-6" />
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Total Orders</p>
+              <h3 className="text-2xl font-black text-slate-900">{stats.totalOrders}</h3>
+            </button>
+            <button 
+              onClick={() => setActiveTab('orders')}
+              className="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-100 hover:shadow-2xl transition-all text-left"
+            >
+              <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mb-4 text-yellow-600">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Revenue</p>
+              <h3 className="text-2xl font-black text-slate-900">KES {stats.totalRevenue.toLocaleString()}</h3>
+            </button>
           </div>
 
           {updateMsg && (
@@ -278,6 +337,17 @@ const AdminDashboard: React.FC = () => {
               >
                 <Store className="w-4 h-4 inline mr-2" />
                 View Designers & Shops
+              </button>
+              <button
+                onClick={() => setActiveTab('orders')}
+                className={`flex-1 px-8 py-6 text-sm font-black uppercase tracking-widest transition-all ${
+                  activeTab === 'orders' 
+                    ? 'text-primary-600 border-b-2 border-primary-600 bg-slate-50/50' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Package className="w-4 h-4 inline mr-2" />
+                View Orders
               </button>
               <button
                 onClick={() => setActiveTab('bg-video')}
@@ -491,15 +561,97 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     )}
 
-                    {!bgVideoUrl && (
-                      <p className="text-sm text-slate-500 font-medium">
-                        Upload an MP4 video to use as the website background. The video will be stored as a data URL in the database.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+{!bgVideoUrl && (
+                       <p className="text-sm text-slate-500 font-medium">
+                         Upload an MP4 video to use as the website background. The video will be stored as a data URL in the database.
+                       </p>
+                     )}
+                   </div>
+                 </div>
+               )}
+
+               {activeTab === 'orders' && (
+                 <div>
+                   <div className="flex justify-between items-center mb-8">
+                     <h2 className="text-2xl font-black text-slate-900 uppercase italic">Order Management</h2>
+                     <button
+                       onClick={fetchAllData}
+                       disabled={isUpdating}
+                       className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all disabled:opacity-50"
+                     >
+                       <RefreshCw className="w-4 h-4" />
+                       Refresh
+                     </button>
+                   </div>
+
+                   <div className="overflow-x-auto">
+                     <table className="w-full">
+                       <thead>
+                         <tr className="border-b border-slate-200">
+                           <th className="text-left py-4 px-2 text-xs font-black text-slate-500 uppercase tracking-widest">Order ID</th>
+                           <th className="text-left py-4 px-2 text-xs font-black text-slate-500 uppercase tracking-widest">Customer</th>
+                           <th className="text-left py-4 px-2 text-xs font-black text-slate-500 uppercase tracking-widest">Email</th>
+                           <th className="text-left py-4 px-2 text-xs font-black text-slate-500 uppercase tracking-widest">Total</th>
+                           <th className="text-left py-4 px-2 text-xs font-black text-slate-500 uppercase tracking-widest">Payment</th>
+                           <th className="text-left py-4 px-2 text-xs font-black text-slate-500 uppercase tracking-widest">Status</th>
+                           <th className="text-left py-4 px-2 text-xs font-black text-slate-500 uppercase tracking-widest">Date</th>
+                           <th className="text-right py-4 px-2 text-xs font-black text-slate-500 uppercase tracking-widest">Details</th>
+                         </tr>
+                       </thead>
+                       <tbody>
+                         {orders.length === 0 ? (
+                           <tr>
+                             <td colSpan={8} className="py-12 text-center text-slate-500 font-medium">
+                               No orders found.
+                             </td>
+                           </tr>
+                         ) : (
+                           orders.map((order) => (
+                             <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                               <td className="py-4 px-2">
+                                 <span className="font-black text-slate-900">#{order.id.slice(-6)}</span>
+                               </td>
+                               <td className="py-4 px-2 text-slate-700 font-medium">{order.customerName}</td>
+                               <td className="py-4 px-2 text-slate-700 font-medium">{order.customerEmail}</td>
+                               <td className="py-4 px-2 text-slate-700 font-medium">KES {(order.totalAmount || 0).toLocaleString()}</td>
+                               <td className="py-4 px-2">
+                                 <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest ${
+                                   order.paymentType === 'full' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                 }`}>
+                                   {order.paymentType === 'full' ? 'Full Payment' : `Deposit: KES ${(order.depositAmount || 0).toLocaleString()}`}
+                                 </span>
+                               </td>
+                               <td className="py-4 px-2">
+                                 <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest ${
+                                   order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                   order.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-slate-200 text-slate-700'
+                                 }`}>
+                                   {order.status}
+                                 </span>
+                               </td>
+                               <td className="py-4 px-2 text-slate-700 font-medium">
+                                 {new Date(order.createdAt || '').toLocaleDateString()}
+                               </td>
+                               <td className="py-4 px-2 text-right">
+                                 <button
+                                   onClick={() => {
+                                     const items = (order as any).items || [];
+                                     alert(`Order Details:\n${JSON.stringify(items, null, 2)}`);
+                                   }}
+                                   className="w-10 h-10 rounded-xl flex items-center justify-center text-primary-600 hover:bg-primary-100 transition-all"
+                                 >
+                                   <Eye className="w-5 h-5" />
+                                 </button>
+                               </td>
+                             </tr>
+                           ))
+                         )}
+                       </tbody>
+                     </table>
+                   </div>
+                 </div>
+               )}
+             </div>
 
             <div className="p-8 border-t border-slate-100 bg-slate-50/30 rounded-b-[2rem]">
               <h2 className="text-2xl font-black text-slate-900 mb-8 uppercase italic">Quick Actions</h2>

@@ -29,6 +29,7 @@ import {
   MousePointer2
 } from 'lucide-react';
 import Button from '../components/ui/Button';
+import Preloader from '../components/ui/Preloader';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
@@ -368,11 +369,17 @@ const DesignerDashboard: React.FC = () => {
                   >
                     <div className="flex items-center justify-between mb-12">
                        <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">Shop Configuration</h3>
-                       <Link to={`/shop/${user?.shopName}`}>
-                         <Button variant="outline" className="rounded-xl px-8 py-4 font-black uppercase tracking-widest text-[10px] gap-2">
-                           <ExternalLink className="w-4 h-4" /> View Live Shop
-                         </Button>
-                       </Link>
+{user?.shopName ? (
+                        <Link to={`/shop/${user.shopName.toLowerCase().replace(/\s+/g, '-')}`}>
+                          <Button variant="outline" className="rounded-xl px-8 py-4 font-black uppercase tracking-widest text-[10px] gap-2">
+                            <ExternalLink className="w-4 h-4" /> View Live Shop
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button variant="outline" className="rounded-xl px-8 py-4 font-black uppercase tracking-widest text-[10px] gap-2" disabled>
+                          <ExternalLink className="w-4 h-4" /> Shop Not Configured
+                        </Button>
+                      )}
                     </div>
 
                     <div className="space-y-8">

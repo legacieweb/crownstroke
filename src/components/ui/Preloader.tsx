@@ -6,21 +6,16 @@ interface PreloaderProps {
 }
 
 const Preloader: React.FC<PreloaderProps> = ({ isLoading }) => {
+  if (!isLoading) return null;
+  
   return (
     <motion.div
       initial={{ opacity: 1 }}
       animate={{ opacity: isLoading ? 1 : 0 }}
       transition={{ duration: 0.8, ease: "easeInOut" }}
-      onAnimationComplete={() => {
-        if (!isLoading) {
-          document.body.style.overflow = 'auto';
-        }
-      }}
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black"
-      style={{ pointerEvents: isLoading ? 'all' : 'none' }}
     >
       <div className="relative flex flex-col items-center">
-        {/* Animated Rings */}
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -32,7 +27,6 @@ const Preloader: React.FC<PreloaderProps> = ({ isLoading }) => {
           className="absolute inset-0 w-24 h-24 rounded-full border-l-2 border-r-2 border-white/20"
         />
         
-        {/* Logo/Brand Reveal */}
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
