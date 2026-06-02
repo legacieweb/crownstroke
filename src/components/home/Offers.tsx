@@ -95,31 +95,31 @@ const Offers: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {deals.map((deal, idx) => (
-            <motion.div
-              key={idx}
-              whileHover={{ scale: 1.02 }}
-              className="relative h-[400px] rounded-[3rem] overflow-hidden group shadow-2xl shadow-slate-200/50"
-            >
-              <img src={deal.image} alt={deal.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/40 to-transparent" />
-              
-              <div className="relative h-full flex flex-col justify-center p-12 text-white">
-                <div className={`${deal.color} self-start px-4 py-1 rounded-full text-xs font-black tracking-widest mb-4 shadow-lg`}>
-                  {deal.discount}
-                </div>
-                <h3 className="text-4xl font-black tracking-tighter mb-2">{deal.title}</h3>
-                <p className="text-slate-200 font-medium mb-8">Ready-designed & ships within 24h.</p>
-                <Link to="/shop">
-                  <Button className="bg-white text-slate-900 hover:bg-slate-100 !rounded-2xl px-8 font-black group">
-                    CLAIM OFFER <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-stretch">
+           {deals.map((deal, idx) => (
+             <motion.div
+               key={idx}
+               whileHover={{ scale: 1.02 }}
+               className="relative rounded-[3rem] overflow-hidden group shadow-2xl shadow-slate-200/50 lg:min-h-[500px]"
+             >
+               <img src={deal.image} alt={deal.title} className="w-full h-full object-contain lg:object-cover transition-transform duration-1000 group-hover:scale-105 lg:group-hover:scale-110" />
+               <div className="absolute inset-0 bg-gradient-to-t lg:bg-gradient-to-r from-slate-900/90 via-slate-900/60 lg:via-slate-900/40 to-transparent" />
+               
+               <div className="absolute bottom-0 lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2 left-0 right-0 lg:right-auto lg:left-12 p-8 lg:p-12 text-white">
+                 <div className={`${deal.color} self-start px-4 py-1 rounded-full text-xs font-black tracking-widest mb-4 shadow-lg`}>
+                   {deal.discount}
+                 </div>
+                 <h3 className="text-4xl font-black tracking-tighter mb-2">{deal.title}</h3>
+                 <p className="text-slate-200 font-medium mb-8">Ready-designed & ships within 24h.</p>
+                 <Link to="/shop">
+                   <Button className="bg-white text-slate-900 hover:bg-slate-100 !rounded-2xl px-8 font-black group">
+                     CLAIM OFFER <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                   </Button>
+                 </Link>
+               </div>
+             </motion.div>
+           ))}
+         </div>
 
         {/* Banner Offer */}
         <motion.div 

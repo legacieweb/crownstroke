@@ -14,10 +14,10 @@ const Home: React.FC = () => {
   return (
     <Layout>
       <Hero />
-      <Features />
       <ArtCollections />
       <PopularProducts />
       <Offers />
+      <Features />
       <PowerfulSimplicity />
       <DesignerPreview />
       <CTA />

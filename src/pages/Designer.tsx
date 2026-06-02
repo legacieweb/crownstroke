@@ -837,46 +837,46 @@ const Designer: React.FC = () => {
         <div className="flex flex-1 overflow-hidden p-2 md:p-6 gap-2 md:gap-6 flex-col">
           <div className="flex flex-1 overflow-hidden gap-2 md:gap-6 lg:flex-row flex-col relative">
             
-            {/* Redesigned Integrated Sidebar */}
-            <AnimatePresence>
-              {(showMobileMenu || window.innerWidth >= 1024) && (
-                <motion.div 
-                  initial={showMobileMenu ? { x: -50, opacity: 0 } : false}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -50, opacity: 0 }}
-                  className={clsx(
-                    "lg:w-96 bg-black/40 backdrop-blur-3xl lg:rounded-[3rem] rounded-2xl flex flex-col border border-white/5 shadow-2xl shrink-0 z-30 transition-all",
-                    showMobileMenu ? "fixed left-4 top-24 bottom-24 right-4 lg:relative lg:inset-auto h-auto" : "hidden lg:flex"
-                  )}
-                >
-                  <div className="p-6 md:p-8 flex flex-col h-full">
-                    <div className="flex justify-between items-center mb-8">
-                      <h3 className="text-xl md:text-2xl font-black text-white tracking-tighter uppercase italic flex items-center gap-3">
-                        <div className="w-1.5 h-8 bg-primary-500 rounded-full" />
-                        Customize
-                      </h3>
-                      <button className="lg:hidden text-white/40" onClick={() => setShowMobileMenu(false)}>
-                        <X className="w-6 h-6" />
-                      </button>
-                    </div>
+{/* Redesigned Integrated Sidebar */}
+             <AnimatePresence>
+               {(showMobileMenu || window.innerWidth >= 1024) && (
+                 <motion.div 
+                   initial={showMobileMenu ? { x: -50, opacity: 0 } : false}
+                   animate={{ x: 0, opacity: 1 }}
+                   exit={{ x: -50, opacity: 0 }}
+                   className={clsx(
+                     "w-full lg:w-[400px] bg-black/60 backdrop-blur-3xl lg:rounded-[3rem] rounded-2xl flex flex-col border border-white/10 shadow-2xl shrink-0 z-30 transition-all",
+                     showMobileMenu ? "fixed left-4 top-24 bottom-24 right-4 lg:relative lg:inset-auto h-auto" : "hidden lg:flex"
+                   )}
+                 >
+                   <div className="p-6 md:p-8 flex flex-col h-full">
+                     <div className="flex justify-between items-center mb-6 sm:mb-8">
+                       <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white tracking-tighter uppercase italic flex items-center gap-2 sm:gap-3">
+                         <div className="w-1 h-5 sm:w-1.5 sm:h-8 bg-primary-500 rounded-full" />
+                         Customize
+                       </h3>
+                       <button className="lg:hidden text-white/40" onClick={() => setShowMobileMenu(false)}>
+                         <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                       </button>
+                     </div>
 
-                    {/* Integrated Tab Navigation */}
-                    <div className="flex bg-white/5 p-1.5 rounded-2xl mb-8">
-                      {[
-                        { id: 'product', icon: LayoutGrid, label: 'Product' },
-                        { id: 'text', icon: Type, label: 'Text' },
-                        { id: 'upload', icon: ImageIcon, label: 'Design' },
-                      ].map((tab) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id as any)}
-                          className={clsx(
-                            "flex-1 flex flex-col items-center py-3 rounded-xl transition-all gap-1.5",
-                            activeTab === tab.id ? "bg-white/10 text-primary-400 shadow-xl" : "text-white/30 hover:text-white/60"
-                          )}
-                        >
-                          <tab.icon className={clsx("w-4 h-4 md:w-5 md:h-5", activeTab === tab.id ? "text-primary-400" : "")} />
-                          <span className="text-[7px] md:text-[8px] font-black uppercase tracking-widest">{tab.label}</span>
+                     {/* Integrated Tab Navigation */}
+                     <div className="flex bg-white/5 p-1 rounded-xl sm:p-1.5 rounded-2xl mb-4 sm:mb-6">
+                       {[
+                         { id: 'product', icon: LayoutGrid, label: 'Product' },
+                         { id: 'text', icon: Type, label: 'Text' },
+                         { id: 'upload', icon: ImageIcon, label: 'Design' },
+                       ].map((tab) => (
+                         <button
+                           key={tab.id}
+                           onClick={() => setActiveTab(tab.id as any)}
+                           className={clsx(
+                             "flex-1 flex flex-col items-center py-2 sm:py-3 rounded-lg sm:rounded-xl transition-all gap-1",
+                             activeTab === tab.id ? "bg-white/10 text-primary-400 shadow-xl" : "text-white/30 hover:text-white/60"
+                           )}
+                         >
+                           <tab.icon className={clsx("w-4 h-4 sm:w-5 sm:h-5", activeTab === tab.id ? "text-primary-400" : "")} />
+                           <span className="text-[6px] sm:text-[7px] md:text-[8px] font-black uppercase tracking-widest">{tab.label}</span>
                         </button>
                       ))}
                     </div>
@@ -1038,110 +1038,110 @@ const Designer: React.FC = () => {
               )}
             </AnimatePresence>
 
-            {/* Mobile/Desktop Flex Layout */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-4 md:gap-6 overflow-hidden">
-              
-              {/* Live Preview Panel - Top on Mobile, Right on Desktop */}
-              <div className="flex w-full lg:w-[400px] flex-col gap-6 order-1 lg:order-2 shrink-0">
-                <div className="flex-1 relative bg-black/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[3rem] border border-white/10 shadow-2xl flex flex-col overflow-hidden min-h-[250px] lg:min-h-0">
-                  <div className="p-4 md:p-6 border-b border-white/5 flex items-center justify-between">
-                      <h3 className="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.3em] flex items-center gap-3 italic">
-                        <Eye className="w-4 h-4 text-primary-500" />
-                        Live Preview
-                      </h3>
-                  </div>
+{/* Mobile/Desktop Flex Layout */}
+             <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 overflow-hidden">
+               
+               {/* Live Preview Panel - Top on Mobile, Right on Desktop */}
+               <div className="w-full lg:w-[400px] flex flex-col gap-4 sm:gap-6 order-1 lg:order-2 shrink-0">
+                 <div className="flex-1 relative bg-black/60 backdrop-blur-3xl rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-2xl flex flex-col overflow-hidden min-h-[200px] sm:min-h-[250px] lg:min-h-0">
+                   <div className="p-4 sm:p-6 border-b border-white/5 flex items-center justify-between">
+                       <h3 className="text-[9px] sm:text-[10px] md:text-xs font-black text-white uppercase tracking-[0.2em] sm:tracking-[0.3em] flex items-center gap-2 sm:gap-3 italic">
+                         <Eye className="w-3 h-3 sm:w-4 sm:h-4 text-primary-500" />
+                         Live Preview
+                       </h3>
+                   </div>
                   
-                  <div className="flex-1 flex items-center justify-center p-4 md:p-6 relative">
-                      <div className="relative w-full aspect-[4/5] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden bg-slate-900 shadow-2xl border border-white/5">
-                        {mirrorPreview ? (
-                          <motion.img 
-                            key={mirrorPreview}
-                            initial={{ opacity: 0.8 }}
-                            animate={{ opacity: 1 }}
-                            src={mirrorPreview} 
-                            className="w-full h-full object-contain"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-white/10">
-                            <RefreshCcw className="w-8 h-8 animate-spin-slow" />
-                          </div>
-                        )}
-                      </div>
-                  </div>
+                   <div className="flex-1 flex items-center justify-center p-4 sm:p-6 relative">
+                       <div className="relative w-full aspect-[4/5] rounded-[1.5rem] sm:rounded-2xl md:rounded-[2rem] overflow-hidden bg-slate-900 shadow-2xl border border-white/5">
+                         {mirrorPreview ? (
+                           <motion.img 
+                             key={mirrorPreview}
+                             initial={{ opacity: 0.8 }}
+                             animate={{ opacity: 1 }}
+                             src={mirrorPreview} 
+                             className="w-full h-full object-contain"
+                           />
+                         ) : (
+                           <div className="w-full h-full flex flex-col items-center justify-center gap-3 sm:gap-4 text-white/10">
+                             <RefreshCcw className="w-6 h-6 sm:w-8 sm:h-8 animate-spin-slow" />
+                           </div>
+                         )}
+                       </div>
+                   </div>
 
-                  <div className="hidden md:flex p-6 bg-white/5 flex flex-col gap-3">
-                      <div className="flex justify-between items-center text-[8px] font-black text-white/40 uppercase tracking-widest">
-                        <span>Render Status</span>
-                        <span className="text-green-500 animate-pulse">Synced</span>
-                      </div>
-                      <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
-                        <motion.div className="h-full bg-primary-500 w-full" initial={{ x: "-100%" }} animate={{ x: "0%" }} transition={{ duration: 1 }} />
-                      </div>
-                  </div>
-                </div>
-              </div>
+                   <div className="hidden sm:flex p-4 sm:p-6 bg-white/5 flex flex-col gap-2 sm:gap-3">
+                       <div className="flex justify-between items-center text-[7px] sm:text-[8px] font-black text-white/40 uppercase tracking-widest">
+                         <span>Render Status</span>
+                         <span className="text-green-500 animate-pulse">Synced</span>
+                       </div>
+                       <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
+                         <motion.div className="h-full bg-primary-500 w-full" initial={{ x: "-100%" }} animate={{ x: "0%" }} transition={{ duration: 1 }} />
+                       </div>
+                   </div>
+                 </div>
+               </div>
 
-              {/* Main Interaction Area - Bottom on Mobile, Left/Center on Desktop */}
-              <div className="flex-1 flex flex-col gap-4 md:gap-6 order-2 lg:order-1 min-h-[350px] lg:min-h-0 overflow-hidden">
-                <div className="flex-1 relative bg-black/40 backdrop-blur-2xl rounded-[2rem] md:rounded-[3rem] border border-white/10 shadow-2xl flex items-center justify-center overflow-hidden">
-                  <div className="absolute top-4 md:top-8 left-6 md:left-10 flex items-center gap-2 md:gap-3 z-10">
-                    <div className="w-2 h-2 rounded-full bg-primary-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]" />
-                    <span className="text-[8px] md:text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Precision Pad</span>
-                  </div>
+               {/* Main Interaction Area - Bottom on Mobile, Left/Center on Desktop */}
+               <div className="flex-1 flex flex-col gap-4 sm:gap-6 order-2 lg:order-1 min-h-[250px] sm:min-h-[300px] lg:min-h-0 overflow-hidden">
+                 <div className="flex-1 relative bg-black/40 backdrop-blur-2xl rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-2xl flex items-center justify-center overflow-hidden">
+                   <div className="absolute top-3 sm:top-4 md:top-8 left-4 sm:left-6 md:left-10 flex items-center gap-1 sm:gap-2 md:gap-3 z-10">
+                     <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]" />
+                     <span className="text-[7px] sm:text-[8px] md:text-[10px] font-black text-white/40 uppercase tracking-[0.2em] sm:tracking-[0.3em]">Precision Pad</span>
+                   </div>
 
-                  {/* Quick Actions Toolbar */}
-                  <div className="absolute top-4 md:top-8 right-6 md:right-10 flex items-center gap-2 z-10">
-                    <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 flex items-center gap-1 shadow-2xl">
-                      <button 
-                        onClick={undo} 
-                        disabled={historyIndex <= 0}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
-                        title="Undo"
-                      >
-                        <Undo2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={redo} 
-                        disabled={historyIndex >= history.length - 1}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
-                        title="Redo"
-                      >
-                        <Redo2 className="w-4 h-4" />
-                      </button>
-                      <div className="w-px h-4 bg-white/10 mx-1" />
-                      <button 
-                        onClick={downloadCurrentDesign}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
-                        title="Download Preview"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={deleteObject}
-                        disabled={!hasSelection}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white/40 hover:text-red-400 hover:bg-red-400/10 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
-                        title="Delete Selected"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div 
-                    className="relative z-10 p-2 md:p-4 bg-white/5 rounded-2xl md:rounded-[2rem] border border-white/5 shadow-inner scale-[0.7] sm:scale-[0.85] md:scale-100"
-                  >
-                    <div className="w-full h-full rounded-lg overflow-hidden bg-transparent">
-                      <canvas ref={canvasRef} className="outline-none" />
-                    </div>
-                  </div>
+                   {/* Quick Actions Toolbar */}
+                   <div className="absolute top-3 sm:top-4 md:top-8 right-4 sm:right-6 md:right-10 flex items-center gap-1 sm:gap-2 z-10">
+                     <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl p-1 sm:p-1.5 flex items-center gap-0.5 sm:gap-1 shadow-2xl">
+                       <button 
+                         onClick={undo} 
+                         disabled={historyIndex <= 0}
+                         className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
+                         title="Undo"
+                       >
+                         <Undo2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                       </button>
+                       <button 
+                         onClick={redo} 
+                         disabled={historyIndex >= history.length - 1}
+                         className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
+                         title="Redo"
+                       >
+                         <Redo2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                       </button>
+                       <div className="w-px h-3 sm:h-4 bg-white/10 mx-0.5 sm:mx-1" />
+                       <button 
+                         onClick={downloadCurrentDesign}
+                         className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                         title="Download Preview"
+                       >
+                         <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                       </button>
+                       <button 
+                         onClick={deleteObject}
+                         disabled={!hasSelection}
+                         className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white/40 hover:text-red-400 hover:bg-red-400/10 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
+                         title="Delete Selected"
+                       >
+                         <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                       </button>
+                     </div>
+                   </div>
+                   
+                   <div 
+                     className="relative z-10 p-2 sm:p-4 bg-white/5 rounded-xl sm:rounded-2xl md:rounded-[2rem] border border-white/5 shadow-inner scale-[0.6] sm:scale-[0.75] md:scale-[0.85] lg:scale-100"
+                   >
+                     <div className="w-full h-full rounded-lg overflow-hidden bg-transparent">
+                       <canvas ref={canvasRef} className="outline-none" />
+                     </div>
+                   </div>
 
-                  {/* Perspective Info */}
-                  <div className="absolute bottom-4 md:bottom-8 left-6 md:left-10 right-6 md:right-10 flex justify-between items-end z-10">
-                    <div className="flex flex-col gap-1">
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <span className="text-[7px] md:text-[8px] font-black text-white/20 uppercase tracking-widest">Side</span>
-                      <span className="text-[9px] md:text-[10px] font-black text-primary-400 uppercase tracking-widest italic">{activeSide}</span>
+                   {/* Perspective Info */}
+                   <div className="absolute bottom-3 sm:bottom-4 md:bottom-8 left-4 sm:left-6 md:left-10 right-4 sm:right-6 md:right-10 flex justify-between items-end z-10">
+                     <div className="flex flex-col gap-0.5 sm:gap-1">
+                     </div>
+                     <div className="flex flex-col items-end">
+                       <span className="text-[6px] sm:text-[7px] md:text-[8px] font-black text-white/20 uppercase tracking-widest">Side</span>
+                       <span className="text-[8px] sm:text-[9px] md:text-[10px] font-black text-primary-400 uppercase tracking-widest italic">{activeSide}</span>
                     </div>
                   </div>
                 </div>

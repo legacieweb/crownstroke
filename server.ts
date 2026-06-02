@@ -22,7 +22,7 @@ app.use(express.json({ limit: '500mb' }));
 const allowedOrigins = [
   'http://localhost:5173',
   'https://crownstroke.iyonicorp.com',
-  'https://technology-think-practices-wages.trycloudflare.com'
+  'https://kansas-likely-dozen-beach.trycloudflare.com'
 ];
 
 app.use(cors({
@@ -145,14 +145,17 @@ app.post('/api/db', async (req, res) => {
   const { query, params, isValues } = req.body;
   console.log('DB QUERY:', query.substring(0, 100) + (query.length > 100 ? '...' : ''), params);
   try {
-    let result;
-    if (isValues) {
-      result = await queryClient.unsafe(query, params).values();
-    } else {
-      result = await queryClient.unsafe(query, params);
-    }
-    console.log('DB RESULT ROWS:', result?.length || 0);
-    res.json(result);
+    const result = await queryClient.unsafe(query, params);
+    console.log('DB RESULT TYPE:', typeof result, 'isArray:', Array.isArray(result));
+    
+    // postgres@3.x returns results directly as arrays for SELECT queries
+    const responseData = Array.isArray(result) ? result : [];
+    
+    res.set({
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+    });
+    res.status(200).json(responseData);
   } catch (error) {
     console.error('DB ERROR:', error);
     res.status(500).json({ error: error instanceof Error ? error.message : String(error) });

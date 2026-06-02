@@ -169,116 +169,117 @@ const PopularProducts: React.FC = () => {
   };
 
   return (
-    <section className="py-32 bg-transparent relative overflow-hidden">
-      {/* Background Text Decor */}
-      <div className="absolute top-0 right-0 text-[20vw] font-black text-white/5 uppercase select-none pointer-events-none leading-none -translate-y-1/2 translate-x-1/4 italic">
-        COLLECTIONS
+    <section className="py-32 relative overflow-hidden">
+      {/* Background Accents */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary-500/5 blur-[120px] rounded-full" />
+        <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-blue-500/5 blur-[100px] rounded-full" />
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
-          <div className="max-w-xl">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="flex items-center gap-3 mb-4"
-            >
-              <div className="w-12 h-[2px] bg-primary-500" />
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-20 gap-8">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-3 mb-6">
+              <div className="w-12 h-1 bg-primary-500" />
               <span className="text-xs font-black text-primary-500 uppercase tracking-[0.4em]">Curated Pieces</span>
-            </motion.div>
-            <h2 className="text-6xl md:text-7xl font-black text-white tracking-tighter mb-6 uppercase leading-none">
-              TRENDING <span className="text-primary-500 italic">NOW.</span>
+            </div>
+            <h2 className="text-7xl md:text-8xl font-black text-white tracking-tighter mb-8 uppercase leading-none">
+              <span className="block">TRENDING</span>
+              <span className="text-primary-500 italic">NOW.</span>
             </h2>
-            <p className="text-lg font-medium text-gray-400 max-w-md">
+            <p className="text-xl font-medium text-gray-400 max-w-md">
               Elite designs hand-picked for their exceptional artistry and premium quality.
             </p>
           </div>
-          <Link to="/shop">
-            <Button variant="outline" className="h-14 px-8 !rounded-xl gap-3 border-white/10 text-white hover:border-primary-500 hover:bg-primary-500/10 transition-all font-black uppercase tracking-widest text-[10px]">
-              EXPLORE EVERYTHING <ArrowRight className="w-4 h-4" />
+          <Link to="/shop" className="hidden lg:block">
+            <Button variant="outline" className="h-16 px-10 !rounded-2xl gap-4 border-white/20 text-white hover:border-primary-500 hover:bg-primary-500/10 transition-all font-black uppercase tracking-widest text-xs group">
+              EXPLORE EVERYTHING <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
             </Button>
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           {products.map((product, idx) => (
             <motion.div
               key={product.id}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: idx * 0.1, duration: 0.6 }}
-              className="group"
+              transition={{ delay: idx * 0.1, duration: 0.7 }}
+              className="group cursor-pointer"
+              onClick={() => navigate(`/designer?product=${product.category.toLowerCase()}`)}
             >
-              <div 
-                className="relative aspect-[4/5] overflow-hidden bg-[#0c0c0c] rounded-[2rem] border border-white/5 transition-all duration-700 group-hover:border-primary-500/30 group-hover:shadow-[0_0_50px_rgba(var(--primary-rgb),0.15)] group-hover:-translate-y-2"
-                onClick={() => navigate(`/designer?product=${product.category.toLowerCase()}`)}
-              >
+              <div className="relative aspect-[4/3] sm:aspect-[4/5] lg:aspect-[3/4] overflow-hidden bg-gradient-to-br from-[#0c0c0c] to-[#050505] rounded-[2.5rem] border border-white/5 transition-all duration-700 group-hover:border-primary-500/40 group-hover:shadow-[0_30px_80px_rgba(var(--primary-rgb),0.25)]">
                 <img
                   src={product.image}
                   alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-70 group-hover:opacity-100"
+                  className="w-full h-full object-contain sm:object-cover lg:object-contain transition-transform duration-1000 group-hover:scale-105"
                 />
                 
-                {/* Badge */}
                 <div className="absolute top-6 left-6">
-                  <span className="bg-primary-500 text-white text-[8px] font-black px-3 py-1 rounded-full tracking-widest shadow-xl uppercase">
+                  <span className="bg-primary-500 text-white text-[9px] font-black px-4 py-1 rounded-full tracking-widest shadow-2xl uppercase">
                     {product.tag}
                   </span>
                 </div>
 
-                {/* Overlay Controls */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6 gap-3">
-                  <div className="flex gap-2">
+                <button 
+                  onClick={(e) => toggleWishlist(product.id, e)}
+                  className={`absolute top-6 right-6 w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-xl backdrop-blur-md border ${
+                    wishlist.includes(product.id) 
+                      ? 'bg-red-500 border-red-500 text-white scale-110' 
+                      : 'bg-white/5 border-white/10 text-white hover:bg-white hover:text-red-500'
+                  }`}
+                >
+                  <Heart className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-current' : ''}`} />
+                </button>
+
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8 gap-4">
+                  <div className="flex gap-3">
                     <button 
                       onClick={(e) => handleAddToCart(product, e)}
-                      className="flex-1 h-12 bg-white rounded-xl flex items-center justify-center text-black font-black uppercase text-[10px] gap-2 hover:bg-primary-500 hover:text-white transition-all transform hover:-translate-y-1 active:scale-95"
+                      className="flex-1 h-14 bg-white rounded-2xl flex items-center justify-center text-black font-black uppercase text-xs gap-2 hover:bg-primary-500 hover:text-white transition-all transform hover:-translate-y-1 active:scale-95 shadow-xl"
                     >
-                      <ShoppingCart className="w-4 h-4" />
+                      <ShoppingCart className="w-5 h-5" />
                       Add to Cart
                     </button>
                     <button 
-                      className="w-12 h-12 bg-white/10 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center text-white hover:bg-white hover:text-black transition-all transform hover:-translate-y-1 active:scale-95"
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/designer?product=${product.category.toLowerCase()}`);
                       }}
+                      className="w-14 h-14 bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-center text-white hover:bg-white hover:text-black transition-all transform hover:-translate-y-1 active:scale-95 shadow-xl"
                     >
-                      <Palette className="w-5 h-5" />
+                      <Palette className="w-6 h-6" />
                     </button>
                   </div>
                 </div>
-
-                <button 
-                  onClick={(e) => toggleWishlist(product.id, e)}
-                  className={`absolute top-6 right-6 w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-lg backdrop-blur-md border ${
-                    wishlist.includes(product.id) 
-                      ? 'bg-red-500 border-red-500 text-white' 
-                      : 'bg-white/5 border-white/10 text-white hover:bg-white hover:text-red-500'
-                  }`}
-                >
-                  <Heart className={`w-4 h-4 ${wishlist.includes(product.id) ? 'fill-current' : ''}`} />
-                </button>
               </div>
 
               <div className="mt-6 space-y-1 px-2">
                 <div className="flex justify-between items-center">
-                  <p className="text-[9px] font-black text-primary-500 uppercase tracking-[0.3em]">
+                  <p className="text-[10px] font-black text-primary-500 uppercase tracking-[0.3em]">
                     {product.category}
                   </p>
-                  <div className="flex items-center gap-1">
-                    <Star className="w-2.5 h-2.5 text-yellow-500 fill-yellow-500" />
-                    <span className="text-[9px] font-black text-gray-500">{product.rating}</span>
+                  <div className="flex items-center gap-2">
+                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                    <span className="text-[10px] font-black text-gray-500">{product.rating}</span>
                   </div>
                 </div>
-                <h3 className="text-lg font-black text-white tracking-tighter leading-tight group-hover:text-primary-500 transition-colors uppercase italic truncate">
+                <h3 className="text-xl font-black text-white tracking-tighter leading-tight group-hover:text-primary-500 transition-colors uppercase italic">
                   {product.name}
                 </h3>
-                <p className="text-xl font-black text-gray-400 tracking-tighter italic">KES {product.price.toLocaleString()}</p>
+                <p className="text-2xl font-black text-gray-400 tracking-tighter italic">KES {product.price.toLocaleString()}</p>
               </div>
             </motion.div>
           ))}
+        </div>
+
+        <div className="mt-20 lg:hidden flex justify-center">
+          <Link to="/shop">
+            <Button variant="outline" className="h-16 px-10 !rounded-2xl gap-4 border-white/20 text-white hover:border-primary-500 hover:bg-primary-500/10 transition-all font-black uppercase tracking-widest text-xs">
+              EXPLORE EVERYTHING <ArrowRight className="w-5 h-5" />
+            </Button>
+          </Link>
         </div>
       </div>
     </section>

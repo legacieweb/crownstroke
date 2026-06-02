@@ -12,28 +12,43 @@ import { PRODUCT_DATA as SEED_DATA } from '../../data/seed';
 const Hero: React.FC = () => {
   const navigate = useNavigate();
   const [editorsPick, setEditorsPick] = useState<any>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const fetchEditorsPick = async () => {
       try {
         const results = await db.select()
           .from(designerDesigns)
-          .where(eq(designerDesigns.isEditorsPick, 'true'))
+          .where(eq(designerDesigns.isEditorsPick, 'true' as any))
           .limit(1);
         
         if (results.length > 0) {
           setEditorsPick(results[0]);
         }
-      } catch (error) {
-        console.error('Failed to fetch editor\'s pick:', error);
+      } catch (error: any) {
+        if (error?.message?.includes('fetch') || error?.message?.includes('HTTP2')) {
+          console.warn('Database temporarily unavailable, using fallback');
+        } else {
+          console.error('Failed to fetch editor\'s pick:', error);
+        }
       }
     };
 
     fetchEditorsPick();
   }, []);
 
+  // Listen for mobile menu state changes
+  useEffect(() => {
+    const handleMenuToggle = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setIsMenuOpen(customEvent.detail?.isOpen || false);
+    };
+    window.addEventListener('mobileMenuToggle', handleMenuToggle);
+    return () => window.removeEventListener('mobileMenuToggle', handleMenuToggle);
+  }, []);
+
   return (
-    <section className="relative min-h-screen flex items-center pt-20 overflow-hidden bg-transparent">
+    <section className={`relative min-h-screen flex items-center pt-20 overflow-hidden bg-transparent transition-all duration-300 ${isMenuOpen ? 'opacity-0 pointer-events-none' : ''}`}>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">

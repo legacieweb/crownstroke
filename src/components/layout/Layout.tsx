@@ -1,7 +1,6 @@
 import React, { useState, useEffect, createContext } from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import Preloader from '../ui/Preloader';
 import { db } from '../../db';
 import { siteSettings } from '../../db/schema';
 import { eq } from 'drizzle-orm';
@@ -16,7 +15,6 @@ interface LayoutProps {
 export const BackendStatusContext = React.createContext<{ isOnline: boolean }>({ isOnline: true });
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [isLoading, setIsLoading] = useState(true);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [bgVideoUrl, setBgVideoUrl] = useState<string | null>('https://i.imgur.com/d2d8Llz.mp4');
 
@@ -47,20 +45,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     };
     
     checkBackend();
-    const interval = setInterval(checkBackend, 30000); // Check every 30s
+    const interval = setInterval(checkBackend, 30000);
     return () => clearInterval(interval);
   }, []);
-
-  const handleVideoPlaying = () => {
-    // Small delay to ensure smooth transition
-    setTimeout(() => setIsLoading(false), 800);
-  };
 
   return (
     <BackendStatusContext.Provider value={{ isOnline: isBackendOnline }}>
       <div className="flex flex-col min-h-screen relative overflow-x-hidden">
-      <Preloader isLoading={isLoading} />
-
+      
       {/* News Headline */}
       <div className={`w-full py-2 z-[60] transition-colors duration-500 overflow-hidden ${
         isBackendOnline ? 'bg-primary-600' : 'bg-red-600'
@@ -83,7 +75,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           loop
           muted
           playsInline
-          onPlaying={handleVideoPlaying}
           className="w-full h-full object-cover"
         >
           <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />

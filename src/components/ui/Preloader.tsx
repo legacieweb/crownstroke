@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface PreloaderProps {
@@ -6,13 +6,22 @@ interface PreloaderProps {
 }
 
 const Preloader: React.FC<PreloaderProps> = ({ isLoading }) => {
-  if (!isLoading) return null;
-  
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (!isLoading) {
+      const timer = setTimeout(() => setVisible(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
+
+  if (!visible) return null;
+
   return (
     <motion.div
       initial={{ opacity: 1 }}
       animate={{ opacity: isLoading ? 1 : 0 }}
-      transition={{ duration: 0.8, ease: "easeInOut" }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black"
     >
       <div className="relative flex flex-col items-center">
