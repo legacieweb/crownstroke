@@ -1,12 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../store/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 import { db } from '../db';
-import { users, designers, shops, orders as ordersTable, designerDesigns, siteSettings } from '../db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { Users, ShoppingBag, DollarSign, LogOut, Trash2, Eye, Store, Palette, Check, X, RefreshCw, Video, Upload, Package, TrendingUp, Shield, Zap, Settings, Globe, Lock, Activity, Database } from 'lucide-react';
-import Button from '../components/ui/Button';
+import { users, designers, shops, orders as ordersTable, designerDesigns } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  DollarSign,
+  Eye,
+  LogOut,
+  Package,
+  Palette,
+  RefreshCw,
+  Shield,
+  ShoppingBag,
+  Store,
+  Trash2,
+  Users,
+  X
+} from 'lucide-react';
 import Preloader from '../components/ui/Preloader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
@@ -38,6 +53,24 @@ interface Designer {
   shopName: string | null;
 }
 
+interface OrderItem {
+  productId?: string;
+  name?: string;
+  quantity?: number;
+  size?: string;
+  color?: string;
+  price?: number;
+  image?: string;
+  designerEmail?: string;
+  design?: {
+    id?: string;
+    designerId?: string;
+    preview?: string;
+    previewImage?: string;
+    productId?: string;
+  } | null;
+}
+
 interface Order {
   id: string;
   customerName: string;
@@ -51,12 +84,73 @@ interface Order {
   status: string;
   paymentStatus: string;
   paymentType: string;
+  items: OrderItem[];
   createdAt: string | Date;
 }
 
+const flagFields = [
+  { key: 'isEditorsPick', label: "Editor's Pick" },
+  { key: 'isFeatured', label: 'Home' },
+  { key: 'isExclusive', label: 'Exclusive' },
+  { key: 'isSpringCollection', label: 'Spring' },
+  { key: 'isMinimalist', label: 'Minimal' },
+  { key: 'isFlashSale', label: 'Flash' }
+] as const;
+
+const designFlagFields = new Set(flagFields.map((field) => field.key));
+
+const tabs = [
+  { id: 'designs', label: 'Designs', icon: Palette },
+  { id: 'orders', label: 'Orders', icon: Package },
+  { id: 'designers', label: 'Designers', icon: Store }
+] as const;
+
+type AdminTab = typeof tabs[number]['id'];
+
+const normalizeUuid = (v: any): string => {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') {
+    const anyV = v as any;
+    if (anyV.type === 'Buffer' && Array.isArray(anyV.data)) {
+      const hex = anyV.data.map((b: any) => (Number(b) || 0).toString(16).padStart(2, '0')).join('');
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+    if (Array.isArray(anyV.data) && anyV.data.length === 16) {
+      const hex = anyV.data.map((b: any) => (Number(b) || 0).toString(16).padStart(2, '0')).join('');
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+  }
+  return String(v);
+};
+
+const normalizeBoolText = (v: any): 'true' | 'false' => {
+  if (v === true || v === 'true' || v === 1 || v === '1') return 'true';
+  return 'false';
+};
+
+const normalizeItems = (items: unknown): OrderItem[] => {
+  if (Array.isArray(items)) return items as OrderItem[];
+  if (typeof items === 'string') {
+    try {
+      const parsed = JSON.parse(items);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const money = (value: number | undefined) => `KES ${(value ?? 0).toLocaleString()}`;
+
 const AdminDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, logout, isLoading: isAuthLoading } = useAuth();
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<AdminTab>('designs');
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalDesigners: 0,
@@ -66,61 +160,90 @@ const AdminDashboard: React.FC = () => {
   const [designs, setDesigns] = useState<Design[]>([]);
   const [designersList, setDesignersList] = useState<Designer[]>([]);
   const [orders, setOrdersList] = useState<Order[]>([]);
-  const [bgVideoUrl, setBgVideoUrl] = useState<string>('');
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [updateMsg, setUpdateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'designs' | 'designers' | 'orders' | 'bg-video' | 'settings'>('designs');
 
-  useEffect(() => {
-    const loadAllData = async () => {
-      await Promise.all([fetchAllData(), loadBgVideo()]);
-    };
-    loadAllData();
-  }, []);
+  const recentOrders = useMemo(() => orders.slice(0, 4), [orders]);
+  const pendingOrders = useMemo(() => orders.filter((order) => order.status === 'pending').length, [orders]);
+  const featuredDesigns = useMemo(
+    () => designs.filter((design) => design.isFeatured === 'true' || design.isEditorsPick === 'true').length,
+    [designs]
+  );
 
   const fetchAllData = async () => {
-    setIsLoading(true);
+    setIsDashboardLoading(true);
     try {
-      const [userResults, designerResults, orderResults, allDesigns, allShops] = await Promise.all([
-        db.select().from(users),
-        db.select().from(designers),
-        db.select().from(ordersTable),
-        db.select().from(designerDesigns),
-        db.select().from(shops)
-      ]);
+      const userResults = await db.select().from(users).catch((e: any) => {
+        console.error('users query error:', e instanceof Error ? e.message : e);
+        return [];
+      });
 
-      const revenue = orderResults.reduce((sum: number, order) => sum + (order.totalAmount || 0), 0);
+      const designerResults = await db.select().from(designers).catch((e: any) => {
+        console.error('designers query error:', e instanceof Error ? e.message : e);
+        return [];
+      });
 
-      const designsWithInfo = await Promise.all(allDesigns.map(async (d: any) => {
-        const designer = designerResults.find(dsg => dsg.id?.toString() === d.designerId?.toString());
-        const designerUser = designer ? userResults.find(u => u.id === designer.userId) : null;
-        const shop = allShops.find(s => s.id?.toString() === d.shopId?.toString());
+      const orderResults = await db.select().from(ordersTable).catch((e: any) => {
+        console.error('orders query error:', e instanceof Error ? e.message : e);
+        return [];
+      });
+
+      const allDesigns = await db.select().from(designerDesigns).catch((e: any) => {
+        console.error('designerDesigns query error:', e instanceof Error ? e.message : e);
+        return [];
+      });
+
+      const allShops = await db.select().from(shops).catch((e: any) => {
+        console.error('shops query error:', e instanceof Error ? e.message : e);
+        return [];
+      });
+
+      const filteredDesigns = (allDesigns || []).filter((d: any) => d && (d.id ?? d.ID ?? null));
+      const revenue = orderResults.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0);
+
+      const designsWithInfo = filteredDesigns.map((d: any) => {
+        const designerId = d.designerId ?? d.designer_id;
+        const shopId = d.shopId ?? d.shop_id;
+        const designer = designerResults.find((dsg: any) => normalizeUuid(dsg.id) === normalizeUuid(designerId));
+        const designerUser = designer ? userResults.find((u: any) => u.id === designer.userId) : null;
+        const shop = allShops.find((s: any) => normalizeUuid(s.id) === normalizeUuid(shopId));
+
         return {
           ...d,
-          id: d.id.toString(),
-          designerId: d.designerId?.toString() || '',
-          shopId: d.shopId?.toString() || '',
+          id: normalizeUuid(d.id),
+          designerId: normalizeUuid(designerId),
+          shopId: normalizeUuid(shopId),
           designerName: designerUser?.name || designer?.name || 'Unknown',
           shopName: shop?.name || 'Unknown',
-          isEditorsPick: d.isEditorsPick || 'false',
-          isFeatured: d.isFeatured || 'false',
-          isExclusive: d.isExclusive || 'false',
-          isSpringCollection: d.isSpringCollection || 'false',
-          isMinimalist: d.isMinimalist || 'false',
-          isFlashSale: d.isFlashSale || 'false',
+          isEditorsPick: normalizeBoolText(d.isEditorsPick ?? d.is_editors_pick),
+          isFeatured: normalizeBoolText(d.isFeatured ?? d.is_featured),
+          isExclusive: normalizeBoolText(d.isExclusive ?? d.is_exclusive),
+          isSpringCollection: normalizeBoolText(d.isSpringCollection ?? d.is_spring_collection),
+          isMinimalist: normalizeBoolText(d.isMinimalist ?? d.is_minimalist),
+          isFlashSale: normalizeBoolText(d.isFlashSale ?? d.is_flash_sale)
         } as Design;
-      }));
+      });
 
-      const designersWithShops = designerResults.map(d => ({
-        ...d,
-        id: d.id.toString(),
-        shopName: allShops.find(s => s.designerId?.toString() === d.id.toString())?.name || null
-      })) as Designer[];
+      const designersWithShops = (designerResults || [])
+        .filter((d: any) => d && d.id)
+        .map((d: any) => {
+          const designerId = normalizeUuid(d.id);
+          return {
+            ...d,
+            id: designerId,
+            userId: d.userId ?? '',
+            heroImage: d.heroImage ?? null,
+            shopName:
+              allShops.find((s: any) => normalizeUuid(s.designerId ?? s.designer_id) === designerId)?.name ||
+              null
+          };
+        }) as Designer[];
 
-      const ordersFormatted = orderResults.map((o: any) => ({
-        ...o,
-        id: o.id?.toString() || '',
-      })) as Order[];
+      const ordersFormatted = orderResults
+        .map((o: any) => ({
+          ...o,
+          id: normalizeUuid(o.id),
+          items: normalizeItems(o.items)
+        }))
+        .sort((a: Order, b: Order) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()) as Order[];
 
       setStats({
         totalUsers: userResults.length,
@@ -133,626 +256,476 @@ const AdminDashboard: React.FC = () => {
       setOrdersList(ordersFormatted);
     } catch (err) {
       console.error('Failed to fetch admin data:', err);
+      setUpdateMsg({ type: 'error', text: 'Dashboard data could not be refreshed.' });
     } finally {
-      setIsLoading(false);
+      setIsDashboardLoading(false);
     }
   };
 
-  const updateDesignFlag = async (designId: string, field: string, value: string) => {
+  useEffect(() => {
+    if (!isAuthLoading && user?.role === 'admin') {
+      fetchAllData();
+    }
+  }, [isAuthLoading, user?.role]);
+
+  const updateDesignFlag = async (designId: string, field: string, nextValueText: 'true' | 'false') => {
     setIsUpdating(true);
     setUpdateMsg(null);
     try {
-      await db.update(designerDesigns)
-        .set({ [field]: value })
+      if (!designFlagFields.has(field as any)) {
+        throw new Error(`Unknown design flag: ${field}`);
+      }
+
+      await db
+        .update(designerDesigns)
+        .set({ [field]: nextValueText })
         .where(eq(designerDesigns.id, designId as any));
-      
-      setDesigns(prev => prev.map(d => 
-        d.id === designId ? { ...d, [field]: value } : d
-      ));
-      setUpdateMsg({ type: 'success', text: 'Design updated successfully' });
+
+      setDesigns((prev) => prev.map((d) => (d.id === designId ? { ...d, [field]: nextValueText } : d)));
+      setUpdateMsg({ type: 'success', text: 'Design visibility updated.' });
     } catch (err) {
       console.error('Failed to update design:', err);
-      setUpdateMsg({ type: 'error', text: 'Failed to update design' });
+      setUpdateMsg({ type: 'error', text: 'Failed to update design.' });
     } finally {
       setIsUpdating(false);
     }
   };
 
   const deleteDesign = async (designId: string) => {
-    if (!confirm('Are you sure you want to delete this design? This action cannot be undone.')) return;
+    if (!confirm('Delete this design permanently?')) return;
     setIsUpdating(true);
     setUpdateMsg(null);
     try {
       await db.delete(designerDesigns).where(eq(designerDesigns.id, designId as any));
-      setDesigns(prev => prev.filter(d => d.id !== designId));
-      setUpdateMsg({ type: 'success', text: 'Design deleted successfully' });
+      setDesigns((prev) => prev.filter((d) => d.id !== designId));
+      setUpdateMsg({ type: 'success', text: 'Design deleted.' });
     } catch (err) {
       console.error('Failed to delete design:', err);
-      setUpdateMsg({ type: 'error', text: 'Failed to delete design' });
+      setUpdateMsg({ type: 'error', text: 'Failed to delete design.' });
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    if (!file.type.startsWith('video/')) {
-      setUpdateMsg({ type: 'error', text: 'Please select a valid video file' });
-      return;
-    }
-    
-    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-    console.log(`Video selected: ${file.name} (${fileSizeMB} MB)`);
-    
-    const videoUrl = URL.createObjectURL(file);
-    setBgVideoUrl(videoUrl);
-    setUpdateMsg({ type: 'success', text: `Video loaded: ${file.name} (${fileSizeMB} MB)` });
-  };
+  if (isAuthLoading) {
+    return (
+      <Layout>
+        <Preloader isLoading />
+      </Layout>
+    );
+  }
 
-  const saveBgVideo = async () => {
-    if (!bgVideoUrl) return;
-    
-    setIsUpdating(true);
-    setUpdateMsg(null);
-    try {
-      if (bgVideoUrl.startsWith('blob:')) {
-        setUpdateMsg({ type: 'error', text: 'Please use a video URL (not file upload in this version)' });
-        setIsUpdating(false);
-        return;
-      }
-      
-      const existing = await db.select().from(siteSettings).where(eq(siteSettings.id, 'default'));
-      
-      if (existing.length > 0) {
-        await db.update(siteSettings)
-          .set({ bgVideoUrl: bgVideoUrl })
-          .where(eq(siteSettings.id, 'default'));
-      } else {
-        await db.insert(siteSettings)
-          .values({ id: 'default', bgVideoUrl: bgVideoUrl });
-      }
-      
-      setUpdateMsg({ type: 'success', text: 'Background video updated successfully' });
-    } catch (err) {
-      console.error('Failed to save bg video:', err);
-      setUpdateMsg({ type: 'error', text: 'Failed to save background video. Please use a video URL instead of uploading a file.' });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const loadBgVideo = async () => {
-    try {
-      const results = await db.select().from(siteSettings).where(eq(siteSettings.id, 'default'));
-      if (results.length > 0 && results[0].bgVideoUrl) {
-        setBgVideoUrl(results[0].bgVideoUrl);
-      }
-    } catch (err) {
-      console.error('Failed to load bg video:', err);
-    }
-  };
-
-  if (!user) return <Navigate to="/login" />;
-  if (user.role !== 'admin') return <Navigate to="/" />;
-
-  const TabButton = ({ id, label, icon: Icon }: { id: typeof activeTab; label: string; icon: any }) => (
-    <button
-      onClick={() => setActiveTab(id)}
-      className={clsx(
-        "flex-1 px-6 py-4 text-xs font-black uppercase tracking-widest transition-all border-b-2",
-        activeTab === id 
-          ? "text-primary-400 border-primary-400 bg-white/5" 
-          : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
-      )}
-    >
-      <Icon className="w-4 h-4 inline mr-2" />
-      {label}
-    </button>
-  );
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'admin') return <Navigate to="/" replace />;
 
   return (
     <Layout>
-      <Preloader isLoading={isLoading} />
-      
-      <div className="relative min-h-screen py-12 md:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
+      <Preloader isLoading={isDashboardLoading} />
+
+      <div className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <motion.header
+            initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex justify-between items-center mb-12"
+            className="mb-6 rounded-lg border border-white/10 bg-zinc-950/80 p-5 shadow-2xl backdrop-blur-xl"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center shadow-lg shadow-primary-500/25">
-                <Shield className="w-7 h-7 text-white" />
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-zinc-950">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.24em] text-primary-300">Operations Console</p>
+                  <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">Admin Dashboard</h1>
+                </div>
               </div>
-              <div>
-                <h1 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-tighter">
-                  Admin <span className="text-primary-400">Panel</span>
-                </h1>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mt-1">Control Center</p>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={fetchAllData}
+                  disabled={isUpdating || isDashboardLoading}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-950 transition hover:bg-primary-100 disabled:opacity-60"
+                >
+                  <RefreshCw className={clsx('h-4 w-4', isDashboardLoading && 'animate-spin')} />
+                  Refresh
+                </button>
+                <button
+                  onClick={logout}
+                  className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-red-200 transition hover:bg-red-500/25"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </button>
               </div>
             </div>
-            <button 
-              onClick={logout}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-500/20 text-red-400 font-black uppercase tracking-widest text-xs border border-red-500/30 hover:bg-red-500/30 transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[
-              { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'from-blue-500 to-cyan-500', change: '+12%' },
-              { label: 'Designers', value: stats.totalDesigners, icon: Palette, color: 'from-green-500 to-emerald-500', change: '+8%' },
-              { label: 'Orders', value: stats.totalOrders, icon: ShoppingBag, color: 'from-purple-500 to-indigo-500', change: '+24%' },
-              { label: 'Revenue', value: `KES ${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'from-yellow-500 to-orange-500', change: '+18%' },
-            ].map((stat, idx) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="relative group"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br opacity-20 rounded-[2rem] blur-xl group-hover:opacity-30 transition-opacity" />
-                <div className="relative bg-white/5 backdrop-blur-xl rounded-[2rem] p-8 border border-white/10 hover:border-white/20 transition-all">
-                  <div className={clsx(
-                    "w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center mb-4",
-                    stat.color
-                  )}>
-                    <stat.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">{stat.label}</p>
-                  <h3 className="text-2xl font-black text-white">{stat.value}</h3>
-                  <div className="flex items-center gap-1 mt-3">
-                    <TrendingUp className="w-3 h-3 text-green-400" />
-                    <span className="text-xs font-black text-green-400">{stat.change}</span>
-                    <span className="text-xs text-gray-500">this month</span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          </motion.header>
 
           <AnimatePresence>
             {updateMsg && (
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
+                initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
+                exit={{ opacity: 0, y: -8 }}
                 className={clsx(
-                  "p-4 rounded-xl mb-6 flex items-center gap-2 border backdrop-blur-xl",
-                  updateMsg.type === 'success' 
-                    ? 'bg-green-500/20 text-green-400 border-green-500/30' 
-                    : 'bg-red-500/20 text-red-400 border-red-500/30'
+                  'mb-5 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm font-semibold backdrop-blur-xl',
+                  updateMsg.type === 'success'
+                    ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'
+                    : 'border-red-400/30 bg-red-500/15 text-red-200'
                 )}
               >
-                {updateMsg.type === 'success' ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
-                <span className="font-medium text-sm">{updateMsg.text}</span>
+                {updateMsg.type === 'success' ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                {updateMsg.text}
               </motion.div>
             )}
           </AnimatePresence>
 
-          <div className="bg-white/5 backdrop-blur-xl rounded-[2rem] border border-white/10 overflow-hidden">
-            <div className="flex flex-wrap border-b border-white/5 bg-white/5">
-              <TabButton id="designs" label="Manage Designs" icon={Palette} />
-              <TabButton id="designers" label="Designers & Shops" icon={Store} />
-              <TabButton id="orders" label="Orders" icon={Package} />
-              <TabButton id="bg-video" label="Background Video" icon={Video} />
-              <TabButton id="settings" label="Site Settings" icon={Settings} />
-            </div>
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: 'Revenue', value: money(stats.totalRevenue), icon: DollarSign, tone: 'text-emerald-200', detail: `${stats.totalOrders} paid orders` },
+              { label: 'Orders', value: stats.totalOrders, icon: ShoppingBag, tone: 'text-sky-200', detail: `${pendingOrders} pending fulfillment` },
+              { label: 'Designers', value: stats.totalDesigners, icon: Palette, tone: 'text-fuchsia-200', detail: `${designs.length} marketplace designs` },
+              { label: 'Featured', value: featuredDesigns, icon: Eye, tone: 'text-amber-200', detail: 'Promoted designs live' }
+            ].map((stat, idx) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04 }}
+                className="rounded-lg border border-white/10 bg-zinc-950/75 p-5 backdrop-blur-xl"
+              >
+                <div className="mb-5 flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">{stat.label}</span>
+                  <stat.icon className={clsx('h-5 w-5', stat.tone)} />
+                </div>
+                <div className="text-3xl font-black text-white">{stat.value}</div>
+                <p className="mt-2 text-sm font-medium text-zinc-400">{stat.detail}</p>
+              </motion.div>
+            ))}
+          </section>
 
-            <div className="p-8">
-              <AnimatePresence mode="wait">
-                {activeTab === 'designs' && (
-                  <motion.div
-                    key="designs"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                  >
-                    <div className="flex justify-between items-center mb-8">
-                      <h2 className="text-2xl font-black text-white uppercase italic">Design Management</h2>
-                      <button
-                        onClick={fetchAllData}
-                        disabled={isUpdating}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-gray-300 font-black uppercase tracking-widest text-xs hover:bg-white/15 transition-all disabled:opacity-50"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        Refresh
-                      </button>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-white/10">
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Design</th>
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Product</th>
-                            <th className="text-center py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Editor's Pick</th>
-                            <th className="text-center py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Featured (Home)</th>
-                            <th className="text-center py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Exclusive</th>
-                            <th className="text-center py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Spring</th>
-                            <th className="text-center py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Minimalist</th>
-                            <th className="text-center py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Flash Sale</th>
-                            <th className="text-right py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {designs.length === 0 ? (
-                            <tr>
-                              <td colSpan={9} className="py-12 text-center text-gray-400 font-medium">
-                                No designs found. Add some designs in the shop!
-                              </td>
-                            </tr>
-                          ) : (
-                            designs.map((design, idx) => (
-                              <tr
-                                key={design.id}
-                                className="border-b border-white/5 hover:bg-white/5 transition-all"
-                              >
-                                <td className="py-4 px-2">
-                                  <div className="flex items-center gap-3">
-                                    <img src={design.preview} alt={design.name} className="w-12 h-12 rounded-lg object-cover border border-white/10" />
-                                    <span className="font-black text-white">{design.name}</span>
-                                  </div>
-                                </td>
-                                <td className="py-4 px-2 text-gray-300 font-medium">{design.productId}</td>
-                                
-                                {['isEditorsPick', 'isFeatured', 'isExclusive', 'isSpringCollection', 'isMinimalist', 'isFlashSale'].map(field => (
-                                  <td key={field} className="py-4 px-2 text-center">
-                                    <button
-                                      onClick={() => updateDesignFlag(design.id, field, design[field as keyof Design] === 'true' ? 'false' : 'true')}
-                                      disabled={isUpdating}
-                                      className={clsx(
-                                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all mx-auto disabled:opacity-50",
-                                        design[field as keyof Design] === 'true' 
-                                          ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25' 
-                                          : 'bg-white/10 text-gray-400 hover:bg-white/20'
-                                      )}
-                                    >
-                                      {design[field as keyof Design] === 'true' ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
-                                    </button>
-                                  </td>
-                                ))}
-
-                                <td className="py-4 px-2 text-right">
-                                  <button
-                                    onClick={() => deleteDesign(design.id)}
-                                    disabled={isUpdating}
-                                    className="w-10 h-10 rounded-xl flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50"
-                                  >
-                                    <Trash2 className="w-5 h-5" />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </motion.div>
-                )}
-
-                {activeTab === 'designers' && (
-                  <motion.div
-                    key="designers"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                  >
-                    <h2 className="text-2xl font-black text-white uppercase italic mb-8">Designers & Shops</h2>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-white/10">
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Designer</th>
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Email</th>
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Shop Name</th>
-                            <th className="text-right py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Shop Link</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {designersList.length === 0 ? (
-                            <tr>
-                              <td colSpan={4} className="py-12 text-center text-gray-400 font-medium">
-                                No designers found.
-                              </td>
-                            </tr>
-                          ) : (
-                            designersList.map((designer, idx) => (
-                              <tr
-                                key={designer.id}
-                                className="border-b border-white/5 hover:bg-white/5 transition-all"
-                              >
-                                <td className="py-4 px-2">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-xl bg-white/10 overflow-hidden border border-white/10">
-                                      {designer.heroImage ? (
-                                        <img src={designer.heroImage} alt={designer.name} className="w-full h-full object-cover" />
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                          <Palette className="w-5 h-5 text-gray-400" />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <span className="font-black text-white">{designer.name}</span>
-                                  </div>
-                                </td>
-                                <td className="py-4 px-2 text-gray-300 font-medium">{designer.email}</td>
-                                <td className="py-4 px-2 text-gray-300 font-medium">{designer.shopName || 'No shop yet'}</td>
-                                <td className="py-4 px-2 text-right">
-                                  {designer.shopName && (
-                                    <Link
-                                      to={`/shop/${designer.shopName.toLowerCase().replace(/\s+/g, '-')}`}
-                                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-gray-300 font-black uppercase tracking-widest text-xs hover:bg-primary-500/20 hover:text-primary-400 transition-all border border-white/10"
-                                    >
-                                      <Eye className="w-4 h-4" />
-                                      View Shop
-                                    </Link>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </motion.div>
-                )}
-
-                {activeTab === 'orders' && (
-                  <motion.div
-                    key="orders"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                  >
-                    <div className="flex justify-between items-center mb-8">
-                      <h2 className="text-2xl font-black text-white uppercase italic">Order Management</h2>
-                      <button
-                        onClick={fetchAllData}
-                        disabled={isUpdating}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-gray-300 font-black uppercase tracking-widest text-xs hover:bg-white/15 transition-all disabled:opacity-50"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        Refresh
-                      </button>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-white/10">
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Order ID</th>
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Customer</th>
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Email</th>
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Total</th>
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Payment</th>
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Status</th>
-                            <th className="text-left py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Date</th>
-                            <th className="text-right py-4 px-2 text-xs font-black text-gray-400 uppercase tracking-widest">Details</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {orders.length === 0 ? (
-                            <tr>
-                              <td colSpan={8} className="py-12 text-center text-gray-400 font-medium">
-                                No orders found.
-                              </td>
-                            </tr>
-                          ) : (
-                            orders.map((order, idx) => (
-                              <tr
-                                key={order.id}
-                                className="border-b border-white/5 hover:bg-white/5 transition-all"
-                              >
-                                <td className="py-4 px-2">
-                                  <span className="font-black text-white">#{order.id.slice(-6)}</span>
-                                </td>
-                                <td className="py-4 px-2 text-gray-300 font-medium">{order.customerName}</td>
-                                <td className="py-4 px-2 text-gray-300 font-medium">{order.customerEmail}</td>
-                                <td className="py-4 px-2 text-gray-300 font-medium">KES {(order.totalAmount || 0).toLocaleString()}</td>
-                                <td className="py-4 px-2">
-                                  <span className={clsx(
-                                    "px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border",
-                                    order.paymentType === 'full' 
-                                      ? 'bg-green-500/20 text-green-400 border-green-500/30' 
-                                      : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                                  )}>
-                                    {order.paymentType === 'full' ? 'Full Payment' : `Deposit`}
-                                  </span>
-                                </td>
-                                <td className="py-4 px-2">
-                                  <span className={clsx(
-                                    "px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border",
-                                    order.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 
-                                    order.status === 'completed' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 
-                                    'bg-white/10 text-gray-400 border-white/20'
-                                  )}>
-                                    {order.status}
-                                  </span>
-                                </td>
-                                <td className="py-4 px-2 text-gray-300 font-medium">
-                                  {new Date(order.createdAt || '').toLocaleDateString()}
-                                </td>
-                                <td className="py-4 px-2 text-right">
-                                  <button
-                                    onClick={() => {
-                                      const items = (order as any).items || [];
-                                      alert(`Order Details:\n${JSON.stringify(items, null, 2)}`);
-                                    }}
-                                    className="w-10 h-10 rounded-xl flex items-center justify-center text-primary-400 hover:bg-primary-500/20 transition-all border border-white/10"
-                                  >
-                                    <Eye className="w-5 h-5" />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </motion.div>
-                )}
-
-                {activeTab === 'bg-video' && (
-                  <motion.div
-                    key="bg-video"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="space-y-8"
-                  >
-                    <h2 className="text-2xl font-black text-white uppercase italic">Background Video Settings</h2>
-
-                    <div>
-                      <label className="block text-sm font-black text-gray-300 uppercase tracking-widest mb-3">
-                        Upload Video (MP4) or Enter URL
-                      </label>
-                      <input
-                        type="file"
-                        accept="video/mp4,video/webm,video/mp4"
-                        onChange={handleVideoUpload}
-                        className="hidden"
-                        id="bg-video-upload"
-                      />
-                      <label
-                        htmlFor="bg-video-upload"
-                        className="flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-white/10 text-gray-300 font-black uppercase tracking-widest text-xs hover:bg-white/15 transition-all cursor-pointer border border-white/10"
-                      >
-                        <Upload className="w-4 h-4" />
-                        Choose Video File
-                      </label>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-black text-gray-300 uppercase tracking-widest mb-3">
-                        Or Enter Video URL
-                      </label>
-                      <input
-                        type="url"
-                        value={bgVideoUrl}
-                        onChange={(e) => setBgVideoUrl(e.target.value)}
-                        placeholder="https://example.com/video.mp4"
-                        className="w-full px-4 py-3 rounded-xl bg-white/10 text-white font-medium border border-white/10 focus:border-primary-500 focus:outline-none"
-                      />
-                    </div>
-
-                    {bgVideoUrl && (
-                      <div className="space-y-4">
-                        <div className="relative rounded-xl overflow-hidden bg-white/5 border border-white/10 aspect-video max-w-md">
-                          <video
-                            src={bgVideoUrl}
-                            className="w-full h-full object-cover"
-                            muted
-                          />
-                        </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={saveBgVideo}
-                            disabled={isUpdating}
-                            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary-500 text-white font-black uppercase tracking-widest text-xs hover:bg-primary-400 transition-all disabled:opacity-50 shadow-lg shadow-primary-500/25"
-                          >
-                            <Check className="w-4 h-4" />
-                            Save Video
-                          </button>
-                          <button
-                            onClick={() => setBgVideoUrl('')}
-                            disabled={isUpdating}
-                            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 text-gray-300 font-black uppercase tracking-widest text-xs hover:bg-white/15 transition-all disabled:opacity-50 border border-white/10"
-                          >
-                            <X className="w-4 h-4" />
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
+          <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_360px]">
+            <div className="rounded-lg border border-white/10 bg-zinc-950/80 p-2 backdrop-blur-xl">
+              <div className="flex flex-wrap gap-2">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={clsx(
+                      'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-xs font-black uppercase tracking-widest transition md:flex-none',
+                      activeTab === tab.id
+                        ? 'bg-white text-zinc-950'
+                        : 'text-zinc-400 hover:bg-white/10 hover:text-white'
                     )}
-
-                    {!bgVideoUrl && (
-                      <p className="text-sm text-gray-400 font-medium">
-                        Upload an MP4 video or enter a URL to use as the website background. The video will be stored and displayed on the homepage.
-                      </p>
-                    )}
-                  </motion.div>
-                )}
-
-                {activeTab === 'settings' && (
-                  <motion.div
-                    key="settings"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="space-y-8"
                   >
-                    <h2 className="text-2xl font-black text-white uppercase italic">Site Settings</h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-                        <Globe className="w-8 h-8 text-primary-400 mb-4" />
-                        <h3 className="text-lg font-black text-white mb-2">Site Info</h3>
-                        <p className="text-sm text-gray-400 mb-4">Manage global site settings and configuration</p>
-                        <button className="px-4 py-2 rounded-lg bg-primary-500/20 text-primary-400 font-black uppercase tracking-widest text-xs border border-primary-500/30 hover:bg-primary-500/30 transition-all">
-                          Configure
-                        </button>
-                      </div>
-                      
-                      <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-                        <Database className="w-8 h-8 text-green-400 mb-4" />
-                        <h3 className="text-lg font-black text-white mb-2">Database</h3>
-                        <p className="text-sm text-gray-400 mb-4">View database statistics and performance</p>
-                        <button className="px-4 py-2 rounded-lg bg-green-500/20 text-green-400 font-black uppercase tracking-widest text-xs border border-green-500/30 hover:bg-green-500/30 transition-all">
-                          View Stats
-                        </button>
-                      </div>
-                      
-                      <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-                        <Lock className="w-8 h-8 text-yellow-400 mb-4" />
-                        <h3 className="text-lg font-black text-white mb-2">Security</h3>
-                        <p className="text-sm text-gray-400 mb-4">Manage admin access and permissions</p>
-                        <button className="px-4 py-2 rounded-lg bg-yellow-500/20 text-yellow-400 font-black uppercase tracking-widest text-xs border border-yellow-500/30 hover:bg-yellow-500/30 transition-all">
-                          Manage
-                        </button>
-                      </div>
-                      
-                      <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-                        <Activity className="w-8 h-8 text-purple-400 mb-4" />
-                        <h3 className="text-lg font-black text-white mb-2">Analytics</h3>
-                        <p className="text-sm text-gray-400 mb-4">View site analytics and metrics</p>
-                        <button className="px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 font-black uppercase tracking-widest text-xs border border-purple-500/30 hover:bg-purple-500/30 transition-all">
-                          View Analytics
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="p-8 border-t border-white/5 bg-white/5">
-              <h2 className="text-2xl font-black text-white mb-8 uppercase italic">Quick Actions</h2>
-              <div className="flex flex-wrap gap-4">
-                <Link to="/shop">
-                  <Button variant="outline" className="rounded-xl font-black uppercase tracking-widest border-white/20 text-gray-300 hover:bg-white/10">
-                    View Shop
-                  </Button>
-                </Link>
-                <Link to="/">
-                  <Button variant="outline" className="rounded-xl font-black uppercase tracking-widest border-white/20 text-gray-300 hover:bg-white/10">
-                    Home
-                  </Button>
-                </Link>
-                <Link to="/designer">
-                  <Button variant="outline" className="rounded-xl font-black uppercase tracking-widest border-primary/20 text-primary-400 hover:bg-primary-500/10">
-                    Design Studio
-                  </Button>
-                </Link>
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
+
+            <div className="rounded-lg border border-white/10 bg-zinc-950/80 p-4 backdrop-blur-xl">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-black uppercase tracking-widest text-white">Recent Orders</h2>
+                <button onClick={() => setActiveTab('orders')} className="text-xs font-bold text-primary-300 hover:text-primary-100">
+                  View all
+                </button>
+              </div>
+              <div className="space-y-3">
+                {recentOrders.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No orders yet.</p>
+                ) : (
+                  recentOrders.map((order) => (
+                    <div key={order.id} className="flex items-center justify-between gap-3 border-t border-white/10 pt-3 first:border-t-0 first:pt-0">
+                      <div>
+                        <p className="text-sm font-black text-white">#{order.id.slice(-6)}</p>
+                        <p className="text-xs text-zinc-400">{order.customerName}</p>
+                      </div>
+                      <span className="text-sm font-black text-emerald-200">{money(order.totalAmount)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+
+          <div className="rounded-lg border border-white/10 bg-zinc-950/85 backdrop-blur-xl">
+            <AnimatePresence mode="wait">
+              {activeTab === 'designs' && (
+                <motion.section key="designs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5">
+                  <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-black text-white">Marketplace Designs</h2>
+                      <p className="text-sm text-zinc-400">Promote, curate, or remove designer submissions.</p>
+                    </div>
+                    <Link to="/designer" className="inline-flex items-center justify-center rounded-lg bg-primary-500 px-4 py-2 text-xs font-black uppercase tracking-widest text-white transition hover:bg-primary-400">
+                      Open Studio
+                    </Link>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[960px]">
+                      <thead>
+                        <tr className="border-b border-white/10">
+                          <th className="px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-zinc-500">Design</th>
+                          <th className="px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-zinc-500">Shop</th>
+                          {flagFields.map((field) => (
+                            <th key={field.key} className="px-3 py-3 text-center text-xs font-black uppercase tracking-widest text-zinc-500">
+                              {field.label}
+                            </th>
+                          ))}
+                          <th className="px-3 py-3 text-right text-xs font-black uppercase tracking-widest text-zinc-500">Remove</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {designs.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} className="px-3 py-12 text-center text-sm font-semibold text-zinc-500">
+                              No designs found.
+                            </td>
+                          </tr>
+                        ) : (
+                          designs.map((design) => (
+                            <tr key={design.id} className="border-b border-white/5 transition hover:bg-white/[0.04]">
+                              <td className="px-3 py-4">
+                                <div className="flex items-center gap-3">
+                                  <img src={design.preview} alt={design.name} className="h-14 w-14 rounded-lg border border-white/10 object-cover" />
+                                  <div>
+                                    <p className="font-black text-white">{design.name}</p>
+                                    <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">{design.productId} · {money(design.price)}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-4">
+                                <p className="font-semibold text-zinc-200">{design.shopName}</p>
+                                <p className="text-xs text-zinc-500">{design.designerName}</p>
+                              </td>
+                              {flagFields.map((field) => (
+                                <td key={field.key} className="px-3 py-4 text-center">
+                                  <button
+                                    onClick={() =>
+                                      updateDesignFlag(
+                                        design.id,
+                                        field.key,
+                                        design[field.key] === 'true' ? 'false' : 'true'
+                                      )
+                                    }
+                                    disabled={isUpdating}
+                                    className={clsx(
+                                      'mx-auto flex h-9 w-9 items-center justify-center rounded-lg border transition disabled:opacity-50',
+                                      design[field.key] === 'true'
+                                        ? 'border-emerald-400/30 bg-emerald-500/20 text-emerald-200'
+                                        : 'border-white/10 bg-white/5 text-zinc-500 hover:bg-white/10'
+                                    )}
+                                    aria-label={`Toggle ${field.label}`}
+                                  >
+                                    {design[field.key] === 'true' ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                  </button>
+                                </td>
+                              ))}
+                              <td className="px-3 py-4 text-right">
+                                <button
+                                  onClick={() => deleteDesign(design.id)}
+                                  disabled={isUpdating}
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-400/20 bg-red-500/10 text-red-200 transition hover:bg-red-500/20 disabled:opacity-50"
+                                  aria-label="Delete design"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </motion.section>
+              )}
+
+              {activeTab === 'orders' && (
+                <motion.section key="orders" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5">
+                  <div className="mb-5">
+                    <h2 className="text-2xl font-black text-white">Orders & Sold Designs</h2>
+                    <p className="text-sm text-zinc-400">Every order now shows the design or product image sold.</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {orders.length === 0 ? (
+                      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-12 text-center text-sm font-semibold text-zinc-500">
+                        No orders found.
+                      </div>
+                    ) : (
+                      orders.map((order) => {
+                        const isOpen = expandedOrderId === order.id;
+                        const firstItem = order.items[0];
+                        const firstImage = firstItem?.design?.preview || firstItem?.design?.previewImage || firstItem?.image;
+
+                        return (
+                          <div key={order.id} className="rounded-lg border border-white/10 bg-white/[0.03]">
+                            <button
+                              onClick={() => setExpandedOrderId(isOpen ? null : order.id)}
+                              className="grid w-full grid-cols-1 gap-4 p-4 text-left transition hover:bg-white/[0.04] md:grid-cols-[minmax(260px,1fr)_140px_130px_120px_32px]"
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className="h-16 w-16 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
+                                  {firstImage ? (
+                                    <img src={firstImage} alt={firstItem?.name || 'Sold design'} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <Package className="m-5 h-6 w-6 text-zinc-500" />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black uppercase tracking-widest text-primary-300">#{order.id.slice(-6)}</p>
+                                  <h3 className="truncate text-base font-black text-white">{order.customerName}</h3>
+                                  <p className="truncate text-sm text-zinc-400">{order.customerEmail}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Items</p>
+                                <p className="font-black text-white">{order.items.length}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Total</p>
+                                <p className="font-black text-emerald-200">{money(order.totalAmount)}</p>
+                              </div>
+                              <div>
+                                <span
+                                  className={clsx(
+                                    'inline-flex rounded-md border px-2 py-1 text-xs font-black uppercase tracking-widest',
+                                    order.status === 'pending'
+                                      ? 'border-amber-400/30 bg-amber-500/15 text-amber-200'
+                                      : 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'
+                                  )}
+                                >
+                                  {order.status}
+                                </span>
+                                <p className="mt-2 text-xs text-zinc-500">{new Date(order.createdAt || '').toLocaleDateString()}</p>
+                              </div>
+                              <ChevronDown className={clsx('h-5 w-5 self-center text-zinc-500 transition', isOpen && 'rotate-180')} />
+                            </button>
+
+                            <AnimatePresence>
+                              {isOpen && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  className="overflow-hidden border-t border-white/10"
+                                >
+                                  <div className="grid gap-4 p-4 lg:grid-cols-[1fr_280px]">
+                                    <div className="space-y-3">
+                                      {order.items.map((item, idx) => {
+                                        const image = item.design?.preview || item.design?.previewImage || item.image;
+                                        return (
+                                          <div key={`${order.id}-${idx}`} className="flex gap-3 rounded-lg border border-white/10 bg-zinc-950/60 p-3">
+                                            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
+                                              {image ? (
+                                                <img src={image} alt={item.name || 'Sold design'} className="h-full w-full object-cover" />
+                                              ) : (
+                                                <Palette className="m-6 h-7 w-7 text-zinc-500" />
+                                              )}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                              <p className="font-black text-white">{item.name || 'Custom design'}</p>
+                                              <p className="mt-1 text-sm text-zinc-400">
+                                                {item.productId || item.design?.productId || 'product'} · Qty {item.quantity || 1}
+                                                {item.size ? ` · ${item.size}` : ''}
+                                                {item.color ? ` · ${item.color}` : ''}
+                                              </p>
+                                              {item.design?.id && (
+                                                <p className="mt-1 text-xs font-semibold text-primary-300">Design ID: {item.design.id}</p>
+                                              )}
+                                            </div>
+                                            <p className="shrink-0 font-black text-zinc-200">{money(item.price)}</p>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    <div className="rounded-lg border border-white/10 bg-zinc-950/60 p-4">
+                                      <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-white">Fulfillment</h3>
+                                      <p className="text-sm font-semibold text-zinc-300">{order.shippingAddress}</p>
+                                      <p className="mt-1 text-sm text-zinc-400">{order.city}, {order.country}</p>
+                                      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                          <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Payment</p>
+                                          <p className="font-black text-white">{order.paymentType}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Balance</p>
+                                          <p className="font-black text-white">{money(order.balanceAmount)}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </motion.section>
+              )}
+
+              {activeTab === 'designers' && (
+                <motion.section key="designers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5">
+                  <div className="mb-5">
+                    <h2 className="text-2xl font-black text-white">Designers & Shops</h2>
+                    <p className="text-sm text-zinc-400">Monitor shop ownership and storefront links.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {designersList.length === 0 ? (
+                      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-12 text-center text-sm font-semibold text-zinc-500 lg:col-span-2">
+                        No designers found.
+                      </div>
+                    ) : (
+                      designersList.map((designer) => (
+                        <div key={designer.id} className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
+                              {designer.heroImage ? (
+                                <img src={designer.heroImage} alt={designer.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <Palette className="m-4 h-6 w-6 text-zinc-500" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-black text-white">{designer.name}</p>
+                              <p className="truncate text-sm text-zinc-400">{designer.email}</p>
+                              <p className="truncate text-xs font-semibold uppercase tracking-widest text-primary-300">{designer.shopName || 'No shop yet'}</p>
+                            </div>
+                          </div>
+                          {designer.shopName && (
+                            <Link
+                              to={`/shop/${designer.shopName.toLowerCase().replace(/\s+/g, '-')}`}
+                              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-widest text-zinc-200 transition hover:bg-white/10"
+                            >
+                              <Eye className="h-4 w-4" />
+                              Shop
+                            </Link>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.section>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3 rounded-lg border border-white/10 bg-zinc-950/75 p-4 backdrop-blur-xl">
+            <Link to="/shop" className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-200 transition hover:bg-white/10">
+              View Shop
+            </Link>
+            <Link to="/designer" className="rounded-lg border border-primary-400/30 bg-primary-500/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-primary-100 transition hover:bg-primary-500/25">
+              Design Studio
+            </Link>
+            <Link to="/" className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-200 transition hover:bg-white/10">
+              Home
+            </Link>
           </div>
         </div>
       </div>

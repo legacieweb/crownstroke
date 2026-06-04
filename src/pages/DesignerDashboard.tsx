@@ -30,12 +30,13 @@ import {
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Preloader from '../components/ui/Preloader';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
 
 const DesignerDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, deleteAccount } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'designs' | 'shop' | 'settings'>('overview');
   const [myDesigns, setMyDesigns] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,15 +68,9 @@ const DesignerDashboard: React.FC = () => {
   const terminateAccount = async () => {
     if (!user) return;
     try {
-      const designer = await db.select().from(designers).where(eq(designers.userId, user.id)).limit(1);
-      if (designer.length > 0) {
-        const dId = designer[0].id;
-        await db.delete(designerDesigns).where(eq(designerDesigns.designerId, dId));
-        await db.delete(shops).where(eq(shops.designerId, dId));
-        await db.delete(designers).where(eq(designers.id, dId));
-        alert('Your designer account and all associated data have been permanently deleted.');
-        logout();
-      }
+      await deleteAccount();
+      alert('Your designer account and all associated data have been permanently deleted.');
+      navigate('/', { replace: true });
     } catch (err) {
       console.error('Failed to terminate account:', err);
       alert('Critical failure during termination protocol.');
@@ -162,6 +157,7 @@ const DesignerDashboard: React.FC = () => {
         }
       } catch (err) {
         console.error('Error fetching designer data:', err);
+        alert(err instanceof Error ? err.message : String(err));
       } finally {
         setIsLoading(false);
       }
@@ -273,7 +269,7 @@ const DesignerDashboard: React.FC = () => {
                       {[
                         { label: 'Artifacts', value: stats.totalDesigns, icon: Palette, color: 'text-primary-400' },
                         { label: 'Units Sold', value: stats.totalSales, icon: ShoppingBag, color: 'text-green-400' },
-                        { label: 'Est. Revenue', value: `KES ${stats.revenue.toLocaleString()}`, icon: TrendingUp, color: 'text-purple-400' },
+                        { label: 'Est. Revenue', value: `KES ${(stats.revenue ?? 0).toLocaleString()}`, icon: TrendingUp, color: 'text-purple-400' },
                       ].map((stat, i) => (
                         <div key={i} className="bg-white/5 rounded-[2.5rem] p-10 shadow-2xl border border-white/10 group hover:border-primary-500/30 transition-all">
                           <div className={`w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-6 ${stat.color}`}>
@@ -334,7 +330,7 @@ const DesignerDashboard: React.FC = () => {
                                      <h4 className="text-2xl font-black uppercase italic tracking-tighter">{design.name}</h4>
                                      <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest">{design.productId}</p>
                                   </div>
-                                  <div className="text-2xl font-black italic">KES {design.price.toLocaleString()}</div>
+                                  <div className="text-2xl font-black italic">KES {(design.price ?? 0).toLocaleString()}</div>
                                </div>
                             </div>
                             <div className="p-8 grid grid-cols-2 gap-4">

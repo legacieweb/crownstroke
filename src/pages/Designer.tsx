@@ -89,6 +89,46 @@ const COLORS = [
   '#ec4899', '#8b5cf6', '#06b6d4', '#71717a', '#78350f', '#14532d'
 ];
 
+const PREVIEW_WIDTH = 600;
+const PREVIEW_HEIGHT = 750;
+const PREVIEW_SCALE = PREVIEW_WIDTH / 800;
+
+const canvasToCompactDataUrl = (canvas: HTMLCanvasElement, quality = 0.82) => {
+  const webp = canvas.toDataURL('image/webp', quality);
+  if (webp.startsWith('data:image/webp')) return webp;
+  return canvas.toDataURL('image/jpeg', quality);
+};
+
+const optimizeImageFile = (file: File, maxSize = 1400, quality = 0.84): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not optimize uploaded image.'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvasToCompactDataUrl(canvas, quality));
+      };
+      img.onerror = () => reject(new Error('Could not read uploaded image.'));
+      img.src = reader.result as string;
+    };
+
+    reader.onerror = () => reject(new Error('Could not read uploaded image.'));
+    reader.readAsDataURL(file);
+  });
+};
+
 const Designer: React.FC = () => {
   const { addToCart } = useCart();
   const { user } = useAuth();
@@ -149,6 +189,7 @@ const Designer: React.FC = () => {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, visible: boolean, target: any } | null>(null);
   const updateMirrorPreviewRef = useRef<() => void>();
   const saveHistoryRef = useRef<() => void>();
+  const previewTimerRef = useRef<number | null>(null);
 
   const saveHistory = useCallback(() => {
     if (!fabricCanvas || isHistoryLocked.current) return;
@@ -223,20 +264,23 @@ const Designer: React.FC = () => {
     }
   };
 
-  const handleChangeImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChangeImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && fabricCanvas && contextMenu?.target && contextMenu.target.type === 'image') {
-      const reader = new FileReader();
-      reader.onload = (f) => {
-        fabric.Image.fromURL(f.target?.result as string, (img) => {
+      try {
+        const optimizedImage = await optimizeImageFile(file);
+        fabric.Image.fromURL(optimizedImage, (img) => {
+          if (!img) return;
           const target = contextMenu.target as fabric.Image;
-          target.setSrc(f.target?.result as string, () => {
+          target.setSrc(optimizedImage, () => {
             fabricCanvas.renderAll();
             updateMirrorPreview();
           });
         });
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Failed to optimize replacement image:', err);
+        showAlert('Error', 'Failed to process image.');
+      }
     }
     setContextMenu(null);
   };
@@ -247,8 +291,8 @@ const Designer: React.FC = () => {
     fabricCanvas.discardActiveObject().renderAll();
 
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = 800;
-    tempCanvas.height = 1000;
+    tempCanvas.width = PREVIEW_WIDTH;
+    tempCanvas.height = PREVIEW_HEIGHT;
     const ctx = tempCanvas.getContext('2d');
     
     if (ctx) {
@@ -258,25 +302,31 @@ const Designer: React.FC = () => {
       
       productImg.onload = () => {
         if (!ctx) return;
-        ctx.clearRect(0, 0, 800, 1000);
-        ctx.drawImage(productImg, 0, 0, 800, 1000);
+        ctx.clearRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+        ctx.drawImage(productImg, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
         
         const designDataUrl = fabricCanvas.toDataURL({ 
           format: 'png', 
-          quality: 1, 
-          multiplier: 2
+          quality: 0.82,
+          multiplier: 1
         });
         
         const designImg = new Image();
         designImg.src = designDataUrl;
         designImg.onload = () => {
           const config = DESIGN_CONFIG[activeProduct] || { top: 80, left: 210, scale: 1.0 };
-          ctx.drawImage(designImg, config.left, config.top, 380 * config.scale, 480 * config.scale);
-          setMirrorPreview(tempCanvas.toDataURL('image/png'));
+          ctx.drawImage(
+            designImg,
+            config.left * PREVIEW_SCALE,
+            config.top * PREVIEW_SCALE,
+            380 * config.scale * PREVIEW_SCALE,
+            480 * config.scale * PREVIEW_SCALE
+          );
+          setMirrorPreview(canvasToCompactDataUrl(tempCanvas));
         };
       };
       productImg.onerror = () => {
-        const designDataUrl = fabricCanvas.toDataURL({ format: 'png' });
+        const designDataUrl = fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.82, multiplier: 1 });
         setMirrorPreview(designDataUrl);
       };
     }
@@ -285,6 +335,17 @@ const Designer: React.FC = () => {
   useEffect(() => {
     updateMirrorPreviewRef.current = updateMirrorPreview;
   }, [updateMirrorPreview]);
+
+  const scheduleMirrorPreview = useCallback(() => {
+    if (previewTimerRef.current) {
+      window.clearTimeout(previewTimerRef.current);
+    }
+
+    previewTimerRef.current = window.setTimeout(() => {
+      updateMirrorPreviewRef.current?.();
+      previewTimerRef.current = null;
+    }, 120);
+  }, []);
 
   useEffect(() => {
     const savedDrafts = JSON.parse(localStorage.getItem('crownstroke_drafts') || '[]');
@@ -389,13 +450,13 @@ const Designer: React.FC = () => {
       canvas.on('object:added', triggerMirrorUpdate);
       canvas.on('object:removed', triggerMirrorUpdate);
       canvas.on('object:moving', () => {
-        if (updateMirrorPreviewRef.current) updateMirrorPreviewRef.current();
+        scheduleMirrorPreview();
       });
       canvas.on('object:scaling', () => {
-        if (updateMirrorPreviewRef.current) updateMirrorPreviewRef.current();
+        scheduleMirrorPreview();
       });
       canvas.on('object:rotating', () => {
-        if (updateMirrorPreviewRef.current) updateMirrorPreviewRef.current();
+        scheduleMirrorPreview();
       });
 
       setFabricCanvas(canvas);
@@ -408,10 +469,13 @@ const Designer: React.FC = () => {
       }, 100);
 
       return () => {
+        if (previewTimerRef.current) {
+          window.clearTimeout(previewTimerRef.current);
+        }
         canvas.dispose();
       };
     }
-  }, []);
+  }, [scheduleMirrorPreview]);
 
   useEffect(() => {
     updateMirrorPreview();
@@ -496,18 +560,25 @@ const Designer: React.FC = () => {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && fabricCanvas) {
-      const reader = new FileReader();
-      reader.onload = (f) => {
-        fabric.Image.fromURL(f.target?.result as string, (img) => {
+      try {
+        const optimizedImage = await optimizeImageFile(file);
+        fabric.Image.fromURL(optimizedImage, (img) => {
+          if (!img) return;
           img.scaleToWidth(fabricCanvas.width! / 2);
           fabricCanvas.add(img);
           fabricCanvas.setActiveObject(img);
+          fabricCanvas.renderAll();
+          updateMirrorPreview();
         });
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Failed to optimize uploaded image:', err);
+        showAlert('Error', 'Failed to process image.');
+      } finally {
+        e.target.value = '';
+      }
     }
   };
 

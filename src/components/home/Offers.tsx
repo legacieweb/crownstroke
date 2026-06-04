@@ -18,12 +18,12 @@ const Offers: React.FC = () => {
   useEffect(() => {
     const fetchOffers = async () => {
       try {
-        const designs = await db.select().from(designerDesigns);
+        const designs = await db.select().from(designerDesigns) as any[];
         
-        setExclusiveDesigns(designs.filter(d => d.isExclusive === 'true'));
-        setSpringDesign(designs.find(d => d.isSpringCollection === 'true'));
-        setMinimalistDesign(designs.find(d => d.isMinimalist === 'true'));
-        setFlashSaleDesign(designs.find(d => d.isFlashSale === 'true'));
+        setExclusiveDesigns(designs.filter(d => (d.isExclusive || d.is_exclusive) === 'true'));
+        setSpringDesign(designs.find(d => (d.isSpringCollection || d.is_spring_collection) === 'true'));
+        setMinimalistDesign(designs.find(d => (d.isMinimalist || d.is_minimalist) === 'true'));
+        setFlashSaleDesign(designs.find(d => (d.isFlashSale || d.is_flash_sale) === 'true'));
       } catch (err) {
         console.error('Failed to fetch offer designs:', err);
       }
@@ -69,19 +69,19 @@ const Offers: React.FC = () => {
         {/* Dynamic Exclusive Designs Row */}
         {exclusiveDesigns.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-            {exclusiveDesigns.slice(0, 4).map((design, idx) => (
-              <motion.div
-                key={design.id}
-                whileHover={{ y: -10 }}
-                className="bg-white/5 backdrop-blur-md rounded-[2.5rem] border border-white/10 overflow-hidden group"
-              >
+{exclusiveDesigns.slice(0, 4).map((design, idx) => (
+               <motion.div
+                 key={design.id || idx}
+                 whileHover={{ y: -10 }}
+                 className="bg-white/5 backdrop-blur-md rounded-[2.5rem] border border-white/10 overflow-hidden group"
+               >
                 <div className="aspect-[4/5] relative">
                   <img src={design.preview} alt={design.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                   <div className="absolute bottom-6 left-6 right-6">
                     <h4 className="text-xl font-black text-white uppercase italic tracking-tighter mb-1">{design.name}</h4>
                     <div className="flex items-center justify-between">
-                      <span className="text-primary-400 font-black tracking-tighter">KES {design.price.toLocaleString()}</span>
+                      <span className="text-primary-400 font-black tracking-tighter">KES {(design.price ?? 0).toLocaleString()}</span>
                       <Link to={`/shop`}>
                         <button className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white hover:bg-primary-500 transition-colors">
                           <ShoppingBag className="w-5 h-5" />

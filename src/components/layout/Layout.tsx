@@ -1,4 +1,5 @@
 import React, { useState, useEffect, createContext } from 'react';
+import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { db } from '../../db';
@@ -17,6 +18,8 @@ export const BackendStatusContext = React.createContext<{ isOnline: boolean }>({
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [bgVideoUrl, setBgVideoUrl] = useState<string | null>('https://i.imgur.com/d2d8Llz.mp4');
+  const location = useLocation();
+  const isShopRoute = location.pathname === '/shop' || location.pathname.startsWith('/shop/');
 
   useEffect(() => {
     const fetchBgVideo = async () => {
@@ -51,15 +54,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <BackendStatusContext.Provider value={{ isOnline: isBackendOnline }}>
-      <div className="flex flex-col min-h-screen relative overflow-x-hidden">
+      <div className={`flex flex-col min-h-screen relative overflow-x-hidden ${isShopRoute ? 'shop-static-ui' : ''}`}>
       
       {/* News Headline */}
       <div className={`w-full py-2 z-[60] transition-colors duration-500 overflow-hidden ${
         isBackendOnline ? 'bg-primary-600' : 'bg-red-600'
       }`}>
-        <div className="flex whitespace-nowrap animate-marquee">
+        <div className={`flex whitespace-nowrap ${isShopRoute ? 'justify-center' : 'animate-marquee'}`}>
           {[...Array(4)].map((_, i) => (
-            <span key={i} className="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.2em] px-8 italic">
+            <span key={i} className={`text-[10px] md:text-xs font-black text-white uppercase tracking-[0.2em] px-8 italic ${isShopRoute && i > 0 ? 'hidden' : ''}`}>
               {isBackendOnline 
                 ? "⚡ Shop open. Enjoy shopping and designing. ⚡" 
                 : "⚠️ Shop closed ! Shopping closed ! You can design and save to draft and save it until we are open. ⚠️"}
@@ -77,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           playsInline
           className="w-full h-full object-cover"
         >
-          <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />
+          <source src={bgVideoUrl || 'https://i.imgur.com/d2d8Llz.mp4'} type="video/mp4" />
         </video>
         {/* Modern Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-black/90" />

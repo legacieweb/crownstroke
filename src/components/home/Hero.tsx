@@ -23,7 +23,7 @@ const Hero: React.FC = () => {
           .limit(1);
         
         if (results.length > 0) {
-          setEditorsPick(results[0]);
+          setEditorsPick(results[0] as any);
         }
       } catch (error: any) {
         if (error?.message?.includes('fetch') || error?.message?.includes('HTTP2')) {
@@ -159,8 +159,8 @@ const Hero: React.FC = () => {
                 <p className="text-lg font-black text-slate-900 tracking-tight leading-tight">
                   {editorsPick ? editorsPick.name : "Minimalist Essential Tee"}
                 </p>
-                <p className="text-xl font-black text-slate-400 mt-2">
-                  KES {editorsPick ? editorsPick.price.toLocaleString() : "1,500"}
+<p className="text-xl font-black text-slate-400 mt-2">
+                   KES {editorsPick ? (editorsPick.price ?? 0).toLocaleString() : "1,500"}
                 </p>
               </motion.div>
             </div>

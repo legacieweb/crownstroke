@@ -65,6 +65,15 @@ export const emailService = {
     });
   },
 
+  async sendAccountDeleted(email: string, name: string) {
+    await this.sendEmail({
+      to: email,
+      subject: 'Your Crownstroke account has been deleted',
+      template: 'account_deleted',
+      data: { name }
+    });
+  },
+
   async sendOrderConfirmation(order: any) {
     // 1. To Customer
     await this.sendEmail({

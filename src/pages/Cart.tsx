@@ -79,9 +79,9 @@ const Cart: React.FC = () => {
                             </p>
                           )}
                         </div>
-                        <p className="text-xl font-black text-slate-900">
-                          KES {(item.product.price * item.quantity).toLocaleString()}
-                        </p>
+<p className="text-xl font-black text-slate-900">
+                           KES {((item.product?.price ?? 0) * item.quantity).toLocaleString()}
+                         </p>
                       </div>
 
                       <div className="flex items-center justify-between mt-6">

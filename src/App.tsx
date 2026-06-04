@@ -32,10 +32,11 @@ const ScrollToTop: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
 
   React.useEffect(() => {
+    const isShopRoute = location.pathname === '/shop' || location.pathname.startsWith('/shop/');
     window.scrollTo({
       top: 0,
       left: 0,
-      behavior: 'smooth'
+      behavior: isShopRoute ? 'auto' : 'smooth'
     });
   }, [location.pathname]);
 

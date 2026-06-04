@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { users, designers, shops } from '../db/schema';
+import { users, designers, shops, designerDesigns, orders } from '../db/schema';
 import { emailService } from './email';
 import { eq, and, gt } from 'drizzle-orm';
 
@@ -64,29 +64,34 @@ export const authService = {
           userId: userId,
           name,
           email,
-        }).returning({ id: designers.id });
+        }).returning();
         
         if (!designerResults || designerResults.length === 0) {
           throw new Error('Failed to create designer record: No data returned');
         }
 
         const designer = designerResults[0];
-        dbDesignerId = designer.id;
+        // Convert UUID to string format (Buffer/Uint8Array from DB needs conversion)
+        dbDesignerId = typeof designer.id === 'string'
+          ? designer.id
+          : (designer.id && typeof designer.id === 'object'
+              ? ((designer.id as any).data || (designer.id as any)).map((b: number) => b.toString(16).padStart(2, '0')).join('').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5')
+              : String(designer.id));
         console.log('Designer created:', dbDesignerId);
 
         if (shopName) {
           console.log('Creating shop...', { designerId: dbDesignerId, shopName });
           const shopResults = await db.insert(shops).values({
-            designerId: designer.id,
+            designerId: dbDesignerId as string,
             name: shopName,
             slug: shopName.toLowerCase().replace(/\s+/g, '-'),
-          }).returning({ id: shops.id });
+          }).returning();
           
           if (!shopResults || shopResults.length === 0) {
             throw new Error('Failed to create shop record: No data returned');
           }
 
-          dbShopId = shopResults[0].id;
+          dbShopId = shopResults[0].id?.toString() || undefined;
           console.log('Shop created:', dbShopId);
         }
       } catch (err) {
@@ -197,10 +202,14 @@ export const authService = {
       throw new Error('User not found');
     }
 
+    const deletedUserEmail = user.email;
+    const deletedUserName = user.name || 'there';
+
     if (user.role === 'designer') {
       try {
         const designer = await db.select().from(designers).where(eq(designers.userId, userId)).limit(1);
         if (designer.length > 0) {
+          await db.delete(designerDesigns).where(eq(designerDesigns.designerId, designer[0].id));
           await db.delete(shops).where(eq(shops.designerId, designer[0].id));
           await db.delete(designers).where(eq(designers.id, designer[0].id));
         }
@@ -209,6 +218,11 @@ export const authService = {
       }
     }
 
+    await db.delete(orders).where(eq(orders.customerEmail, user.email));
     await db.delete(users).where(eq(users.id, userId));
+
+    emailService.sendAccountDeleted(deletedUserEmail, deletedUserName).catch((err) => {
+      console.error('Failed to send account deletion email:', err);
+    });
   }
 };

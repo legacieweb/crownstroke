@@ -21,23 +21,21 @@ app.use(express.json({ limit: '500mb' }));
 
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174',
   'https://crownstroke.iyonicorp.com',
-  'https://kansas-likely-dozen-beach.trycloudflare.com'
+  'https://example-muscles-spider-peers.trycloudflare.com'
 ];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200,
-}));
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+  next();
+});
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -145,12 +143,24 @@ app.post('/api/db', async (req, res) => {
   const { query, params, isValues } = req.body;
   console.log('DB QUERY:', query.substring(0, 100) + (query.length > 100 ? '...' : ''), params);
   try {
-    const result = await queryClient.unsafe(query, params);
+    const queryResult = queryClient.unsafe(query, params);
+    const result = isValues ? await queryResult.values() : await queryResult;
     console.log('DB RESULT TYPE:', typeof result, 'isArray:', Array.isArray(result));
     
     // postgres@3.x returns results directly as arrays for SELECT queries
-    const responseData = Array.isArray(result) ? result : [];
-    
+    // For INSERT/UPDATE/DELETE with RETURNING, also returns array
+    // Need to handle the case where result might have a 'rows' property
+    let responseData: any[];
+    if (Array.isArray(result)) {
+      responseData = result;
+    } else if (result && typeof result === 'object') {
+      // Handle object response format from postgres driver
+      responseData = (result as any).rows || result || [];
+    } else {
+      responseData = [];
+    }
+
+    console.log('DB RESPONSE DATA:', responseData.length, 'items');
     res.set({
       'Content-Type': 'application/json',
       'Cache-Control': 'no-cache',
@@ -184,6 +194,11 @@ app.post('/api/send-email', async (req, res) => {
               <p>You requested a password reset. Please click the link below to reset your password:</p>
               <a href="${data.resetLink}">${data.resetLink}</a>
               <p>If you didn't request this, you can safely ignore this email.</p>`;
+    } else if (template === 'account_deleted') {
+      html = `<h1>Account Deleted</h1>
+              <p>Hello ${data.name || 'there'},</p>
+              <p>Your Crownstroke account has been permanently deleted.</p>
+              <p>You can create a new account anytime with the same email address.</p>`;
     }
 
     if (!process.env.MAILNOVA_API_KEY) {

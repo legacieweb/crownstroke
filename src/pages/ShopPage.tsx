@@ -70,6 +70,7 @@ const ShopPage: React.FC = () => {
         }
       } catch (err) {
         console.error('Error fetching shop designs:', err);
+        alert(err instanceof Error ? err.message : String(err));
       } finally {
         setIsLoading(false);
       }
@@ -154,10 +155,7 @@ const ShopPage: React.FC = () => {
          {/* Modern Hero */}
          <div className="relative pt-20 sm:pt-32 pb-12 sm:pb-20 flex items-center justify-center overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 relative z-10 text-center">
-               <motion.div
-                 initial={{ opacity: 0, y: 30 }}
-                 animate={{ opacity: 1, y: 0 }}
-                 transition={{ duration: 0.8 }}
+               <div
                  className="flex flex-col items-center"
                >
                   <h1 className="text-4xl sm:text-6xl md:text-9xl font-black text-white uppercase italic tracking-tighter mb-4 leading-none">
@@ -174,7 +172,7 @@ const ShopPage: React.FC = () => {
                         <Share2 className="w-3 h-3 sm:w-4 sm:h-4" /> Share
                      </button>
                   </div>
-               </motion.div>
+               </div>
             </div>
          </div>
 
@@ -244,7 +242,7 @@ const ShopPage: React.FC = () => {
                        animate={{ opacity: 1, scale: 1 }}
                        exit={{ opacity: 0, scale: 0.9 }}
                        transition={{ duration: 0.5, delay: i * 0.05 }}
-                       className="group relative"
+                       className="product-motion group relative"
                      >
                        <div className="relative aspect-[4/5] rounded-[2rem] sm:rounded-[3.5rem] overflow-hidden bg-white/5 border border-white/10 transition-all duration-700 group-hover:border-primary-500/50 group-hover:shadow-[0_40px_80px_rgba(0,0,0,0.5)]">
                           {/* Product Image */}
@@ -268,7 +266,7 @@ const ShopPage: React.FC = () => {
                              </div>
                              
                              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 scale-95 group-hover:scale-100 transition-transform duration-500">
-                                <div className="text-2xl sm:text-3xl font-black text-white italic drop-shadow-lg">KES {design.price.toLocaleString()}</div>
+                                <div className="text-2xl sm:text-3xl font-black text-white italic drop-shadow-lg">KES {(design.price ?? 0).toLocaleString()}</div>
                                 <div className="flex items-center gap-2 w-full sm:w-auto">
                                   <Button 
                                     variant={isOnline ? "premium" : "outline"}

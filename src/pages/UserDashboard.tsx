@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../store/AuthContext';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { User, Package, Settings, Heart, LogOut, ShoppingBag, Trash2, MapPin, CreditCard, ChevronRight, AlertTriangle } from 'lucide-react';
 import Button from '../components/ui/Button';
@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const UserDashboard: React.FC = () => {
   const { user, logout, deleteAccount, updateProfile } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'settings'>('orders');
   const [userOrders, setUserOrders] = useState<any[]>([]);
   const [wishlistItems, setWishlistItems] = useState<any[]>([]);
@@ -31,9 +32,7 @@ const UserDashboard: React.FC = () => {
           .orderBy(desc(orders.createdAt));
         setUserOrders(orderResults);
 
-        // Load wishlist from localStorage
-        const savedWishlist = JSON.parse(localStorage.getItem(`wishlist_${user.id}`) || '[]');
-        setWishlistItems(savedWishlist);
+        loadWishlist();
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
       } finally {
@@ -41,6 +40,23 @@ const UserDashboard: React.FC = () => {
       }
     };
     fetchData();
+  }, [user]);
+
+  const loadWishlist = () => {
+    if (!user) return;
+    const savedWishlist = JSON.parse(localStorage.getItem(`wishlist_${user.id}`) || '[]');
+    setWishlistItems(savedWishlist);
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    const refreshWishlist = () => loadWishlist();
+    window.addEventListener('focus', refreshWishlist);
+    window.addEventListener('storage', refreshWishlist);
+    return () => {
+      window.removeEventListener('focus', refreshWishlist);
+      window.removeEventListener('storage', refreshWishlist);
+    };
   }, [user]);
 
   if (!user) return <Navigate to="/login" />;
@@ -68,7 +84,7 @@ const UserDashboard: React.FC = () => {
     setIsDeleting(true);
     try {
       await deleteAccount();
-      // AuthContext will handle navigation via state change
+      navigate('/', { replace: true });
     } catch (err) {
       alert('Failed to delete account. Please try again.');
     } finally {
@@ -190,7 +206,7 @@ const UserDashboard: React.FC = () => {
                                 </div>
                               </div>
                               <div className="flex flex-col justify-center md:items-end gap-4">
-                                <div className="text-2xl font-black text-slate-900">KES {order.totalAmount.toLocaleString()}</div>
+                                <div className="text-2xl font-black text-slate-900">KES {(order.totalAmount ?? 0).toLocaleString()}</div>
                                 <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-[10px] font-black uppercase">View Details</Button>
                               </div>
                             </div>
@@ -240,7 +256,7 @@ const UserDashboard: React.FC = () => {
                             <div className="p-6">
                               <h4 className="font-black text-slate-900 uppercase italic truncate mb-2">{item.name}</h4>
                               <div className="flex justify-between items-center">
-                                <span className="font-black text-primary-600">KES {item.price.toLocaleString()}</span>
+                                <span className="font-black text-primary-600">KES {item.price?.toLocaleString() ?? '0'}</span>
                                 <Link to={`/designer?product=${item.category}&id=${item.id}`}>
                                   <Button variant="outline" size="sm" className="rounded-lg text-[8px] px-3">Customize</Button>
                                 </Link>

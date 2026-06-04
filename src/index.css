@@ -121,6 +121,11 @@
   animation: float 8s ease-in-out infinite;
 }
 
+.shop-static-ui :not(.product-motion):not(.product-motion *) {
+  animation: none !important;
+  transition-duration: 0s !important;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
 }

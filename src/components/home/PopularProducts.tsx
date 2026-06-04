@@ -82,7 +82,7 @@ const PopularProducts: React.FC = () => {
           setProducts(featured.map(f => ({
             id: f.id,
             name: f.name,
-            price: f.price,
+            price: f.price ?? 0,
             image: f.preview,
             category: f.productId,
             rating: 5.0,
@@ -200,15 +200,15 @@ const PopularProducts: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           {products.map((product, idx) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1, duration: 0.7 }}
-              className="group cursor-pointer"
-              onClick={() => navigate(`/designer?product=${product.category.toLowerCase()}`)}
-            >
+<motion.div
+               key={product.id || idx}
+               initial={{ opacity: 0, y: 40 }}
+               whileInView={{ opacity: 1, y: 0 }}
+               viewport={{ once: true }}
+               transition={{ delay: idx * 0.1, duration: 0.7 }}
+               className="group cursor-pointer"
+               onClick={() => navigate(`/designer?product=${product.category?.toLowerCase()}`)}
+             >
               <div className="relative aspect-[4/3] sm:aspect-[4/5] lg:aspect-[3/4] overflow-hidden bg-gradient-to-br from-[#0c0c0c] to-[#050505] rounded-[2.5rem] border border-white/5 transition-all duration-700 group-hover:border-primary-500/40 group-hover:shadow-[0_30px_80px_rgba(var(--primary-rgb),0.25)]">
                 <img
                   src={product.image}
@@ -268,7 +268,7 @@ const PopularProducts: React.FC = () => {
                 <h3 className="text-xl font-black text-white tracking-tighter leading-tight group-hover:text-primary-500 transition-colors uppercase italic">
                   {product.name}
                 </h3>
-                <p className="text-2xl font-black text-gray-400 tracking-tighter italic">KES {product.price.toLocaleString()}</p>
+                <p className="text-2xl font-black text-gray-400 tracking-tighter italic">KES {(product.price ?? 0).toLocaleString()}</p>
               </div>
             </motion.div>
           ))}
