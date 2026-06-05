@@ -129,7 +129,18 @@ const optimizeImageFile = (file: File, maxSize = 1400, quality = 0.84): Promise<
   });
 };
 
+import { useSeo } from '../hooks/useSeo';
+import { CROWNSTROKE_BASE } from './SeoDefaults';
+
 const Designer: React.FC = () => {
+  useSeo({
+    title: 'Design Studio | Crownstroke',
+    description:
+      'Create premium designs in the Crownstroke studio. Customize products, preview in real time, deploy to your shop, and shop designer drops.',
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/designer`,
+    ogImage: CROWNSTROKE_BASE.ogImage,
+    robots: 'index,follow'
+  });
   const { addToCart } = useCart();
   const { user } = useAuth();
   const { isOnline } = React.useContext(BackendStatusContext);

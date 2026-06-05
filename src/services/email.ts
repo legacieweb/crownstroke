@@ -8,7 +8,7 @@ export interface EmailConfig {
 
 export const emailService = {
   async sendEmail(config: EmailConfig) {
-    console.log(`[Email Service] Sending email to ${config.to} with subject: ${config.subject}`);
+    console.log(`Email service sending email to ${config.to} with subject: ${config.subject}`);
     // In a real app, this would call your backend or an email service API like Resend, SendGrid, or EmailJS
     // For now, we simulate the network request
     try {
@@ -47,10 +47,10 @@ export const emailService = {
     });
 
     // To Admin
-    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com';
+    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'crownstroke@gmail.com';
     await this.sendEmail({
       to: adminEmail,
-      subject: 'New User Signup',
+      subject: 'New Crownstroke signup',
       template: 'admin_notification',
       data: { userEmail, userName, role }
     });
@@ -59,7 +59,7 @@ export const emailService = {
   async sendPasswordReset(email: string, name: string, resetLink: string) {
     await this.sendEmail({
       to: email,
-      subject: 'Password Reset Request',
+      subject: 'Reset your Crownstroke password',
       template: 'password_reset',
       data: { name, resetLink }
     });
@@ -78,7 +78,7 @@ export const emailService = {
     // 1. To Customer
     await this.sendEmail({
       to: order.customerEmail,
-      subject: `Order Confirmation #${order.id.slice(0, 8)}`,
+      subject: `Your Crownstroke order ${order.id.slice(0, 8).toUpperCase()}`,
       template: 'order_confirmation',
       data: order
     });
@@ -87,7 +87,7 @@ export const emailService = {
     const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com';
     await this.sendEmail({
       to: adminEmail,
-      subject: `New Order Received #${order.id.slice(0, 8)}`,
+      subject: `New Crownstroke order ${order.id.slice(0, 8).toUpperCase()}`,
       template: 'admin_order_notification',
       data: order
     });
@@ -107,7 +107,7 @@ export const emailService = {
     for (const email of designerEmails) {
       await this.sendEmail({
         to: email,
-        subject: `New Sale Notification! Order #${order.id.slice(0, 8)}`,
+        subject: `New Crownstroke sale ${order.id.slice(0, 8).toUpperCase()}`,
         template: 'designer_order_notification',
         data: {
           orderId: order.id,

@@ -28,7 +28,7 @@ const DesignerPreview: React.FC = () => {
               ].map((item, idx) => (
                 <div key={idx} className="flex gap-6 items-start">
                   <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/20">
-                    <item.icon className="w-6 h-6 text-white" />
+                    {React.createElement(item.icon, { className: 'w-6 h-6 text-white' })}
                   </div>
                   <div>
                     <h4 className="text-lg font-black text-white uppercase tracking-tight">{item.title}</h4>
@@ -48,8 +48,12 @@ const DesignerPreview: React.FC = () => {
           <div className="relative">
             <div className="bg-white/5 backdrop-blur-md p-12 rounded-[4rem] border border-white/10 relative">
               <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden aspect-square flex items-center justify-center p-10 border border-white">
-                <img src={SEED_DATA['t-shirt']['#ffffff'].front} alt="Tool Mockup" className="w-full h-full object-contain" />
-                
+                <img
+                  src={SEED_DATA?.['t-shirt']?.['#ffffff']?.front ?? ''}
+                  alt="Tool Mockup"
+                  className="w-full h-full object-contain"
+                />
+
                 {/* Visual UI Bits */}
                 <motion.div 
                   animate={{ x: [0, 20, 0] }}

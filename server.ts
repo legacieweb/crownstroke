@@ -41,6 +41,251 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+type EmailTemplate =
+  | 'welcome'
+  | 'admin_notification'
+  | 'order_confirmation'
+  | 'admin_order_notification'
+  | 'designer_order_notification'
+  | 'password_reset'
+  | 'account_deleted';
+
+type EmailContent = {
+  eyebrow: string;
+  title: string;
+  intro: string;
+  cta?: { label: string; href: string };
+  details?: Array<{ label: string; value: string }>;
+  items?: Array<{ name: string; meta?: string; amount?: string }>;
+  note?: string;
+};
+
+const escapeHtml = (value: unknown) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const formatCurrency = (value: unknown) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return '';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+  }).format(amount);
+};
+
+const shortId = (id: unknown) => String(id ?? '').slice(0, 8).toUpperCase();
+
+const cleanRole = (role: unknown) => {
+  const value = String(role ?? 'member').trim();
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Member';
+};
+
+const cleanItemName = (item: any) =>
+  item?.name || item?.productName || item?.title || item?.productId || 'Custom piece';
+
+const renderEmail = ({ eyebrow, title, intro, cta, details = [], items = [], note }: EmailContent) => {
+  const detailRows = details
+    .filter((detail) => detail.value)
+    .map(
+      (detail) => `
+        <tr>
+          <td style="padding: 14px 0; border-bottom: 1px solid #e5e7eb; color: #64748b; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;">${escapeHtml(detail.label)}</td>
+          <td align="right" style="padding: 14px 0; border-bottom: 1px solid #e5e7eb; color: #0f172a; font-size: 14px; font-weight: 800;">${escapeHtml(detail.value)}</td>
+        </tr>`
+    )
+    .join('');
+
+  const itemRows = items
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding: 16px 0; border-bottom: 1px solid #e5e7eb;">
+            <div style="color: #0f172a; font-size: 15px; font-weight: 800;">${escapeHtml(item.name)}</div>
+            ${item.meta ? `<div style="margin-top: 4px; color: #64748b; font-size: 13px; line-height: 1.5;">${escapeHtml(item.meta)}</div>` : ''}
+          </td>
+          ${item.amount ? `<td align="right" style="padding: 16px 0; border-bottom: 1px solid #e5e7eb; color: #0f172a; font-size: 14px; font-weight: 800;">${escapeHtml(item.amount)}</td>` : ''}
+        </tr>`
+    )
+    .join('');
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(title)}</title>
+  </head>
+  <body style="margin: 0; padding: 0; background: #f4f7fb; font-family: Arial, Helvetica, sans-serif; color: #0f172a;">
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">${escapeHtml(intro)}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #f4f7fb; padding: 32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px; overflow: hidden; border-radius: 28px; background: #ffffff; box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);">
+            <tr>
+              <td style="padding: 34px 34px 28px; background: linear-gradient(135deg, #101827 0%, #312e81 56%, #0f766e 100%);">
+                <div style="color: #ffffff; font-size: 22px; font-weight: 900; letter-spacing: .02em;">Crownstroke</div>
+                <div style="margin-top: 34px; color: #a7f3d0; font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;">${escapeHtml(eyebrow)}</div>
+                <h1 style="margin: 12px 0 0; color: #ffffff; font-size: 34px; line-height: 1.08; letter-spacing: 0; font-weight: 900;">${escapeHtml(title)}</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 34px;">
+                <p style="margin: 0; color: #334155; font-size: 16px; line-height: 1.75;">${escapeHtml(intro)}</p>
+                ${cta ? `
+                  <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 28px 0 6px;">
+                    <tr>
+                      <td style="border-radius: 14px; background: #111827;">
+                        <a href="${escapeHtml(cta.href)}" style="display: inline-block; padding: 15px 22px; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 800;">${escapeHtml(cta.label)}</a>
+                      </td>
+                    </tr>
+                  </table>` : ''}
+                ${detailRows ? `
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top: 30px; border-collapse: collapse;">
+                    ${detailRows}
+                  </table>` : ''}
+                ${itemRows ? `
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top: 28px; border-collapse: collapse;">
+                    <tr>
+                      <td colspan="2" style="padding-bottom: 8px; color: #64748b; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;">Items</td>
+                    </tr>
+                    ${itemRows}
+                  </table>` : ''}
+                ${note ? `<p style="margin: 28px 0 0; padding: 18px 20px; border-radius: 18px; background: #f8fafc; color: #475569; font-size: 14px; line-height: 1.7;">${escapeHtml(note)}</p>` : ''}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 24px 34px 34px; background: #f8fafc; color: #64748b; font-size: 12px; line-height: 1.7;">
+                You are receiving this message because of recent activity on Crownstroke.
+                <br>Crownstroke Studio
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+};
+
+const renderTextEmail = ({ eyebrow, title, intro, cta, details = [], items = [], note }: EmailContent) => {
+  const lines = ['Crownstroke', eyebrow, '', title, '', intro];
+  if (cta) lines.push('', `${cta.label}: ${cta.href}`);
+  if (details.length) {
+    lines.push('', 'Details');
+    details.filter((detail) => detail.value).forEach((detail) => lines.push(`${detail.label}: ${detail.value}`));
+  }
+  if (items.length) {
+    lines.push('', 'Items');
+    items.forEach((item) => lines.push([item.name, item.meta, item.amount].filter(Boolean).join(' - ')));
+  }
+  if (note) lines.push('', note);
+  lines.push('', 'Crownstroke Studio');
+  return lines.join('\n');
+};
+
+const buildEmailContent = (template: EmailTemplate, subject: string, data: any): EmailContent => {
+  const orderItems = Array.isArray(data?.items) ? data.items : [];
+
+  switch (template) {
+    case 'welcome':
+      return {
+        eyebrow: 'Welcome',
+        title: `Welcome to Crownstroke, ${data?.name || 'there'}`,
+        intro: `Your ${cleanRole(data?.role).toLowerCase()} account is ready. Explore custom pieces, build your style, and keep everything managed from your dashboard.`,
+        cta: { label: 'Open Crownstroke', href: process.env.SITE_URL || 'https://crownstroke.iyonicorp.com' },
+        details: [{ label: 'Account type', value: cleanRole(data?.role) }],
+        note: 'We are glad to have you here. Your next idea has a proper home now.',
+      };
+    case 'admin_notification':
+      return {
+        eyebrow: 'New signup',
+        title: 'A new member joined',
+        intro: `${data?.userName || 'A new user'} just created a Crownstroke account.`,
+        details: [
+          { label: 'Name', value: data?.userName || 'Not provided' },
+          { label: 'Email', value: data?.userEmail || 'Not provided' },
+          { label: 'Role', value: cleanRole(data?.role) },
+        ],
+      };
+    case 'order_confirmation':
+      return {
+        eyebrow: 'Order confirmed',
+        title: 'Your order is in motion',
+        intro: `Thanks for your order${data?.customerName ? `, ${data.customerName}` : ''}. We have received it and will keep you posted as it moves forward.`,
+        details: [
+          { label: 'Order', value: shortId(data?.id) },
+          { label: 'Payment', value: data?.paymentStatus || data?.payment_status || 'Pending' },
+          { label: 'Total', value: formatCurrency(data?.totalAmount ?? data?.total_amount) },
+          { label: 'Deposit', value: formatCurrency(data?.depositAmount ?? data?.deposit_amount) },
+          { label: 'Balance', value: formatCurrency(data?.balanceAmount ?? data?.balance_amount) },
+        ],
+        items: orderItems.map((item: any) => ({
+          name: cleanItemName(item),
+          meta: [item?.size, item?.color, item?.quantity ? `Qty ${item.quantity}` : ''].filter(Boolean).join(' / '),
+          amount: formatCurrency(item?.price ?? item?.total),
+        })),
+        note: 'We will send another update when your order status changes.',
+      };
+    case 'admin_order_notification':
+      return {
+        eyebrow: 'New order',
+        title: 'A customer placed an order',
+        intro: 'A new order is ready for review in the Crownstroke dashboard.',
+        details: [
+          { label: 'Order', value: shortId(data?.id) },
+          { label: 'Customer', value: data?.customerName || data?.customer_name || 'Not provided' },
+          { label: 'Email', value: data?.customerEmail || data?.customer_email || 'Not provided' },
+          { label: 'Total', value: formatCurrency(data?.totalAmount ?? data?.total_amount) },
+          { label: 'Payment type', value: data?.paymentType || data?.payment_type || 'Not provided' },
+        ],
+        items: orderItems.map((item: any) => ({
+          name: cleanItemName(item),
+          meta: [item?.size, item?.color, item?.designerEmail].filter(Boolean).join(' / '),
+          amount: formatCurrency(item?.price ?? item?.total),
+        })),
+      };
+    case 'designer_order_notification':
+      return {
+        eyebrow: 'New sale',
+        title: 'Your design just sold',
+        intro: 'A customer purchased an item connected to your Crownstroke shop. Here are the pieces from this order.',
+        details: [{ label: 'Order', value: shortId(data?.orderId) }],
+        items: orderItems.map((item: any) => ({
+          name: cleanItemName(item),
+          meta: [item?.size, item?.color, item?.quantity ? `Qty ${item.quantity}` : ''].filter(Boolean).join(' / '),
+          amount: formatCurrency(item?.price ?? item?.total),
+        })),
+        note: 'Keep an eye on your designer dashboard for fulfillment and payout updates.',
+      };
+    case 'password_reset':
+      return {
+        eyebrow: 'Security',
+        title: 'Reset your password',
+        intro: `Hi ${data?.name || 'there'}, use the secure link below to choose a new password for your Crownstroke account.`,
+        cta: { label: 'Reset password', href: data?.resetLink || '#' },
+        note: 'If you did not request this reset, you can ignore this message and your password will stay the same.',
+      };
+    case 'account_deleted':
+      return {
+        eyebrow: 'Account update',
+        title: 'Your account has been deleted',
+        intro: `Hi ${data?.name || 'there'}, your Crownstroke account has been permanently deleted as requested.`,
+        note: 'You can create a new account anytime with the same email address.',
+      };
+    default:
+      return {
+        eyebrow: 'Update',
+        title: subject,
+        intro: 'There is a new update from Crownstroke.',
+      };
+  }
+};
+
 // Run migration for hero_image column
 (async () => {
   try {
@@ -176,30 +421,9 @@ app.post('/api/send-email', async (req, res) => {
   const { to, subject, template, data } = req.body;
 
   try {
-    // Basic email content generation based on template
-    let html = `<h1>${subject}</h1>`;
-    if (template === 'welcome') {
-      html = `<h1>Welcome to Crownstroke, ${data.name}!</h1><p>We're glad to have you as a ${data.role}.</p>`;
-    } else if (template === 'admin_notification') {
-      html = `<h1>New User Signup</h1><p>User: ${data.userName} (${data.userEmail}) joined as ${data.role}.</p>`;
-    } else if (template === 'order_confirmation') {
-      html = `<h1>Order Confirmation</h1><p>Thank you for your order #${data.id}!</p>`;
-    } else if (template === 'admin_order_notification') {
-      html = `<h1>New Order Received</h1><p>Order #${data.id} was placed by ${data.customerEmail}.</p>`;
-    } else if (template === 'designer_order_notification') {
-      html = `<h1>New Sale!</h1><p>You have new sales in order #${data.orderId}.</p>`;
-    } else if (template === 'password_reset') {
-      html = `<h1>Password Reset Request</h1>
-              <p>Hello ${data.name},</p>
-              <p>You requested a password reset. Please click the link below to reset your password:</p>
-              <a href="${data.resetLink}">${data.resetLink}</a>
-              <p>If you didn't request this, you can safely ignore this email.</p>`;
-    } else if (template === 'account_deleted') {
-      html = `<h1>Account Deleted</h1>
-              <p>Hello ${data.name || 'there'},</p>
-              <p>Your Crownstroke account has been permanently deleted.</p>
-              <p>You can create a new account anytime with the same email address.</p>`;
-    }
+    const emailContent = buildEmailContent(template as EmailTemplate, subject, data);
+    const html = renderEmail(emailContent);
+    const text = renderTextEmail(emailContent);
 
     if (!process.env.MAILNOVA_API_KEY) {
       console.error('MAILNOVA_API_KEY environment variable is missing');
@@ -218,7 +442,8 @@ app.post('/api/send-email', async (req, res) => {
       body: JSON.stringify({
         to,
         subject,
-        text: html // Sending the generated content as text as per documentation structure
+        html,
+        text,
       })
     });
 

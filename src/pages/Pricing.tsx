@@ -1,7 +1,18 @@
 import React from 'react';
 import Layout from '../components/layout/Layout';
+import { useSeo } from '../hooks/useSeo';
+import { CROWNSTROKE_BASE } from './SeoDefaults';
 
 const Pricing: React.FC = () => {
+  useSeo({
+    title: 'Pricing & Fees | Crownstroke',
+    description:
+      'Transparent pricing for custom designs, ready-made drops, and customization services on Crownstroke.',
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/pricing`,
+    ogImage: CROWNSTROKE_BASE.ogImage,
+    robots: 'index,follow'
+  });
+
   return (
     <Layout>
       <div className="bg-slate-50 min-h-screen py-12">

@@ -90,9 +90,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <main className="flex-grow relative z-10 w-full">
         {children}
       </main>
-      <div className="relative z-10 bg-black/40 backdrop-blur-xl border-t border-white/10">
-        <Footer />
-      </div>
+      {!isShopRoute && (
+        <div className="relative z-10 bg-black/40 backdrop-blur-xl border-t border-white/10">
+          <Footer />
+        </div>
+      )}
     </div>
     </BackendStatusContext.Provider>
   );

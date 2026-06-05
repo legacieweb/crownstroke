@@ -10,7 +10,18 @@ import CTA from '../components/home/CTA';
 
 import PowerfulSimplicity from '../components/home/PowerfulSimplicity';
 
+import { useSeo } from '../hooks/useSeo';
+import { CROWNSTROKE_BASE } from './SeoDefaults';
+
 const Home: React.FC = () => {
+  useSeo({
+    title: CROWNSTROKE_BASE.title,
+    description: CROWNSTROKE_BASE.description,
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/`,
+    ogImage: CROWNSTROKE_BASE.ogImage,
+    robots: 'index,follow'
+  });
+
   return (
     <Layout>
       <Hero />
@@ -26,3 +37,4 @@ const Home: React.FC = () => {
 };
 
 export default Home;
+
