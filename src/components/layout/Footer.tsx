@@ -40,6 +40,12 @@ const Footer: React.FC = () => {
 
   return (
     <footer className="relative pt-24 pb-12 overflow-hidden bg-transparent">
+      <div className="absolute inset-0 z-[-1]">
+        <video autoPlay loop muted playsInline className="w-full h-full object-cover" aria-hidden="true">
+          <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-black/90" />
+      </div>
       {/* Glassmorphism Top Border */}
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       

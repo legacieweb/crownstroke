@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../store/AuthContext';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import VideoBackground from '../components/layout/VideoBackground';
 import { User, Package, Settings, Heart, LogOut, ShoppingBag, Trash2, MapPin, CreditCard, ChevronRight, AlertTriangle } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { db } from '../db';
@@ -94,7 +95,12 @@ const UserDashboard: React.FC = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-slate-50 py-12 md:py-20">
+        <div className="min-h-screen relative py-12 md:py-20">
+          <VideoBackground
+            videoUrl="https://i.imgur.com/d2d8Llz.mp4"
+            className="fixed inset-0 z-[-1]"
+            overlayClassName="bg-gradient-to-b from-black/90 via-black/40 to-black/90"
+          />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
             {/* Sidebar */}

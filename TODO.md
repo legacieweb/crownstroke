@@ -1,9 +1,9 @@
-# SEO optimization TODO (crownstroke.iyonicorp.com)
+# TODO
+- [ ] Create reusable VideoBackground component (video + overlay + z-index safety)
+- [x] Update UserDashboard to use the shared VideoBackground
+- [x] Update Footer so it renders with video background behind it
+- [x] Ensure Layout doesn’t already wrap Footer in a conflicting background; adjust if needed
+- [x] Run TypeScript build and verify pages compile
 
-- [ ] Step 1: Update root `index.html` with meta baseline (description, robots, canonical, theme-color, OpenGraph/Twitter defaults, JSON-LD).
-- [ ] Step 2: Add `src/hooks/useSeo.ts` to set `document.title` + meta description + OpenGraph/Twitter tags + canonical + JSON-LD (optional).
-- [ ] Step 3: Wire `useSeo` into `Home`, `Shop`, `Designer`, `Pricing` pages with page-specific title/description/url.
-- [ ] Step 4: Verify build output + ensure tags update on route changes under HashRouter.
 
-- [ ] Step 5: (Optional next) Add sitemap/robots if `public/` exists (or add it if missing) for static routes.
 

@@ -23,7 +23,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'https://crownstroke.iyonicorp.com',
-  'https://example-muscles-spider-peers.trycloudflare.com'
+  'https://click-chair-fossil-topic.trycloudflare.com'
 ];
 
 app.use((req, res, next) => {
