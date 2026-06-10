@@ -21,7 +21,6 @@ app.use(express.json({ limit: '500mb' }));
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:5174',
   'https://crownstroke.iyonicorp.com',
   'https://click-chair-fossil-topic.trycloudflare.com'
 ];
