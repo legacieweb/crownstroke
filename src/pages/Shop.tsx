@@ -100,13 +100,16 @@ const Shop: React.FC = () => {
             category: category as any,
             isCustomizable: true,
             colors: Object.keys(colors),
-            sizes: ['t-shirt', 'hoodie', 'long-sleeve-tee', 'tank-top'].includes(category) ? ['S', 'M', 'L', 'XL', 'XXL'] : undefined
+            sizes: ['t-shirt', 'hoodie', 'long-sleeve-tee', 'tank-top'].includes(category) ? ['S', 'M', 'L', 'XL', 'XXL'] : undefined,
+            images: {
+              front: firstImageData.front,
+              back: firstImageData.back
+            }
           };
         });
 
         const readyMade: Product[] = READY_MADE_PRODUCTS.map((p) => ({
           ...p,
-          description: 'Exclusive ready-made design from Crownstroke collection.',
           isCustomizable: false
         })) as Product[];
 

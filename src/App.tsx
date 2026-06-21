@@ -25,6 +25,7 @@ import HelpCenter from './pages/HelpCenter';
 import API from './pages/API';
 import DesignerDashboard from './pages/DesignerDashboard';
 import ShopPage from './pages/ShopPage';
+import ProductDetail from './pages/ProductDetail';
 import { CartProvider } from './store/CartContext';
 import { AuthProvider } from './store/AuthContext';
 
@@ -32,7 +33,7 @@ const ScrollToTop: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
 
   React.useEffect(() => {
-    const isShopRoute = location.pathname === '/shop' || location.pathname.startsWith('/shop/');
+    const isShopRoute = location.pathname === '/shop' || location.pathname.startsWith('/shop/') || location.pathname.startsWith('/product/');
     window.scrollTo({
       top: 0,
       left: 0,
@@ -51,8 +52,9 @@ const App: React.FC = () => {
           <ScrollToTop>
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/designer" element={<Designer />} />
+<Route path="/shop" element={<Shop />} />
+               <Route path="/product/:productId" element={<ProductDetail />} />
+               <Route path="/designer" element={<Designer />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/login" element={<Login />} />

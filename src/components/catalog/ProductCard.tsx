@@ -65,7 +65,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
         className="product-motion grid gap-4 rounded-lg border border-white/25 bg-white/15 p-4 shadow-xl shadow-black/10 backdrop-blur-md md:grid-cols-[180px_1fr_auto]"
       >
         <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-white/15">
-          <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          <Link to={`/product/${product.id}`} className="block cursor-pointer">
+            <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          </Link>
           <button
             onClick={toggleWishlist}
             className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/90 shadow transition hover:text-red-500 ${
@@ -77,8 +79,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
           </button>
         </div>
         <div className="min-w-0">
-          <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-primary-200">{product.category.replace(/-/g, ' ')}</p>
-          <h3 className="text-2xl font-black text-white drop-shadow">{product.name}</h3>
+          <Link to={`/product/${product.id}`} className="block cursor-pointer">
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-primary-200">{product.category.replace(/-/g, ' ')}</p>
+            <h3 className="text-2xl font-black text-white drop-shadow">{product.name}</h3>
+          </Link>
           <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/72">{product.description}</p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {product.isCustomizable && (
@@ -110,38 +114,42 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="product-motion group">
       <div className="overflow-hidden rounded-lg border border-white/25 bg-white/15 shadow-xl shadow-black/10 backdrop-blur-md transition hover:border-primary-200/60 hover:bg-white/20">
-        <div className="relative aspect-[4/5] overflow-hidden bg-white/15">
-          <img
-            src={product.image}
-            alt={product.name}
-            className="h-full w-full object-cover opacity-95 transition duration-500 group-hover:scale-105"
-          />
+        <Link to={`/product/${product.id}`} className="block cursor-pointer">
+          <div className="relative aspect-[4/5] overflow-hidden bg-white/15">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-full w-full object-cover opacity-95 transition duration-500 group-hover:scale-105"
+            />
 
-          <div className="absolute left-3 top-3 flex flex-col gap-2">
-            {product.isCustomizable && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-950 shadow">
-                <Palette className="h-3 w-3" />
-                Custom
-              </span>
-            )}
+            <div className="absolute left-3 top-3 flex flex-col gap-2">
+              {product.isCustomizable && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-950 shadow">
+                  <Palette className="h-3 w-3" />
+                  Custom
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={(e) => { e.preventDefault(); toggleWishlist(); }}
+              className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/90 shadow transition hover:text-red-500 sm:h-10 sm:w-10 ${
+                isWishlisted ? 'text-red-500' : 'text-zinc-500'
+              }`}
+              aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+            >
+              <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-red-500' : ''}`} />
+            </button>
           </div>
-
-          <button
-            onClick={toggleWishlist}
-            className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/90 shadow transition hover:text-red-500 sm:h-10 sm:w-10 ${
-              isWishlisted ? 'text-red-500' : 'text-zinc-500'
-            }`}
-            aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-          >
-            <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-red-500' : ''}`} />
-          </button>
-        </div>
+        </Link>
 
         <div className="space-y-3 p-3 sm:space-y-4 sm:p-4">
-          <div>
-            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary-200 sm:mb-2 sm:text-xs sm:tracking-[0.2em]">{product.category.replace(/-/g, ' ')}</p>
-            <h3 className="min-h-[2.8rem] text-sm font-black leading-5 text-white drop-shadow sm:min-h-[3.5rem] sm:text-xl sm:leading-7">{product.name}</h3>
-          </div>
+          <Link to={`/product/${product.id}`} className="block cursor-pointer">
+            <div>
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary-200 sm:mb-2 sm:text-xs sm:tracking-[0.2em]">{product.category.replace(/-/g, ' ')}</p>
+              <h3 className="min-h-[2.8rem] text-sm font-black leading-5 text-white drop-shadow sm:min-h-[3.5rem] sm:text-xl sm:leading-7">{product.name}</h3>
+            </div>
+          </Link>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="flex items-center gap-0.5 sm:gap-1">

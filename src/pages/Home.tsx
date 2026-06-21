@@ -5,10 +5,7 @@ import Features from '../components/home/Features';
 import PopularProducts from '../components/home/PopularProducts';
 import Offers from '../components/home/Offers';
 import ArtCollections from '../components/home/ArtCollections';
-import DesignerPreview from '../components/home/DesignerPreview';
 import CTA from '../components/home/CTA';
-
-import PowerfulSimplicity from '../components/home/PowerfulSimplicity';
 
 import { useSeo } from '../hooks/useSeo';
 import { CROWNSTROKE_BASE } from './SeoDefaults';
@@ -29,8 +26,6 @@ const Home: React.FC = () => {
       <PopularProducts />
       <Offers />
       <Features />
-      <PowerfulSimplicity />
-      <DesignerPreview />
       <CTA />
     </Layout>
   );

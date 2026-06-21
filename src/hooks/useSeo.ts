@@ -3,9 +3,11 @@ import { useEffect } from 'react';
 type SeoParams = {
   title: string;
   description?: string;
+  keywords?: string;
   canonicalUrl?: string;
   ogImage?: string;
   robots?: string;
+  locale?: string;
 };
 
 const ensureMetaTag = (selector: string, create: () => HTMLElement) => {
@@ -38,7 +40,7 @@ const upsertLink = (selector: string, create: () => HTMLLinkElement) => {
   return created;
 };
 
-export const useSeo = ({ title, description, canonicalUrl, ogImage, robots }: SeoParams) => {
+export const useSeo = ({ title, description, keywords, canonicalUrl, ogImage, robots }: SeoParams) => {
   useEffect(() => {
     const baseTitle = title?.trim() ? title.trim() : 'Crownstroke';
     document.title = baseTitle;
@@ -47,7 +49,12 @@ export const useSeo = ({ title, description, canonicalUrl, ogImage, robots }: Se
       description?.trim() ||
       'Crownstroke — Elite custom design tools and a marketplace of designer drops. Create, deploy, and shop premium artifacts.';
 
+    const defaultKeywords =
+      keywords?.trim() ||
+      'custom design, design tools, marketplace, Crownstroke';
+
     upsertMeta({ type: 'name', value: 'description' }, defaultDescription);
+    upsertMeta({ type: 'name', value: 'keywords' }, defaultKeywords);
 
     // Robots
     if (robots) {

@@ -4,10 +4,16 @@ export interface Product {
   description: string;
   price: number;
   image: string;
-  category: 't-shirt' | 'hoodie' | 'mug' | 'long-sleeve-tee' | 'tank-top' | 'poster';
+  category: 't-shirt' | 'hoodie' | 'mug' | 'long-sleeve-tee' | 'tank-top' | 'poster' | 'art-design';
   isCustomizable: boolean;
   colors?: string[];
   sizes?: string[];
+  images?: {
+    front?: string;
+    back?: string;
+  };
+  designerId?: string;
+  designerEmail?: string;
 }
 
 export interface DesignElement {
