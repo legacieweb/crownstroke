@@ -28,11 +28,11 @@ const Contact: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-white">Phone</h3>
-                    <p>+1 (555) 123-4567</p>
+                    <p>+254 11320-3900</p>
                   </div>
                   <div>
-                    <h3 className="font-bold text-white">Address</h3>
-                    <p>123 Design Street, Creative City, CA 90210</p>
+                    <h3 className="font-bold text-white">Location</h3>
+                    <p>Nairobi, Kenya</p>
                   </div>
                 </div>
               </section>

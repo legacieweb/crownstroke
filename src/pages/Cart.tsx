@@ -1,5 +1,6 @@
 import React from 'react';
 import Layout from '../components/layout/Layout';
+import VideoBackground from '../components/layout/VideoBackground';
 import { useCart } from '../store/CartContext';
 import { Trash2, Plus, Minus, ArrowRight, ShoppingBag } from 'lucide-react';
 import Button from '../components/ui/Button';
@@ -12,12 +13,13 @@ const Cart: React.FC = () => {
   if (items.length === 0) {
     return (
       <Layout>
-        <div className="min-h-[70vh] flex flex-col items-center justify-center px-4">
-          <div className="w-32 h-32 bg-slate-100 rounded-[2.5rem] flex items-center justify-center mb-8">
-            <ShoppingBag className="w-12 h-12 text-slate-300" />
+        <VideoBackground videoUrl="https://i.imgur.com/d2d8Llz.mp4" />
+        <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 relative z-10">
+          <div className="w-32 h-32 bg-white/10 backdrop-blur-md rounded-[2.5rem] flex items-center justify-center mb-8 border border-white/20">
+            <ShoppingBag className="w-12 h-12 text-white/60" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 mb-4 text-center">Your cart is empty</h2>
-          <p className="text-lg text-slate-500 mb-10 text-center max-w-md">
+          <h2 className="text-3xl font-black text-white mb-4 text-center">Your cart is empty</h2>
+          <p className="text-lg text-white/70 mb-10 text-center max-w-md">
             Looks like you haven't added anything to your cart yet. Let's change that!
           </p>
           <Link to="/shop">
@@ -31,13 +33,14 @@ const Cart: React.FC = () => {
     );
   }
 
-  return (
+return (
     <Layout>
-      <div className="bg-slate-50 min-h-screen pb-24">
-        <header className="bg-white border-b border-slate-200 py-12 lg:py-16 mb-12">
+      <VideoBackground videoUrl="https://i.imgur.com/d2d8Llz.mp4" />
+      <div className="min-h-screen pb-24 relative z-10">
+        <header className="bg-white/10 backdrop-blur-xl border-b border-white/10 py-12 lg:py-16 mb-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h1 className="text-4xl lg:text-5xl font-black text-slate-900">
-              Shopping <span className="text-primary-600">Cart</span>
+            <h1 className="text-4xl lg:text-5xl font-black text-white">
+              Shopping <span className="text-primary-400">Cart</span>
             </h1>
           </div>
         </header>
@@ -54,9 +57,9 @@ const Cart: React.FC = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-white p-6 rounded-3xl border border-slate-200 flex flex-col sm:flex-row gap-6 group hover:border-primary-200 transition-all shadow-sm"
+                    className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 flex flex-col sm:flex-row gap-6 group hover:border-primary-400/50 transition-all"
                   >
-                    <div className="w-full sm:w-32 aspect-square bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0">
+                    <div className="w-full sm:w-32 aspect-square bg-white/10 rounded-2xl overflow-hidden flex-shrink-0 border border-white/20">
                       <img
                         src={item.customDesign?.previewImage || item.product.image}
                         alt={item.product.name}
@@ -67,37 +70,37 @@ const Cart: React.FC = () => {
                     <div className="flex-grow flex flex-col justify-between py-1">
                       <div className="flex justify-between items-start gap-4">
                         <div>
-                          <p className="text-[10px] font-black text-primary-600 uppercase tracking-widest mb-1">
+                          <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-1">
                             {item.product.category}
                           </p>
-                          <h3 className="text-xl font-black text-slate-900 group-hover:text-primary-600 transition-colors">
+                          <h3 className="text-xl font-black text-white group-hover:text-primary-400 transition-colors">
                             {item.product.name}
                           </h3>
                           {item.selectedSize && (
-                            <p className="text-sm font-bold text-slate-400 mt-1 uppercase">
-                              Size: <span className="text-slate-900">{item.selectedSize}</span>
+                            <p className="text-sm font-bold text-white/60 mt-1 uppercase">
+                              Size: <span className="text-white">{item.selectedSize}</span>
                             </p>
                           )}
                         </div>
-<p className="text-xl font-black text-slate-900">
+<p className="text-xl font-black text-white">
                            KES {((item.product?.price ?? 0) * item.quantity).toLocaleString()}
-                         </p>
+                          </p>
                       </div>
 
                       <div className="flex items-center justify-between mt-6">
-                        <div className="flex items-center gap-2 p-1.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2 p-1.5 bg-white/10 rounded-xl border border-white/20">
                           <button
                             onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white text-slate-400 hover:text-slate-900 transition-all"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/20 text-white/60 hover:text-white transition-all"
                           >
                             <Minus className="w-4 h-4" />
                           </button>
-                          <span className="w-10 text-center font-black text-slate-900">
+                          <span className="w-10 text-center font-black text-white">
                             {item.quantity}
                           </span>
                           <button
                             onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white text-slate-400 hover:text-slate-900 transition-all"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/20 text-white/60 hover:text-white transition-all"
                           >
                             <Plus className="w-4 h-4" />
                           </button>
@@ -105,7 +108,7 @@ const Cart: React.FC = () => {
 
                         <button
                           onClick={() => removeFromCart(item.id)}
-                          className="flex items-center gap-2 text-sm font-black text-red-400 hover:text-red-500 transition-colors px-4 py-2 hover:bg-red-50 rounded-xl"
+                          className="flex items-center gap-2 text-sm font-black text-red-400 hover:text-red-300 transition-colors px-4 py-2 hover:bg-red-500/10 rounded-xl"
                         >
                           <Trash2 className="w-4 h-4" />
                           Remove
@@ -119,27 +122,30 @@ const Cart: React.FC = () => {
 
             {/* Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white sticky top-28 shadow-2xl">
+              <div className="bg-slate-900/80 backdrop-blur-xl p-8 rounded-[2.5rem] text-white sticky top-28 shadow-2xl border border-white/10">
                 <h3 className="text-2xl font-black mb-8">Order Summary</h3>
                 
-                <div className="space-y-4 mb-8">
-                  <div className="flex justify-between text-slate-400 font-bold">
+<div className="space-y-4 mb-8">
+                  <div className="flex justify-between text-white/60 font-bold">
                     <span>Subtotal</span>
                     <span className="text-white">KES {total.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-slate-400 font-bold">
-                    <span>Shipping</span>
-                    <span className="text-green-400 font-black tracking-widest uppercase text-xs">Calculated at checkout</span>
+                  <div className="flex justify-between text-white/60 font-bold">
+                    <span>Delivery Fee</span>
+                    <span className="text-primary-400 font-black tracking-widest uppercase text-xs">Calculated at checkout</span>
                   </div>
-                  <div className="flex justify-between text-slate-400 font-bold">
+                  <div className="flex justify-between text-white/60 font-bold">
                     <span>Estimated Tax</span>
                     <span className="text-white">KES 0</span>
+                  </div>
+                  <div className="text-[9px] text-white/40 mt-2">
+                    Nairobi CBD: Free | Nairobi County & Areas: KES 150 | Other Counties: KES 300
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-slate-800 mb-8">
                   <div className="flex justify-between items-end">
-                    <span className="text-slate-400 font-black uppercase tracking-widest text-xs">Total Amount</span>
+                    <span className="text-white/60 font-black uppercase tracking-widest text-xs">Total Amount</span>
                     <span className="text-3xl font-black">KES {total.toLocaleString()}</span>
                   </div>
                 </div>

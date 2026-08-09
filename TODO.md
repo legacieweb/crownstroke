@@ -1,9 +1,14 @@
 # TODO
-- [ ] Create reusable VideoBackground component (video + overlay + z-index safety)
-- [x] Update UserDashboard to use the shared VideoBackground
-- [x] Update Footer so it renders with video background behind it
-- [x] Ensure Layout doesn’t already wrap Footer in a conflicting background; adjust if needed
-- [x] Run TypeScript build and verify pages compile
+- [x] Create reusable VideoBackground component (video + overlay + z-index safety)
+- [x] Update Cart page to use VideoBackground and transparent glass UI
+- [x] Update Checkout page to use VideoBackground and transparent glass UI
+- [x] Update Shipping page with Kenya-specific delivery fee structure
+  - Nairobi CBD areas: Free delivery
+  - Nairobi County & other Nairobi areas: KES 150
+  - Other Kenyan counties: KES 300
+- [x] Update Pricing page - product/design pricing only (shipping moved to Shipping page)
+- [x] Country dropdown: Kenya pre-selected, others disabled with "Coming Soon"
+- [x] Build verified successfully
 
 
 

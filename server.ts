@@ -22,7 +22,7 @@ app.use(express.json({ limit: '500mb' }));
 const allowedOrigins = [
   'http://localhost:5173',
   'https://crownstroke.iyonicorp.com',
-  'https://click-chair-fossil-topic.trycloudflare.com'
+  'https://glory-interact-protective-paul.trycloudflare.com'
 ];
 
 app.use((req, res, next) => {

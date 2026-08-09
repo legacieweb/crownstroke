@@ -824,7 +824,7 @@ const Designer: React.FC = () => {
   return (
     <Layout>
       <div 
-        className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-transparent"
+        className="flex flex-col h-screen overflow-hidden bg-transparent"
         onContextMenu={(e) => e.preventDefault()}
       >
         {/* Header Toolbar - Responsive */}

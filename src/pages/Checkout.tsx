@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
+import VideoBackground from '../components/layout/VideoBackground';
 import { useCart } from '../store/CartContext';
 import { useAuth } from '../store/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -23,6 +24,11 @@ import { orders } from '../db/schema';
 import { emailService } from '../services/email';
 import { clsx } from 'clsx';
 
+const KENYA_CBD_AREAS = ['Nairobi CBD', 'Westlands', 'Kilimani', 'Karen', 'Muthaiga', 'Hurlingham', 'Parklands', 'Lavington', 'Gigiri', 'Runda', 'Kileleshwa', 'Loresho', 'Nyari', 'Spring Valley'];
+const KENYA_COUNTIES = ['Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika', 'Kitale', 'Malindi', 'Nyeri', 'Machakos', 'Kakamega', 'Kisii', 'Embu', 'Garissa', 'Nanyuki', 'Lamu', 'Wajir', 'Turkana'];
+
+const NAIROBI_AREAS = ['Mathare', 'Kasarani', 'Embakasi', 'Lang\'ata', 'Dagoretti', 'Starehe', 'Kamukunji', 'Nairobi West', 'South C', 'South B', 'Umoja', 'Kayole', 'Dandora', 'Kariobangi', 'Githurai', 'Ruiru', 'Juja', 'Kikuyu', 'Athi River', 'Ongata Rongai', 'Kibera', 'Makadara'];
+
 const Checkout: React.FC = () => {
   const { items, total, clearCart } = useCart();
   const { user } = useAuth();
@@ -33,18 +39,33 @@ const Checkout: React.FC = () => {
   const [isGuest, setIsGuest] = useState(false);
   const [paymentType, setPaymentType] = useState<'full' | 'deposit'>('full');
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  const depositAmount = total * 0.6;
-  const balanceAmount = total - depositAmount;
-  const payableNow = paymentType === 'full' ? total : depositAmount;
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
     address: '',
     city: '',
-    country: 'Nigeria',
+    country: 'Kenya',
   });
+
+  const getShippingFee = (city: string): number => {
+    // Nairobi CBD areas - Free delivery
+    if (KENYA_CBD_AREAS.includes(city)) return 0;
+    // Nairobi non-CBD areas - KES 150
+    if (NAIROBI_AREAS.includes(city)) return 150;
+    // Nairobi county (general) - KES 150
+    if (city === 'Nairobi') return 150;
+    // Other Kenyan counties - KES 300
+    if (KENYA_COUNTIES.includes(city)) return 300;
+    // Other locations - KES 200
+    return 200;
+  };
+
+  const shippingFee = formData.city ? getShippingFee(formData.city) : 0;
+  const depositAmount = (total + shippingFee) * 0.6;
+  const balanceAmount = (total + shippingFee) - depositAmount;
+  const finalTotal = total + shippingFee;
+  const payableNow = paymentType === 'full' ? finalTotal : depositAmount;
 
   useEffect(() => {
     const savedDrafts = JSON.parse(localStorage.getItem('crownstroke_drafts') || '[]');
@@ -54,9 +75,10 @@ const Checkout: React.FC = () => {
   if (items.length === 0 && step !== 'success') {
     return (
       <Layout>
-        <div className="min-h-[70vh] flex flex-col items-center justify-center px-4">
-          <ShoppingBag className="w-16 h-16 text-slate-200 mb-6" />
-          <h2 className="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tight">Your cart is empty</h2>
+        <VideoBackground videoUrl="https://i.imgur.com/d2d8Llz.mp4" />
+        <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 relative z-10">
+          <ShoppingBag className="w-16 h-16 text-white/30 mb-6" />
+          <h2 className="text-2xl font-black text-white mb-6 uppercase tracking-tight">Your cart is empty</h2>
           <Link to="/shop"><Button variant="premium">Go to Shop</Button></Link>
         </div>
       </Layout>
@@ -107,8 +129,8 @@ const Checkout: React.FC = () => {
           shippingAddress: formData.address,
           city: formData.city,
           country: formData.country,
-          totalAmount: total,
-          depositAmount: paymentType === 'deposit' ? depositAmount : total,
+          totalAmount: finalTotal,
+          depositAmount: paymentType === 'deposit' ? depositAmount : finalTotal,
           balanceAmount: paymentType === 'deposit' ? balanceAmount : 0,
           paymentType: paymentType,
           status: 'pending',
@@ -178,7 +200,8 @@ const Checkout: React.FC = () => {
 
   return (
     <Layout>
-      <div className="bg-slate-50 min-h-screen py-20">
+      <VideoBackground videoUrl="https://i.imgur.com/d2d8Llz.mp4" />
+      <div className="min-h-screen py-20 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* Progress Bar */}
@@ -190,13 +213,13 @@ const Checkout: React.FC = () => {
                 { id: 'payment', icon: CreditCard, label: 'Payment' }
               ].map((s, i) => (
                 <React.Fragment key={s.id}>
-                  <div className={clsx("flex flex-col items-center gap-2", step === s.id ? 'text-primary-600' : 'text-slate-300')}>
-                    <div className={clsx("w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all", step === s.id ? 'border-primary-600 bg-white shadow-lg shadow-primary-100' : 'border-slate-200 bg-transparent')}>
+                  <div className={clsx("flex flex-col items-center gap-2", step === s.id ? 'text-primary-400' : 'text-white/40')}>
+                    <div className={clsx("w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all", step === s.id ? 'border-primary-400 bg-white/10 shadow-lg shadow-primary-500/20' : 'border-white/20 bg-white/5')}>
                       <s.icon className="w-6 h-6" />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest">{s.label}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">{s.label}</span>
                   </div>
-                  {i < 2 && <div className="w-12 h-0.5 bg-slate-200 mt-[-20px]" />}
+                  {i < 2 && <div className="w-12 h-0.5 bg-white/20 mt-[-20px]" />}
                 </React.Fragment>
               ))}
             </div>
@@ -207,16 +230,16 @@ const Checkout: React.FC = () => {
               
               {/* Step 1: Auth */}
               {step === 'auth' && (
-                <div className="bg-white rounded-[3rem] p-12 shadow-xl border border-slate-100 animate-in fade-in slide-in-from-bottom-4">
-                  <h3 className="text-3xl font-black text-slate-900 mb-4 italic uppercase">Checkout Options</h3>
-                  <p className="text-slate-500 font-medium mb-10">Choose how you want to proceed with your order</p>
+                <div className="bg-white/10 backdrop-blur-xl rounded-[3rem] p-12 shadow-xl border border-white/20 animate-in fade-in slide-in-from-bottom-4">
+                  <h3 className="text-3xl font-black text-white mb-4 italic uppercase">Checkout Options</h3>
+                  <p className="text-white/60 font-medium mb-10">Choose how you want to proceed with your order</p>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Link to="/login?redirect=/checkout" className="group">
-                      <div className="h-full border-4 border-slate-50 rounded-[2.5rem] p-8 hover:border-primary-600 transition-all text-center">
-                        <LogIn className="w-12 h-12 text-primary-600 mx-auto mb-6" />
-                        <h4 className="text-xl font-black text-slate-900 mb-2 uppercase">Log In</h4>
-                        <p className="text-sm text-slate-500 font-medium mb-8">Access your saved addresses and faster checkout</p>
+                      <div className="h-full border-4 border-white/10 rounded-[2.5rem] p-8 hover:border-primary-400 transition-all text-center bg-white/5">
+                        <LogIn className="w-12 h-12 text-primary-400 mx-auto mb-6" />
+                        <h4 className="text-xl font-black text-white mb-2 uppercase">Log In</h4>
+                        <p className="text-sm text-white/60 font-medium mb-8">Access your saved addresses and faster checkout</p>
                         <Button variant="outline" className="w-full rounded-2xl group-hover:bg-primary-600 group-hover:text-white group-hover:border-primary-600">
                           Sign In <ChevronRight className="ml-2 w-4 h-4" />
                         </Button>
@@ -224,11 +247,11 @@ const Checkout: React.FC = () => {
                     </Link>
 
                     <div className="group cursor-pointer" onClick={() => { setIsGuest(true); setStep('shipping'); }}>
-                      <div className="h-full border-4 border-slate-50 rounded-[2.5rem] p-8 hover:border-slate-900 transition-all text-center">
-                        <UserPlus className="w-12 h-12 text-slate-400 mx-auto mb-6 group-hover:text-slate-900" />
-                        <h4 className="text-xl font-black text-slate-900 mb-2 uppercase">Guest Checkout</h4>
-                        <p className="text-sm text-slate-500 font-medium mb-8">No account? No problem. Checkout as a guest</p>
-                        <Button variant="outline" className="w-full rounded-2xl group-hover:bg-slate-900 group-hover:text-white group-hover:border-slate-900">
+                      <div className="h-full border-4 border-white/10 rounded-[2.5rem] p-8 hover:border-white transition-all text-center bg-white/5">
+                        <UserPlus className="w-12 h-12 text-white/40 mx-auto mb-6 group-hover:text-white" />
+                        <h4 className="text-xl font-black text-white mb-2 uppercase">Guest Checkout</h4>
+                        <p className="text-sm text-white/60 font-medium mb-8">No account? No problem. Checkout as a guest</p>
+                        <Button variant="outline" className="w-full rounded-2xl group-hover:bg-white group-hover:text-slate-900 group-hover:border-white">
                           Continue <ChevronRight className="ml-2 w-4 h-4" />
                         </Button>
                       </div>
@@ -240,66 +263,78 @@ const Checkout: React.FC = () => {
               {/* Step 2: Shipping */}
               {step === 'shipping' && (
                 <div className="space-y-12">
-                  <div className="bg-white rounded-[3rem] p-12 shadow-xl border border-slate-100">
-                    <h3 className="text-3xl font-black text-slate-900 mb-10 italic uppercase">Shipping Details</h3>
+                  <div className="bg-white/10 backdrop-blur-xl rounded-[3rem] p-12 shadow-xl border border-white/20">
+                    <h3 className="text-3xl font-black text-white mb-10 italic uppercase">Shipping Details</h3>
                     <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); setStep('payment'); }}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Full Name</label>
+                          <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] ml-2">Full Name</label>
                           <input
                             type="text"
                             required
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold"
+                            className="w-full px-6 py-4 bg-white/10 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold text-white placeholder:text-white/40"
                             placeholder="John Doe"
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Email Address</label>
+                          <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] ml-2">Email Address</label>
                           <input
                             type="email"
                             required
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold"
+                            className="w-full px-6 py-4 bg-white/10 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold text-white placeholder:text-white/40"
                             placeholder="john@example.com"
                           />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Shipping Address</label>
+                        <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] ml-2">Shipping Address</label>
                         <input
                           type="text"
                           required
                           value={formData.address}
                           onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                          className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold"
-                          placeholder="123 Awesome St, Victoria Island"
+                          className="w-full px-6 py-4 bg-white/10 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold text-white placeholder:text-white/40"
+                          placeholder="123 Kenyatta Ave, Nairobi"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">City</label>
-                          <input
-                            type="text"
-                            required
-                            value={formData.city}
-                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                            className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold"
-                            placeholder="Lagos"
-                          />
+                          <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] ml-2">City/Area</label>
+<select
+                             required
+                             value={formData.city}
+                             onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                             className="w-full px-6 py-4 bg-white/10 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold text-white"
+                           >
+                             <option value="" className="bg-slate-800">Select your location</option>
+                             <optgroup label="Nairobi CBD (Free)" className="text-green-400 font-bold">
+                               {KENYA_CBD_AREAS.map(area => <option key={area} value={area} className="bg-slate-800">{area}</option>)}
+                             </optgroup>
+                             <optgroup label="Nairobi Areas (KES 150)" className="text-primary-400 font-bold">
+                               <option value="Nairobi" className="bg-slate-800">Nairobi County</option>
+                               {NAIROBI_AREAS.map(area => <option key={area} value={area} className="bg-slate-800">{area}</option>)}
+                             </optgroup>
+                             <optgroup label="Kenya Counties (KES 300)" className="text-primary-400 font-bold">
+                               {KENYA_COUNTIES.map(county => <option key={county} value={county} className="bg-slate-800">{county} County</option>)}
+                             </optgroup>
+                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Country</label>
+                          <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] ml-2">Country</label>
                           <select
-                            className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold"
+                            className="w-full px-6 py-4 bg-white/10 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 font-bold text-white"
                             value={formData.country}
                             onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                           >
-                            <option>Nigeria</option>
-                            <option>Ghana</option>
-                            <option>Kenya</option>
+                            <option value="Kenya" className="bg-slate-800">Kenya</option>
+                            <option value="" disabled className="bg-slate-800 text-white/40">USA (Coming Soon)</option>
+                            <option value="" disabled className="bg-slate-800 text-white/40">Canada (Coming Soon)</option>
+                            <option value="" disabled className="bg-slate-800 text-white/40">UK (Coming Soon)</option>
+                            <option value="" disabled className="bg-slate-800 text-white/40">Australia (Coming Soon)</option>
                           </select>
                         </div>
                       </div>
@@ -313,44 +348,44 @@ const Checkout: React.FC = () => {
 
               {/* Step 3: Payment */}
               {step === 'payment' && (
-                <div className="bg-white rounded-[3rem] p-12 shadow-xl border border-slate-100 animate-in fade-in slide-in-from-bottom-4">
-                  <h3 className="text-3xl font-black text-slate-900 mb-10 italic uppercase">Payment Method</h3>
+                <div className="bg-white/10 backdrop-blur-xl rounded-[3rem] p-12 shadow-xl border border-white/20 animate-in fade-in slide-in-from-bottom-4">
+                  <h3 className="text-3xl font-black text-white mb-10 italic uppercase">Payment Method</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                     <button 
                       onClick={() => setPaymentType('full')}
                       className={clsx(
                         "p-8 rounded-[2rem] border-4 transition-all text-left group",
-                        paymentType === 'full' ? "border-primary-600 bg-primary-50/30" : "border-slate-50 hover:border-slate-200"
+                        paymentType === 'full' ? "border-primary-400 bg-primary-500/10" : "border-white/10 hover:border-white/20 bg-white/5"
                       )}
                     >
-                      <Wallet className={clsx("w-10 h-10 mb-4 transition-colors", paymentType === 'full' ? "text-primary-600" : "text-slate-300")} />
-                      <h4 className="text-xl font-black text-slate-900 mb-1 uppercase tracking-tight">Full Payment</h4>
-                      <p className="text-sm text-slate-500 font-medium mb-4">Pay the total amount now and get faster priority shipping</p>
-                      <div className="text-2xl font-black text-primary-600">KES {total.toLocaleString()}</div>
+                      <Wallet className={clsx("w-10 h-10 mb-4 transition-colors", paymentType === 'full' ? "text-primary-400" : "text-white/40")} />
+                      <h4 className="text-xl font-black text-white mb-1 uppercase tracking-tight">Full Payment</h4>
+                      <p className="text-sm text-white/60 font-medium mb-4">Pay the total amount now and get faster priority shipping</p>
+                      <div className="text-2xl font-black text-primary-400">KES {finalTotal.toLocaleString()}</div>
                     </button>
 
                     <button 
                       onClick={() => setPaymentType('deposit')}
                       className={clsx(
                         "p-8 rounded-[2rem] border-4 transition-all text-left group",
-                        paymentType === 'deposit' ? "border-primary-600 bg-primary-50/30" : "border-slate-50 hover:border-slate-200"
+                        paymentType === 'deposit' ? "border-primary-400 bg-primary-500/10" : "border-white/10 hover:border-white/20 bg-white/5"
                       )}
                     >
-                      <Truck className={clsx("w-10 h-10 mb-4 transition-colors", paymentType === 'deposit' ? "text-primary-600" : "text-slate-300")} />
-                      <h4 className="text-xl font-black text-slate-900 mb-1 uppercase tracking-tight">Pay on Delivery</h4>
-                      <p className="text-sm text-slate-500 font-medium mb-4">Pay 60% deposit now for customization, and the remaining 40% balance on delivery.</p>
-                      <div className="text-2xl font-black text-primary-600">KES {depositAmount.toLocaleString()} <span className="text-xs text-slate-400">Deposit</span></div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase mt-2">Balance of KES {balanceAmount.toLocaleString()} on delivery</div>
+                      <Truck className={clsx("w-10 h-10 mb-4 transition-colors", paymentType === 'deposit' ? "text-primary-400" : "text-white/40")} />
+                      <h4 className="text-xl font-black text-white mb-1 uppercase tracking-tight">Pay on Delivery</h4>
+                      <p className="text-sm text-white/60 font-medium mb-4">Pay 60% deposit now for customization, and the remaining 40% balance on delivery.</p>
+                      <div className="text-2xl font-black text-primary-400">KES {depositAmount.toLocaleString()} <span className="text-xs text-white/60">Deposit</span></div>
+                      <div className="text-[10px] font-bold text-white/60 uppercase mt-2">Balance of KES {balanceAmount.toLocaleString()} on delivery</div>
                     </button>
                   </div>
 
-                  <div className="bg-slate-900 rounded-[2.5rem] p-10 text-center relative overflow-hidden group">
+                  <div className="bg-slate-900/80 rounded-[2.5rem] p-10 text-center relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary-600/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-                    <CreditCard className="w-16 h-16 text-primary-500 mx-auto mb-6 relative z-10" />
+                    <CreditCard className="w-16 h-16 text-primary-400 mx-auto mb-6 relative z-10" />
                     <h4 className="text-2xl font-black text-white mb-2 uppercase italic relative z-10">Secure Checkout</h4>
-                    <p className="text-slate-400 font-medium mb-10 max-w-sm mx-auto relative z-10">
-                      Finalize your order via Paystack. You are paying <span className="text-white font-black underline decoration-primary-500 decoration-4 underline-offset-4">KES {payableNow.toLocaleString()}</span> now.
+                    <p className="text-white/60 font-medium mb-10 max-w-sm mx-auto relative z-10">
+                      Finalize your order via Paystack. You are paying <span className="text-white font-black underline decoration-primary-400 decoration-4 underline-offset-4">KES {payableNow.toLocaleString()}</span> now.
                     </p>
                     <Button 
                       variant="premium" 
@@ -362,7 +397,7 @@ const Checkout: React.FC = () => {
                     </Button>
                     <button 
                       onClick={() => setStep('shipping')} 
-                      className="mt-8 text-xs font-black text-slate-500 hover:text-white uppercase tracking-widest transition-colors"
+                      className="mt-8 text-xs font-black text-white/60 hover:text-white uppercase tracking-widest transition-colors"
                       disabled={isProcessing}
                     >
                       ← Edit Shipping Information
@@ -373,13 +408,13 @@ const Checkout: React.FC = () => {
 
               {/* Success */}
               {step === 'success' && (
-                <div className="bg-white rounded-[3rem] p-16 shadow-xl border border-slate-100 text-center">
-                  <div className="w-24 h-24 bg-green-100 rounded-[2.5rem] flex items-center justify-center text-green-600 mx-auto mb-10">
+                <div className="bg-white/10 backdrop-blur-xl rounded-[3rem] p-16 shadow-xl border border-white/20 text-center">
+                  <div className="w-24 h-24 bg-green-500/20 rounded-[2.5rem] flex items-center justify-center text-green-400 mx-auto mb-10 border border-green-500/30">
                     <CheckCircle2 className="w-12 h-12" />
                   </div>
-                  <h3 className="text-4xl font-black text-slate-900 mb-6 italic uppercase">Order Placed!</h3>
-                  <p className="text-xl text-slate-500 font-medium mb-12 max-w-lg mx-auto">
-                    Thank you for your purchase, <span className="text-slate-900 font-black">{formData.name}</span>. We've sent a confirmation email to {formData.email}.
+                  <h3 className="text-4xl font-black text-white mb-6 italic uppercase">Order Placed!</h3>
+                  <p className="text-xl text-white/60 font-medium mb-12 max-w-lg mx-auto">
+                    Thank you for your purchase, <span className="text-white font-black">{formData.name}</span>. We've sent a confirmation email to {formData.email}.
                   </p>
                   <Link to="/">
                     <Button variant="premium" className="px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-lg">
@@ -393,7 +428,7 @@ const Checkout: React.FC = () => {
 
             {step !== 'success' && (
               <div className="lg:col-span-4">
-                <div className="bg-slate-900 rounded-[3rem] p-10 text-white sticky top-28 shadow-2xl border border-white/5 overflow-hidden">
+                <div className="bg-slate-900/80 backdrop-blur-xl rounded-[3rem] p-10 text-white sticky top-28 shadow-2xl border border-white/5 overflow-hidden">
                   {/* Background Accents */}
                   <div className="absolute top-0 right-0 w-32 h-32 bg-primary-500/10 blur-[80px] -mr-16 -mt-16" />
                   <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary-600/10 blur-[80px] -ml-16 -mb-16" />
@@ -401,7 +436,7 @@ const Checkout: React.FC = () => {
                   <div className="relative z-10">
                     <div className="flex items-center justify-between mb-10">
                       <h3 className="text-xl font-black uppercase italic flex items-center gap-3">
-                        <ShoppingBag className="w-5 h-5 text-primary-500" />
+                        <ShoppingBag className="w-5 h-5 text-primary-400" />
                         Order Summary
                       </h3>
                       <div className="px-3 py-1 bg-white/5 rounded-full border border-white/10">
@@ -428,13 +463,13 @@ const Checkout: React.FC = () => {
                               )}
                             </div>
                             <div className="flex-grow min-w-0">
-                              <h4 className="text-sm font-black uppercase truncate flex items-center gap-2">
+                              <h4 className="text-sm font-black uppercase truncate flex items-center gap-2 text-white">
                                 {item.product.name}
                                 {item.customDesign?.isDoubleSided && (
                                   <span className="text-[8px] px-2 py-0.5 rounded-full bg-primary-500/20 text-primary-400 border border-primary-500/30 font-black tracking-tighter uppercase">2-Sided</span>
                                 )}
                               </h4>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-tight">
+                              <p className="text-[10px] text-white/60 font-bold uppercase mt-1 tracking-tight">
                                 {item.selectedSize} • {item.selectedColor} • Qty {item.quantity}
                               </p>
                               <p className="text-sm font-black text-primary-400 mt-2">KES {((item.product?.price ?? 0) * item.quantity).toLocaleString()}</p>
@@ -455,28 +490,46 @@ const Checkout: React.FC = () => {
                       ))}
                     </div>
 
-                    <div className="space-y-4 pt-8 border-t border-white/10">
-                      <div className="flex justify-between items-center px-2">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Cart Subtotal</span>
+                      <div className="space-y-4 pt-8 border-t border-white/10">
+                        <div className="flex justify-between items-center px-2">
+                        <span className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em]">Cart Subtotal</span>
                         <span className="text-sm font-black text-white tracking-tight">KES {total.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center px-2">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Priority Shipping</span>
-                        <span className="text-[10px] font-black text-green-400 uppercase tracking-widest bg-green-400/10 px-3 py-1 rounded-full border border-green-400/20">Free</span>
+                        <span className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em]">Delivery Fee</span>
+                        <span className={clsx("text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border", 
+                          shippingFee === 0 ? "text-green-400 bg-green-400/10 border-green-400/20" : "text-primary-400 bg-primary-400/10 border-primary-400/20"
+                        )}>
+                          {shippingFee === 0 ? 'FREE' : `KES ${shippingFee.toLocaleString()}`}
+                        </span>
                       </div>
+                      {formData.city && (
+                        <div className="text-[9px] text-white/40 px-2">
+                          {KENYA_CBD_AREAS.includes(formData.city) 
+                            ? 'Nairobi CBD - Free Delivery' 
+                            : NAIROBI_AREAS.includes(formData.city)
+                              ? `${formData.city} - KES 150`
+                              : formData.city === 'Nairobi' 
+                                ? 'Nairobi County - KES 150'
+                                : KENYA_COUNTIES.includes(formData.city)
+                                  ? `${formData.city} County - KES 300`
+                                  : 'Other Locations - KES 200'
+                          }
+                        </div>
+                      )}
                       <div className="flex justify-between items-end pt-8 mt-4 border-t border-white/10 px-2 bg-gradient-to-t from-white/5 to-transparent rounded-[2rem] p-6">
                         <div className="flex flex-col gap-1">
-                          <span className="text-[9px] font-black text-primary-500 uppercase tracking-[0.3em]">
+                          <span className="text-[9px] font-black text-primary-400 uppercase tracking-[0.3em]">
                             {paymentType === 'full' ? 'Final Total' : 'Secure Deposit'}
                           </span>
                           {paymentType === 'deposit' && (
-                            <span className="text-[8px] font-bold text-slate-500 uppercase">
+                            <span className="text-[8px] font-bold text-white/60 uppercase">
                               Balance: KES {balanceAmount.toLocaleString()} on arrival
                             </span>
                           )}
                         </div>
                         <span className="text-4xl font-black text-white tracking-tighter flex items-start gap-1">
-                          <span className="text-base text-primary-500 mt-1">KES</span>
+                          <span className="text-base text-primary-400 mt-1">KES</span>
                           {payableNow.toLocaleString()}
                         </span>
                       </div>
@@ -502,3 +555,8 @@ const Checkout: React.FC = () => {
 };
 
 export default Checkout;
+
+
+
+
+
