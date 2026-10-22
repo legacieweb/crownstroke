@@ -93,11 +93,11 @@ export const iyonicDB = {
   },
 
   async updateRow(table: string, rowId: string, row: Row): Promise<any> {
-    const path = `/tables/${table}/rows/${rowId}`;
+    const path = `/tables/${encodeURIComponent(table)}/rows/${encodeURIComponent(rowId)}`;
     return request(path, {
       method: 'PUT',
-      // The upstream update handler validates a table, id, and row object.
-      body: JSON.stringify({ table, id: rowId, row }),
+      // IyonicDB's update endpoint validates rowId; keep id as a compatibility alias.
+      body: JSON.stringify({ table, id: rowId, rowId, row }),
     });
   },
 
