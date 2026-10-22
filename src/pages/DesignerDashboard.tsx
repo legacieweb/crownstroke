@@ -491,7 +491,7 @@ const DesignerDashboard: React.FC = () => {
                        <div className="bg-black/40 border border-white/5 p-10 rounded-[2.5rem] space-y-6">
                           <div>
                              <h5 className="text-[10px] font-black uppercase text-white/40 tracking-widest mb-2 italic">Global Vector</h5>
-                             <p className="text-lg font-bold text-white">crownstroke.com/shop/<span className="text-primary-400">{user?.shopName}</span></p>
+                             <p className="text-lg font-bold text-white">crownstroke.com/shop/<span className="text-primary-400">{user?.shopName ? user.shopName.toLowerCase().replace(/\s+/g, '-') : 'shop'}</span></p>
                           </div>
                           <div className="h-px bg-white/5" />
                           <div className="flex items-center justify-between">

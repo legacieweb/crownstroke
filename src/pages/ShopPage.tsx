@@ -27,6 +27,7 @@ const ShopPage: React.FC = () => {
   const navigate = useNavigate();
   const [designs, setDesigns] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [shopNotFound, setShopNotFound] = useState(false);
   const [heroImage, setHeroImage] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState('all');
   const [previewSides, setPreviewSides] = useState<Record<string, 'front' | 'back'>>({});
@@ -35,14 +36,30 @@ const ShopPage: React.FC = () => {
     const fetchShopDesigns = async () => {
       if (!shopName) return;
       setIsLoading(true);
+      setShopNotFound(false);
       try {
         const shop = await db.select()
           .from(shops)
           .where(eq(shops.slug, shopName))
           .limit(1);
 
-        if (shop.length > 0) {
-          const s = shop[0];
+        let resolvedShop = shop;
+
+        // Fallback: if exact slug match fails, try normalized match
+        // (handles e.g. "crownstroke" vs "crown-stroke" — hyphen differences)
+        if (shop.length === 0) {
+          const normalizedSlug = shopName.replace(/-/g, '').toLowerCase();
+          const allShops = await db.select().from(shops).limit(100);
+          const found = allShops.find(s =>
+            (s.slug || '').replace(/-/g, '').toLowerCase() === normalizedSlug
+          );
+          if (found) {
+            resolvedShop = [found];
+          }
+        }
+
+        if (resolvedShop.length > 0) {
+          const s = resolvedShop[0];
           
           // Fetch designer to get hero image
           const designer = await db.select()
@@ -66,9 +83,12 @@ const ShopPage: React.FC = () => {
           })
             .from(designerDesigns)
             .innerJoin(designers, eq(designerDesigns.designerId, designers.id))
-            .where(eq(designerDesigns.shopId, shop[0].id));
+            .where(eq(designerDesigns.shopId, resolvedShop[0].id));
           
           setDesigns(shopDesigns);
+        } else {
+          setShopNotFound(true);
+          setDesigns([]);
         }
       } catch (err) {
         console.error('Error fetching shop designs:', err);
@@ -224,6 +244,12 @@ const ShopPage: React.FC = () => {
               <div className="flex flex-col items-center justify-center py-20 sm:py-40 gap-4 sm:gap-6">
                  <div className="w-16 h-16 sm:w-20 sm:h-20 border-4 border-primary-500/20 border-t-primary-500 rounded-full animate-spin" />
                  <p className="text-white/40 font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[8px] sm:text-[10px]">Accessing Vault...</p>
+              </div>
+            ) : shopNotFound ? (
+              <div className="flex flex-col items-center justify-center py-20 sm:py-40 text-center border-2 border-dashed border-white/5 rounded-[2rem] sm:rounded-[4rem]">
+                 <Palette className="w-12 h-12 sm:w-20 sm:h-20 text-white/5 mb-6 sm:mb-8" />
+                 <h3 className="text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tighter mb-3 sm:mb-4">Shop Not Found</h3>
+                 <p className="text-white/40 text-xs sm:text-sm font-bold max-w-sm mx-auto uppercase tracking-widest">We could not find a designer shop at this URL. The shop may have been renamed or removed.</p>
               </div>
             ) : filteredDesigns.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 sm:py-40 text-center border-2 border-dashed border-white/5 rounded-[2rem] sm:rounded-[4rem]">
