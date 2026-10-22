@@ -2,11 +2,10 @@ import React, { useState, useEffect, createContext } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { db } from '../../db';
-import { siteSettings } from '../../db/schema';
-import { eq } from 'drizzle-orm';
+import VideoBackground from './VideoBackground';
+import { DEFAULT_BG_VIDEO_URL } from './VideoBackground';
 
-export const BgVideoContext = createContext<{ bgVideoUrl: string | null }>({ bgVideoUrl: 'https://i.imgur.com/d2d8Llz.mp4' });
+export const BgVideoContext = createContext<{ bgVideoUrl: string | null }>({ bgVideoUrl: DEFAULT_BG_VIDEO_URL });
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -17,25 +16,14 @@ export const BackendStatusContext = React.createContext<{ isOnline: boolean }>({
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isBackendOnline, setIsBackendOnline] = useState(true);
-  const [bgVideoUrl, setBgVideoUrl] = useState<string | null>('https://i.imgur.com/d2d8Llz.mp4');
   const location = useLocation();
   const isShopRoute = location.pathname === '/shop' || location.pathname.startsWith('/shop/');
   const isDesignerRoute = location.pathname === '/designer' || location.pathname.startsWith('/designer');
+  const isDesignerDashboardRoute = location.pathname === '/designer-dashboard';
   const isCartOrCheckout = location.pathname === '/cart' || location.pathname === '/checkout';
-
-  useEffect(() => {
-    const fetchBgVideo = async () => {
-      try {
-        const results = await db.select().from(siteSettings).where(eq(siteSettings.id, 'default'));
-        if (results.length > 0 && results[0].bgVideoUrl) {
-          setBgVideoUrl(results[0].bgVideoUrl);
-        }
-      } catch (err) {
-        console.error('Failed to fetch bg video:', err);
-      }
-    };
-    fetchBgVideo();
-  }, []);
+  const newsMessage = isBackendOnline
+    ? '⚡ Shop open. Enjoy shopping and designing. ⚡'
+    : '⚠️ Shop closed! You can design and save to draft until we are open. ⚠️';
 
   useEffect(() => {
     const API_URL = import.meta.env.VITE_API_URL || '';
@@ -60,42 +48,36 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
        
         {/* News Headline */}
         {!isDesignerRoute && (
-        <div className={`w-full py-2 z-[60] transition-colors duration-500 overflow-hidden ${
-          isBackendOnline ? 'bg-primary-600' : 'bg-red-600'
+        <div className={`relative w-full py-2 z-[60] border-b border-white/10 backdrop-blur-md transition-colors duration-500 overflow-hidden ${
+          isBackendOnline ? 'bg-slate-950/50' : 'bg-red-950/70'
         }`}>
-          <div className={`flex whitespace-nowrap ${isShopRoute ? 'justify-center' : 'animate-marquee'}`}>
-            {[...Array(4)].map((_, i) => (
-              <span key={i} className={`text-[10px] md:text-xs font-black text-white uppercase tracking-[0.2em] px-8 italic ${isShopRoute && i > 0 ? 'hidden' : ''}`}>
-                {isBackendOnline 
-                  ? "⚡ Shop open. Enjoy shopping and designing. ⚡" 
-                  : "⚠️ Shop closed ! Shopping closed ! You can design and save to draft and save it until we are open. ⚠️"}
-              </span>
-            ))}
+          <div className={`news-marquee-window ${isShopRoute ? 'justify-center' : ''}`} role="status" aria-label={newsMessage}>
+            {isShopRoute ? (
+              <span className="news-marquee-message">{newsMessage}</span>
+            ) : (
+              <div className="news-marquee-track" aria-hidden="true">
+                <span className="news-marquee-message">{newsMessage}</span>
+                <span className="news-marquee-message">{newsMessage}</span>
+              </div>
+            )}
           </div>
         </div>
         )}
        
-        {/* Video Background */}
-        <div className="fixed inset-0 z-[-1]">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-          >
-            <source src={bgVideoUrl || 'https://i.imgur.com/d2d8Llz.mp4'} type="video/mp4" />
-          </video>
-          {/* Modern Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-black/90" />
-        </div>
+        {/* The shared local video loads after the route is ready, then plays behind each page. */}
+        <VideoBackground
+          videoUrl={DEFAULT_BG_VIDEO_URL}
+          className="fixed inset-0 z-0 overflow-hidden bg-[#111318]"
+          overlayClassName={`site-bg-overlay ${location.pathname === '/' ? 'site-bg-overlay-home' : ''}`}
+          videoClassName="h-full w-full object-cover opacity-90"
+        />
 
-{!isDesignerRoute && <Navbar />}
-        <main className="flex-grow relative z-10 w-full">
+{(!isDesignerRoute || isDesignerDashboardRoute) && <Navbar />}
+        <main className="site-main flex-grow relative z-10 w-full">
           {children}
         </main>
         {!isShopRoute && !isDesignerRoute && (
-          <div className="relative z-10 bg-black/40 backdrop-blur-xl border-t border-white/10">
+          <div className="relative z-10 border-t border-white/10">
             <Footer />
           </div>
         )}

@@ -1,11 +1,13 @@
 import { pgTable, text, timestamp, doublePrecision, jsonb, uuid } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
-  id: text('id').primaryKey(),
+  // IyonicDB generates the persisted ID; the client default keeps local inserts typed.
+  id: text('id').primaryKey().$defaultFn(() => Math.random().toString(36).slice(2, 11)),
   email: text('email').notNull().unique(),
   password: text('password').notNull(),
   name: text('name'),
   role: text('role').notNull(), // 'user', 'admin', 'designer'
+  plan: text('plan').default('free').notNull(),
   shopName: text('shop_name'),
   resetToken: text('reset_token'),
   resetExpires: timestamp('reset_expires'),

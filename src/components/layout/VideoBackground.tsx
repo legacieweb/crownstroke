@@ -1,27 +1,61 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import backgroundVideo from '../../../video.mp4';
+
+export const DEFAULT_BG_VIDEO_URL = backgroundVideo;
 
 type VideoBackgroundProps = {
-  videoUrl: string;
+  videoUrl?: string;
   overlayClassName?: string;
   className?: string;
+  videoClassName?: string;
 };
 
 const VideoBackground: React.FC<VideoBackgroundProps> = ({
-  videoUrl,
-  overlayClassName = 'bg-gradient-to-b from-black/90 via-black/40 to-black/90',
+  videoUrl = DEFAULT_BG_VIDEO_URL,
+  overlayClassName = 'bg-gradient-to-b from-black/20 via-black/10 to-black/20',
   className,
+  videoClassName = 'w-full h-full object-cover',
 }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [source, setSource] = useState<string | null>(null);
+  const [hasFailed, setHasFailed] = useState(false);
+
+  useEffect(() => {
+    let timeoutId: number | undefined;
+    let idleCallbackId: number | undefined;
+    const loadVideo = () => setSource(videoUrl);
+
+    if ('requestIdleCallback' in window) {
+      idleCallbackId = window.requestIdleCallback(loadVideo, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(loadVideo, 350);
+    }
+    setHasFailed(false);
+    return () => {
+      if (idleCallbackId !== undefined && 'cancelIdleCallback' in window) window.cancelIdleCallback(idleCallbackId);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [videoUrl]);
+
+  const handleVideoError = () => {
+    setHasFailed(true);
+  };
+
   return (
-    <div className={`absolute inset-0 ${className ?? ''}`} aria-hidden="true">
-      <video
+    <div className={className ?? 'absolute inset-0'} aria-hidden="true">
+      {!hasFailed && <video
+        ref={videoRef}
         autoPlay
         loop
         muted
         playsInline
-        className="w-full h-full object-cover"
-      >
-        <source src={videoUrl} type="video/mp4" />
-      </video>
+        preload="none"
+        onCanPlay={() => { void videoRef.current?.play().catch(() => {}); }}
+        onError={handleVideoError}
+        className={videoClassName}
+        aria-hidden="true"
+        src={source || undefined}
+      />}
       <div className={`absolute inset-0 ${overlayClassName}`} />
     </div>
   );

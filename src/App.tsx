@@ -1,33 +1,34 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import Home from './pages/Home';
-import Shop from './pages/Shop';
-import Designer from './pages/Designer';
-import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import ResetPassword from './pages/ResetPassword';
-import UserDashboard from './pages/UserDashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
-import Cookies from './pages/Cookies';
-import AboutUs from './pages/AboutUs';
-import Sustainability from './pages/Sustainability';
-import AffiliateProgram from './pages/AffiliateProgram';
-import Careers from './pages/Careers';
-import Contact from './pages/Contact';
-import Pricing from './pages/Pricing';
-import Shipping from './pages/Shipping';
-import Returns from './pages/Returns';
-import HelpCenter from './pages/HelpCenter';
-import API from './pages/API';
-import DesignerDashboard from './pages/DesignerDashboard';
-import ShopPage from './pages/ShopPage';
-import ProductDetail from './pages/ProductDetail';
+const Home = React.lazy(() => import('./pages/Home'));
+const Shop = React.lazy(() => import('./pages/Shop'));
+const Designer = React.lazy(() => import('./pages/Designer'));
+const Cart = React.lazy(() => import('./pages/Cart'));
+const Checkout = React.lazy(() => import('./pages/Checkout'));
+const Login = React.lazy(() => import('./pages/Login'));
+const Signup = React.lazy(() => import('./pages/Signup'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
+const UserDashboard = React.lazy(() => import('./pages/UserDashboard'));
+const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
+const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = React.lazy(() => import('./pages/TermsOfService'));
+const Cookies = React.lazy(() => import('./pages/Cookies'));
+const AboutUs = React.lazy(() => import('./pages/AboutUs'));
+const Sustainability = React.lazy(() => import('./pages/Sustainability'));
+const AffiliateProgram = React.lazy(() => import('./pages/AffiliateProgram'));
+const Careers = React.lazy(() => import('./pages/Careers'));
+const Contact = React.lazy(() => import('./pages/Contact'));
+const Pricing = React.lazy(() => import('./pages/Pricing'));
+const Shipping = React.lazy(() => import('./pages/Shipping'));
+const Returns = React.lazy(() => import('./pages/Returns'));
+const HelpCenter = React.lazy(() => import('./pages/HelpCenter'));
+const API = React.lazy(() => import('./pages/API'));
+const DesignerDashboard = React.lazy(() => import('./pages/DesignerDashboard'));
+const ShopPage = React.lazy(() => import('./pages/ShopPage'));
+const ProductDetail = React.lazy(() => import('./pages/ProductDetail'));
 import { CartProvider } from './store/CartContext';
 import { AuthProvider } from './store/AuthContext';
+import Preloader from './components/ui/Preloader';
 
 const ScrollToTop: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
@@ -50,6 +51,7 @@ const App: React.FC = () => {
       <CartProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <ScrollToTop>
+            <React.Suspense fallback={<Preloader isLoading />}>
             <Routes>
               <Route path="/" element={<Home />} />
 <Route path="/shop" element={<Shop />} />
@@ -58,7 +60,11 @@ const App: React.FC = () => {
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/customer-login" element={<Login />} />
+              <Route path="/designer-login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/customer-signup" element={<Signup />} />
+              <Route path="/designer-signup" element={<Signup />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<UserDashboard />} />
               <Route path="/designer-dashboard" element={<DesignerDashboard />} />
@@ -78,6 +84,7 @@ const App: React.FC = () => {
               <Route path="/help" element={<HelpCenter />} />
               <Route path="/api" element={<API />} />
             </Routes>
+            </React.Suspense>
           </ScrollToTop>
         </Router>
       </CartProvider>

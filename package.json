@@ -6,7 +6,8 @@
   "scripts": {
     "client": "vite",
     "dev": "npx concurrently \"npm run client\" \"npm run server\"",
-    "server": "tsx server.ts",
+    "server": "tsx watch server.ts",
+    "db:migrate": "node scripts/migrate-iyonicdb.js",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "build": "npm run build:client && npm run build:server",
@@ -15,7 +16,6 @@
     "start": "node dist-server/server.js"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
     "buffer": "^6.0.3",
     "canvas-confetti": "^1.9.2",
     "clsx": "^2.1.0",
@@ -28,8 +28,6 @@
     "framer-motion": "^11.0.24",
     "lodash": "^4.17.21",
     "lucide-react": "^0.363.0",
-    "nodemailer": "^8.0.8",
-    "postgres": "^3.4.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.22.3",
@@ -45,7 +43,6 @@
     "@types/express": "^5.0.6",
     "@types/fabric": "^5.3.7",
     "@types/lodash": "^4.17.0",
-    "@types/nodemailer": "^8.0.0",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@types/uuid": "^9.0.8",

@@ -1,6 +1,5 @@
 import React from 'react';
 import Layout from '../components/layout/Layout';
-import VideoBackground from '../components/layout/VideoBackground';
 import { useCart } from '../store/CartContext';
 import { Trash2, Plus, Minus, ArrowRight, ShoppingBag } from 'lucide-react';
 import Button from '../components/ui/Button';
@@ -13,7 +12,6 @@ const Cart: React.FC = () => {
   if (items.length === 0) {
     return (
       <Layout>
-        <VideoBackground videoUrl="https://i.imgur.com/d2d8Llz.mp4" />
         <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 relative z-10">
           <div className="w-32 h-32 bg-white/10 backdrop-blur-md rounded-[2.5rem] flex items-center justify-center mb-8 border border-white/20">
             <ShoppingBag className="w-12 h-12 text-white/60" />
@@ -35,7 +33,6 @@ const Cart: React.FC = () => {
 
 return (
     <Layout>
-      <VideoBackground videoUrl="https://i.imgur.com/d2d8Llz.mp4" />
       <div className="min-h-screen pb-24 relative z-10">
         <header className="bg-white/10 backdrop-blur-xl border-b border-white/10 py-12 lg:py-16 mb-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

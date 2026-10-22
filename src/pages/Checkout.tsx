@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
-import VideoBackground from '../components/layout/VideoBackground';
 import { useCart } from '../store/CartContext';
 import { useAuth } from '../store/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -75,7 +74,6 @@ const Checkout: React.FC = () => {
   if (items.length === 0 && step !== 'success') {
     return (
       <Layout>
-        <VideoBackground videoUrl="https://i.imgur.com/d2d8Llz.mp4" />
         <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 relative z-10">
           <ShoppingBag className="w-16 h-16 text-white/30 mb-6" />
           <h2 className="text-2xl font-black text-white mb-6 uppercase tracking-tight">Your cart is empty</h2>
@@ -200,7 +198,6 @@ const Checkout: React.FC = () => {
 
   return (
     <Layout>
-      <VideoBackground videoUrl="https://i.imgur.com/d2d8Llz.mp4" />
       <div className="min-h-screen py-20 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           

@@ -1,64 +1,36 @@
 import React from 'react';
-import { Palette, Sparkles, ArrowRight } from 'lucide-react';
+import { Palette, ArrowUpRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Button from '../ui/Button';
 import { Link } from 'react-router-dom';
-
 import { PRODUCT_DATA as SEED_DATA } from '../../data/seed';
 
-const CTA: React.FC = () => {
-  return (
-    <section className="py-32 relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="relative rounded-[4rem] bg-white/5 backdrop-blur-xl p-12 lg:p-24 overflow-hidden border border-white/10 shadow-3xl"
-        >
-          {/* Subtle Decorative elements - keeping it clean even in dark block */}
-          <div className="absolute top-0 right-0 w-1/2 h-full bg-primary-600/10 blur-[120px] -translate-y-1/2 translate-x-1/2 rounded-full" />
-          
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-10 text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full text-[10px] font-black uppercase tracking-[0.3em] text-primary-400 mx-auto lg:mx-0">
-                <Sparkles className="w-3 h-3" />
-                JOIN THE ELITE
-              </div>
-              
-              <h2 className="text-6xl lg:text-7xl font-black text-white leading-[0.9] tracking-tighter">
-                READY TO BECOME <br />
-                A <span className="text-primary-500 italic underline decoration-primary-500/30 underline-offset-8">LEGEND?</span>
-              </h2>
-              
-              <p className="text-xl text-slate-400 font-medium leading-relaxed max-w-lg mx-auto lg:mx-0">
-                Start your artistic legacy today. Join thousands of creators who chose Crownstroke for their elite merchandise.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-6 justify-center lg:justify-start pt-4">
-                <Link to="/designer">
-                  <Button variant="premium" size="lg" className="h-20 px-12 !rounded-[2rem] text-lg">
-                    CREATE NOW <Palette className="w-6 h-6 ml-2" />
-                  </Button>
-                </Link>
-                <Link to="/shop">
-                  <Button variant="outline" size="lg" className="h-20 px-10 !rounded-[2rem] border-white/10 text-white hover:bg-white/5 hover:border-white transition-all text-lg font-black uppercase tracking-widest">
-                    EXPLORE SHOP
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            <div className="relative hidden lg:block">
-              <div className="relative aspect-square glass-card !bg-white/5 p-8 rounded-[3rem] border border-white/10 rotate-3 scale-110">
-                <img src={SEED_DATA['t-shirt']['#ffffff'].front} alt="Final CTA" className="w-full h-full object-cover rounded-[2rem] shadow-2xl -rotate-3" />
-              </div>
+const CTA: React.FC = () => (
+  <section className="py-24 md:py-32">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="relative overflow-hidden rounded-[2rem] border border-white/15 bg-[#111]/80 backdrop-blur-xl">
+        <div className="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_75%_15%,rgba(14,165,233,.45),transparent_45%)]" />
+        <div className="relative grid lg:grid-cols-[1.1fr_.9fr] items-center gap-12 p-8 md:p-14 lg:p-20">
+          <div className="max-w-xl">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary-300 mb-6">Make something yours</p>
+            <h2 className="text-5xl md:text-7xl font-black text-white tracking-[-0.065em] leading-[0.9]">The idea is<br />already <span className="text-white/45">yours.</span></h2>
+            <p className="text-white/65 text-lg leading-relaxed mt-6 max-w-md">Now give it a life beyond the screen. Start with a blank canvas or pick a piece made by our community.</p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Link to="/designer"><Button variant="premium" size="lg" className="h-14 px-7 !rounded-xl gap-3">Open the studio <Palette className="w-5 h-5" /></Button></Link>
+              <Link to="/shop"><Button variant="outline" size="lg" className="h-14 px-7 !rounded-xl border-white/25 text-white hover:bg-white/10 gap-2">Explore the shop <ArrowUpRight className="w-4 h-4" /></Button></Link>
             </div>
           </div>
-        </motion.div>
-      </div>
-    </section>
-  );
-};
+          <div className="relative max-w-md mx-auto w-full">
+            <div className="absolute -inset-6 rounded-full bg-primary-500/15 blur-3xl" />
+            <div className="relative aspect-[4/3] rounded-2xl border border-white/15 bg-white/5 p-4 rotate-2">
+              <img src={SEED_DATA['t-shirt']['#ffffff'].front} alt="A custom printed T-shirt" loading="lazy" decoding="async" className="w-full h-full object-contain rounded-xl" />
+              <span className="absolute left-7 bottom-7 rounded-full bg-black/70 border border-white/15 backdrop-blur px-4 py-2 text-xs font-medium text-white">Made by you · made to last</span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  </section>
+);
 
 export default CTA;

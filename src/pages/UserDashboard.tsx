@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../store/AuthContext';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
-import VideoBackground from '../components/layout/VideoBackground';
 import { User, Package, Settings, Heart, LogOut, ShoppingBag, Trash2, MapPin, CreditCard, ChevronRight, AlertTriangle } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { db } from '../db';
@@ -96,16 +95,11 @@ const UserDashboard: React.FC = () => {
   return (
     <Layout>
         <div className="min-h-screen relative py-12 md:py-20">
-          <VideoBackground
-            videoUrl="https://i.imgur.com/d2d8Llz.mp4"
-            className="fixed inset-0 z-[-1]"
-            overlayClassName="bg-gradient-to-b from-black/90 via-black/40 to-black/90"
-          />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
             {/* Sidebar */}
             <aside className="lg:w-80 flex-shrink-0">
-              <div className="bg-white rounded-[2rem] md:rounded-[3rem] p-8 md:p-10 shadow-xl border border-slate-100 sticky top-32">
+              <div className="site-glass-panel rounded-[2rem] md:rounded-[3rem] p-8 md:p-10 shadow-xl border sticky top-32">
                 <div className="flex flex-col items-center mb-10 pb-10 border-b border-slate-100">
                   <div className="w-20 h-20 md:w-24 md:h-24 bg-primary-50 rounded-[2rem] flex items-center justify-center text-primary-600 mb-6 shadow-inner">
                     <User className="w-10 h-10 md:w-12 md:h-12" />
@@ -156,7 +150,7 @@ const UserDashboard: React.FC = () => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="bg-white rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-xl border border-slate-100"
+                    className="site-glass-panel rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-xl border"
                   >
                     <div className="flex justify-between items-center mb-10">
                       <h3 className="text-2xl md:text-3xl font-black text-slate-900 italic uppercase">Recent Orders</h3>
@@ -229,7 +223,7 @@ const UserDashboard: React.FC = () => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="bg-white rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-xl border border-slate-100"
+                    className="site-glass-panel rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-xl border"
                   >
                     <h3 className="text-2xl md:text-3xl font-black text-slate-900 mb-10 italic uppercase">My Wishlist</h3>
                     
@@ -283,7 +277,7 @@ const UserDashboard: React.FC = () => {
                     exit={{ opacity: 0, y: -10 }}
                     className="space-y-8"
                   >
-                    <div className="bg-white rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-xl border border-slate-100">
+                    <div className="site-glass-panel rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-xl border">
                       <h3 className="text-2xl md:text-3xl font-black text-slate-900 mb-10 italic uppercase">Profile Settings</h3>
                       
                       <div className="space-y-8 max-w-2xl">
@@ -313,7 +307,7 @@ const UserDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-xl border border-red-100">
+                    <div className="site-glass-panel rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-xl border border-red-100">
                       <div className="flex items-center gap-4 mb-6">
                         <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-500">
                           <AlertTriangle className="w-6 h-6" />

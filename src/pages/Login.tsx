@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../store/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
-import { Mail, Lock, LogIn, ChevronRight, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import VideoBackground, { DEFAULT_BG_VIDEO_URL } from '../components/layout/VideoBackground';
+import { Mail, Lock, LogIn, ChevronRight, Eye, EyeOff, ArrowLeft, User, Palette } from 'lucide-react';
 import { authService } from '../services/auth';
 
 const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [accountType, setAccountType] = useState<'customer' | 'designer'>(location.pathname === '/designer-login' ? 'designer' : 'customer');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,6 +19,10 @@ const Login: React.FC = () => {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotMode, setIsForgotMode] = useState(false);
+
+  React.useEffect(() => {
+    setAccountType(location.pathname === '/designer-login' ? 'designer' : 'customer');
+  }, [location.pathname]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,25 +55,19 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
-      {/* Video Background */}
-      <div className="fixed inset-0 z-[-1]">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-        >
-          <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-black/90" />
-      </div>
+      <VideoBackground
+        videoUrl={DEFAULT_BG_VIDEO_URL}
+        className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]"
+        videoClassName="h-full w-full object-cover opacity-70"
+      />
 
       {/* Left Side - Image/Creative */}
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img 
           src="https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=1964&auto=format&fit=crop" 
           alt="Login background" 
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 w-full h-full object-cover opacity-60"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent flex flex-col justify-end p-20">
@@ -102,12 +103,17 @@ const Login: React.FC = () => {
         >
           <div className="mb-10 text-center lg:text-left">
             <h1 className="text-4xl font-black text-white mb-2 uppercase italic">
-              {isForgotMode ? 'Reset Password' : 'Sign In'}
+              {isForgotMode ? 'Reset Password' : accountType === 'designer' ? 'Designer sign in' : 'Customer sign in'}
             </h1>
             <p className="text-gray-400 font-medium uppercase text-[10px] tracking-[0.3em]">
-              {isForgotMode ? 'Enter your email to receive a reset link' : 'Enter your credentials to access your account'}
+              {isForgotMode ? 'Enter your email to receive a reset link' : accountType === 'designer' ? 'Access your artist workspace' : 'Access your orders and saved designs'}
             </p>
           </div>
+
+          {!isForgotMode && <div className="grid grid-cols-2 gap-2 p-1 bg-black/25 rounded-2xl border border-white/10 mb-7">
+            <Link to="/customer-login" className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-colors ${accountType === 'customer' ? 'bg-white text-black' : 'text-white/60 hover:text-white'}`}><User className="w-4 h-4" />Customer</Link>
+            <Link to="/designer-login" className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-colors ${accountType === 'designer' ? 'bg-white text-black' : 'text-white/60 hover:text-white'}`}><Palette className="w-4 h-4" />Designer</Link>
+          </div>}
 
           {!isForgotMode ? (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -223,7 +229,7 @@ const Login: React.FC = () => {
 
           <div className="mt-10 pt-10 border-t border-white/5 text-center">
             <p className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-6">Don't have an account?</p>
-            <Link to="/signup">
+            <Link to={accountType === 'designer' ? '/designer-signup' : '/customer-signup'}>
               <Button variant="outline" className="w-full py-4 rounded-2xl font-black uppercase tracking-widest gap-2 border-white/10 text-white hover:bg-white/5">
                 Join Crownstroke
                 <ChevronRight className="w-5 h-5" />

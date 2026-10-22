@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { fabric } from 'fabric';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
@@ -28,7 +28,8 @@ import {
   Menu,
   ChevronDown,
   ShieldAlert,
-  HelpCircle
+  HelpCircle,
+  UploadCloud
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -47,11 +48,17 @@ import { PRODUCT_DATA as SEED_DATA } from '../data/seed';
 const PRODUCT_DATA: Record<string, ProductImages> = SEED_DATA;
 
 const DESIGN_CONFIG: Record<string, { top: number; left: number; scale: number }> = {
-  't-shirt': { top: 80, left: 210, scale: 1.0 },
-  'hoodie': { top: 120, left: 210, scale: 1.0 },
-  'mug': { top: 250, left: 260, scale: 0.7 },
-  'art-design': { top: 100, left: 160, scale: 1.1 },
-  'poster': { top: 50, left: 160, scale: 1.2 }
+  // Map the full 380x480 pad onto the garment face so designs placed near its
+  // lower edge can reach the hem in the product preview without being stretched.
+  't-shirt': { top: 150, left: 86, scale: 1.65 },
+  'hoodie': { top: 150, left: 86, scale: 1.65 },
+  'long-sleeve-tee': { top: 150, left: 86, scale: 1.65 },
+  'tank-top': { top: 150, left: 86, scale: 1.65 },
+  // Keep artwork on the mug body while letting the pad reach its lower edge.
+  'mug': { top: 220, left: 187, scale: 1.12 },
+  // Flat products use most of their printable surface, nearly edge to edge.
+  'art-design': { top: 70, left: 52, scale: 1.83 },
+  'poster': { top: 70, left: 52, scale: 1.83 }
 };
 
 const MIN_PRICES: Record<string, number> = {
@@ -92,6 +99,14 @@ const COLORS = [
 const PREVIEW_WIDTH = 600;
 const PREVIEW_HEIGHT = 750;
 const PREVIEW_SCALE = PREVIEW_WIDTH / 800;
+const isFlatPrint = (product: string) => product === 'poster' || product === 'art-design';
+const getCanvasDimensions = (product: string, side: 'front' | 'back') => {
+  if (!isFlatPrint(product)) return { width: 380, height: 480 };
+  return side === 'front' ? { width: 320, height: 480 } : { width: 480, height: 320 };
+};
+const getPrintDimensions = (side: 'front' | 'back') => side === 'front'
+  ? { orientation: 'Portrait', mockup: '1024 × 1536 px', ratio: '2:3', artwork: '4000 × 6000 px' }
+  : { orientation: 'Landscape', mockup: '1536 × 1024 px', ratio: '3:2', artwork: '6000 × 4000 px' };
 
 const canvasToCompactDataUrl = (canvas: HTMLCanvasElement, quality = 0.82) => {
   const webp = canvas.toDataURL('image/webp', quality);
@@ -99,13 +114,18 @@ const canvasToCompactDataUrl = (canvas: HTMLCanvasElement, quality = 0.82) => {
   return canvas.toDataURL('image/jpeg', quality);
 };
 
-const optimizeImageFile = (file: File, maxSize = 1400, quality = 0.84): Promise<string> => {
+const optimizeImageFile = (file: File, maxSize = 1400, quality = 0.84, onProgress?: (progress: number) => void): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
+    reader.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(Math.min(38, Math.round((event.loaded / event.total) * 38)));
+    };
     reader.onload = () => {
+      onProgress?.(42);
       const img = new Image();
       img.onload = () => {
+        onProgress?.(76);
         const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(img.width * scale));
@@ -118,7 +138,9 @@ const optimizeImageFile = (file: File, maxSize = 1400, quality = 0.84): Promise<
         }
 
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvasToCompactDataUrl(canvas, quality));
+        const optimized = canvasToCompactDataUrl(canvas, quality);
+        onProgress?.(88);
+        resolve(optimized);
       };
       img.onerror = () => reject(new Error('Could not read uploaded image.'));
       img.src = reader.result as string;
@@ -133,6 +155,14 @@ import { useSeo } from '../hooks/useSeo';
 import { CROWNSTROKE_BASE } from './SeoDefaults';
 
 const Designer: React.FC = () => {
+  useEffect(() => {
+    const fontStyles = document.createElement('link');
+    fontStyles.rel = 'stylesheet';
+    fontStyles.href = 'https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Pacifico&family=Bebas+Neue&family=Permanent+Marker&family=Dancing+Script:wght@400;700&family=Oswald:wght@400;700&family=Poppins:wght@400;600&family=Lobster&family=Raleway:wght@400;700&family=Ubuntu:wght@400;700&family=Cinzel&family=Righteous&family=Abril+Fatface&family=Comfortaa:wght@400;700&family=Kaushan+Script&family=Gloria+Hallelujah&display=swap';
+    document.head.appendChild(fontStyles);
+    return () => fontStyles.remove();
+  }, []);
+
   useSeo({
     title: 'Design Studio | Crownstroke',
     description:
@@ -150,13 +180,21 @@ const Designer: React.FC = () => {
   const [activeProduct, setActiveProduct] = useState(initialProduct);
   const [activeColor, setActiveColor] = useState('#ffffff');
   const [activeSide, setActiveSide] = useState<'front' | 'back'>('front');
+  const flatProduct = isFlatPrint(activeProduct);
+  const printSpec = getPrintDimensions(activeSide);
   const [activeTab, setActiveTab] = useState<'product' | 'text' | 'upload'>('product');
   const [hasSelection, setHasSelection] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<fabric.Image | null>(null);
+  const [imageCornerRadius, setImageCornerRadius] = useState(0);
   const [showDrafts, setShowDrafts] = useState(false);
+  const [showLargePreview, setShowLargePreview] = useState(false);
   const [drafts, setDrafts] = useState<any[]>([]);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadFileName, setUploadFileName] = useState('');
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
   
   // Save to Shop Modal State
@@ -197,10 +235,13 @@ const Designer: React.FC = () => {
   const changeImageInputRef = useRef<HTMLInputElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<fabric.Canvas | null>(null);
   const [mirrorPreview, setMirrorPreview] = useState<string>('');
+  const [isPreviewLoading, setIsPreviewLoading] = useState(true);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, visible: boolean, target: any } | null>(null);
   const updateMirrorPreviewRef = useRef<() => void>();
   const saveHistoryRef = useRef<() => void>();
   const previewTimerRef = useRef<number | null>(null);
+  const previewRenderIdRef = useRef(0);
+  const designDataRef = useRef<Record<string, any>>({ front: null, back: null });
 
   const saveHistory = useCallback(() => {
     if (!fabricCanvas || isHistoryLocked.current) return;
@@ -299,11 +340,14 @@ const Designer: React.FC = () => {
   const updateMirrorPreview = useCallback(async () => {
     if (!fabricCanvas) return;
 
-    fabricCanvas.discardActiveObject().renderAll();
+    const renderId = ++previewRenderIdRef.current;
+    const flatPrint = isFlatPrint(activeProduct);
+    const outputWidth = flatPrint ? (activeSide === 'front' ? 600 : 900) : PREVIEW_WIDTH;
+    const outputHeight = flatPrint ? (activeSide === 'front' ? 900 : 600) : PREVIEW_HEIGHT;
 
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = PREVIEW_WIDTH;
-    tempCanvas.height = PREVIEW_HEIGHT;
+    tempCanvas.width = outputWidth;
+    tempCanvas.height = outputHeight;
     const ctx = tempCanvas.getContext('2d');
     
     if (ctx) {
@@ -312,9 +356,13 @@ const Designer: React.FC = () => {
       productImg.src = PRODUCT_DATA[activeProduct]?.[activeColor]?.[activeSide] || PRODUCT_DATA['t-shirt']['#ffffff'].front;
       
       productImg.onload = () => {
-        if (!ctx) return;
-        ctx.clearRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
-        ctx.drawImage(productImg, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+        if (renderId !== previewRenderIdRef.current) return;
+        if (!ctx) {
+          setIsPreviewLoading(false);
+          return;
+        }
+        ctx.clearRect(0, 0, outputWidth, outputHeight);
+        ctx.drawImage(productImg, 0, 0, outputWidth, outputHeight);
         
         const designDataUrl = fabricCanvas.toDataURL({ 
           format: 'png', 
@@ -325,20 +373,34 @@ const Designer: React.FC = () => {
         const designImg = new Image();
         designImg.src = designDataUrl;
         designImg.onload = () => {
-          const config = DESIGN_CONFIG[activeProduct] || { top: 80, left: 210, scale: 1.0 };
-          ctx.drawImage(
-            designImg,
-            config.left * PREVIEW_SCALE,
-            config.top * PREVIEW_SCALE,
-            380 * config.scale * PREVIEW_SCALE,
-            480 * config.scale * PREVIEW_SCALE
-          );
+          if (renderId !== previewRenderIdRef.current) return;
+          if (flatPrint) {
+            const margin = Math.round(Math.min(outputWidth, outputHeight) * 0.035);
+            ctx.drawImage(designImg, margin, margin, outputWidth - margin * 2, outputHeight - margin * 2);
+          } else {
+            const config = DESIGN_CONFIG[activeProduct] || { top: 80, left: 210, scale: 1.0 };
+            ctx.drawImage(
+              designImg,
+              config.left * PREVIEW_SCALE,
+              config.top * PREVIEW_SCALE,
+              380 * config.scale * PREVIEW_SCALE,
+              480 * config.scale * PREVIEW_SCALE
+            );
+          }
           setMirrorPreview(canvasToCompactDataUrl(tempCanvas));
+          setIsPreviewLoading(false);
+        };
+        designImg.onerror = () => {
+          if (renderId !== previewRenderIdRef.current) return;
+          setMirrorPreview(canvasToCompactDataUrl(tempCanvas));
+          setIsPreviewLoading(false);
         };
       };
       productImg.onerror = () => {
+        if (renderId !== previewRenderIdRef.current) return;
         const designDataUrl = fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.82, multiplier: 1 });
         setMirrorPreview(designDataUrl);
+        setIsPreviewLoading(false);
       };
     }
   }, [fabricCanvas, activeProduct, activeColor, activeSide]);
@@ -346,6 +408,15 @@ const Designer: React.FC = () => {
   useEffect(() => {
     updateMirrorPreviewRef.current = updateMirrorPreview;
   }, [updateMirrorPreview]);
+
+  useEffect(() => {
+    if (!showLargePreview) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowLargePreview(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showLargePreview]);
 
   const scheduleMirrorPreview = useCallback(() => {
     if (previewTimerRef.current) {
@@ -377,10 +448,14 @@ const Designer: React.FC = () => {
             const d = design[0];
             setActiveProduct(d.productId);
             const data = d.designData as any;
+            const editSide = data.activeSide === 'back' ? 'back' : 'front';
+            setActiveSide(editSide);
+            designDataRef.current = data;
             setDesignData(data);
             
-            if (data[activeSide]) {
-              fabricCanvas.loadFromJSON(data[activeSide], () => {
+            if (data[editSide]) {
+              fabricCanvas.setDimensions(getCanvasDimensions(d.productId, editSide));
+              fabricCanvas.loadFromJSON(data[editSide], () => {
                 fabricCanvas.renderAll();
                 updateMirrorPreview();
               });
@@ -403,6 +478,10 @@ const Designer: React.FC = () => {
   });
 
   useEffect(() => {
+    designDataRef.current = designData;
+  }, [designData]);
+
+  useEffect(() => {
     const productData = PRODUCT_DATA[activeProduct];
     if (!productData) {
       setActiveProduct('t-shirt');
@@ -411,7 +490,7 @@ const Designer: React.FC = () => {
 
     const productColors = Object.keys(productData);
     
-    if (activeProduct === 'poster' || !productData[activeColor]?.[activeSide]) {
+    if (!productData[activeColor]?.[activeSide]) {
       setActiveSide('front');
     }
 
@@ -422,22 +501,29 @@ const Designer: React.FC = () => {
 
   useEffect(() => {
     if (canvasRef.current) {
-      const isMobile = window.innerWidth < 768;
-      const canvasWidth = isMobile ? window.innerWidth - 60 : 380;
-      const canvasHeight = (canvasWidth / 380) * 480;
+      // Keep Fabric's design coordinates stable; CSS fits the 4:5 canvas to the pad.
+      const canvasSize = getCanvasDimensions(activeProduct, activeSide);
 
       const canvas = new fabric.Canvas(canvasRef.current, {
-        width: canvasWidth,
-        height: canvasHeight,
+        width: canvasSize.width,
+        height: canvasSize.height,
         backgroundColor: 'transparent',
         preserveObjectStacking: true,
         fireRightClick: true,
         stopContextMenu: true,
       });
 
-      canvas.on('selection:created', () => setHasSelection(true));
-      canvas.on('selection:updated', () => setHasSelection(true));
-      canvas.on('selection:cleared', () => setHasSelection(false));
+      const syncSelection = () => {
+        const active = canvas.getActiveObject();
+        const image = active?.type === 'image' ? active as fabric.Image : null;
+        setHasSelection(!!active);
+        setSelectedImage(image);
+        const clip = image?.clipPath as fabric.Rect | undefined;
+        setImageCornerRadius(clip?.type === 'rect' ? Math.round(clip.rx || 0) : 0);
+      };
+      canvas.on('selection:created', syncSelection);
+      canvas.on('selection:updated', syncSelection);
+      canvas.on('selection:cleared', syncSelection);
       
       canvas.on('mouse:down', (options) => {
         if (options.button === 3 && options.target) {
@@ -489,21 +575,41 @@ const Designer: React.FC = () => {
   }, [scheduleMirrorPreview]);
 
   useEffect(() => {
+    if (!fabricCanvas) return;
+    const canvasSize = getCanvasDimensions(activeProduct, activeSide);
+    fabricCanvas.setDimensions(canvasSize);
+    fabricCanvas.requestRenderAll();
+  }, [fabricCanvas, activeProduct, activeSide]);
+
+  useLayoutEffect(() => {
+    setIsPreviewLoading(true);
     updateMirrorPreview();
   }, [activeProduct, activeColor, activeSide, updateMirrorPreview]);
 
   const switchSide = (side: 'front' | 'back') => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || side === activeSide) return;
     
     const currentJSON = fabricCanvas.toJSON();
-    setDesignData(prev => ({ ...prev, [activeSide]: currentJSON }));
+    const nextDesigns = { ...designDataRef.current, [activeSide]: currentJSON };
+    designDataRef.current = nextDesigns;
+    setDesignData(nextDesigns);
+
+    const canvasSize = getCanvasDimensions(activeProduct, side);
+    fabricCanvas.setDimensions(canvasSize);
     
     fabricCanvas.clear();
-    const otherDesign = designData[side];
+    const otherDesign = nextDesigns[side];
+    const finishSideChange = () => {
+      fabricCanvas.renderAll();
+      setHistory([JSON.stringify(fabricCanvas.toJSON())]);
+      setHistoryIndex(0);
+    };
     if (otherDesign) {
       fabricCanvas.loadFromJSON(otherDesign, () => {
-        fabricCanvas.renderAll();
+        finishSideChange();
       });
+    } else {
+      finishSideChange();
     }
     
     setActiveSide(side);
@@ -573,23 +679,51 @@ const Designer: React.FC = () => {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && fabricCanvas) {
-      try {
-        const optimizedImage = await optimizeImageFile(file);
+    if (!file) return;
+    if (!fabricCanvas) {
+      showAlert('Canvas is loading', 'Please wait a moment, then upload your artwork again.');
+      e.target.value = '';
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      showAlert('Unsupported file', 'Choose a PNG, JPG, or other image file to add to your design.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showAlert('Image is too large', 'Choose an image under 10 MB.');
+      e.target.value = '';
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setUploadProgress(0);
+    setUploadFileName(file.name);
+    try {
+      const optimizedImage = await optimizeImageFile(file, 1400, 0.84, setUploadProgress);
+      setUploadProgress(92);
+      await new Promise<void>((resolve, reject) => {
         fabric.Image.fromURL(optimizedImage, (img) => {
-          if (!img) return;
+          if (!img) {
+            reject(new Error('Could not place this image on the canvas.'));
+            return;
+          }
           img.scaleToWidth(fabricCanvas.width! / 2);
           fabricCanvas.add(img);
           fabricCanvas.setActiveObject(img);
           fabricCanvas.renderAll();
           updateMirrorPreview();
+          resolve();
         });
-      } catch (err) {
-        console.error('Failed to optimize uploaded image:', err);
-        showAlert('Error', 'Failed to process image.');
-      } finally {
-        e.target.value = '';
-      }
+      });
+      setUploadProgress(100);
+      if (window.matchMedia('(max-width: 1023px)').matches) setShowMobileMenu(false);
+    } catch (err) {
+      console.error('Failed to optimize uploaded image:', err);
+      showAlert('Upload failed', 'We could not prepare that image. Please try another file.');
+    } finally {
+      setIsUploadingImage(false);
+      e.target.value = '';
     }
   };
 
@@ -603,11 +737,97 @@ const Designer: React.FC = () => {
         img.scaleToWidth(fabricCanvas.width! / 2);
         fabricCanvas.add(img);
         fabricCanvas.setActiveObject(img);
+        fabricCanvas.renderAll();
+        updateMirrorPreview();
         setImageUrl('');
         setShowUrlInput(false);
+        if (window.matchMedia('(max-width: 1023px)').matches) setShowMobileMenu(false);
       }, { crossOrigin: 'anonymous' });
     }
   };
+
+  const applyImageCornerRadius = (value: number) => {
+    if (!fabricCanvas || !selectedImage) return;
+    const imageWidth = selectedImage.width || 0;
+    const imageHeight = selectedImage.height || 0;
+    const maxRadius = Math.floor(Math.min(imageWidth, imageHeight) / 2);
+    const radius = Math.max(0, Math.min(maxRadius, Math.round(value)));
+
+    if (radius === 0) {
+      selectedImage.set('clipPath', undefined);
+    } else {
+      // Fabric 5 positions relative clip paths around the object's center.
+      // Matching the full source dimensions keeps the rounding on the whole image
+      // even when the user later moves, scales, or rotates the object.
+      const clipPath = new fabric.Rect({
+        width: imageWidth,
+        height: imageHeight,
+        rx: radius,
+        ry: radius,
+        originX: 'center',
+        originY: 'center',
+        left: 0,
+        top: 0,
+      });
+      selectedImage.set('clipPath', clipPath);
+    }
+
+    selectedImage.setCoords();
+    fabricCanvas.requestRenderAll();
+    setImageCornerRadius(radius);
+    updateMirrorPreviewRef.current?.();
+  };
+
+  const renderSidePreview = useCallback((side: 'front' | 'back', sideData: any): Promise<string | null> => {
+    if (!sideData?.objects?.length) return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      const flatPrint = isFlatPrint(activeProduct);
+      const canvasSize = getCanvasDimensions(activeProduct, side);
+      const outputWidth = flatPrint ? (side === 'front' ? 1024 : 1536) : 800;
+      const outputHeight = flatPrint ? (side === 'front' ? 1536 : 1024) : 1000;
+      const tempCanvas = new fabric.Canvas(null as any, {
+        width: canvasSize.width,
+        height: canvasSize.height,
+        backgroundColor: 'transparent',
+        renderOnAddRemove: false,
+      });
+      const finish = (preview: string | null) => {
+        tempCanvas.dispose();
+        resolve(preview);
+      };
+
+      tempCanvas.loadFromJSON(sideData, () => {
+        tempCanvas.renderAll();
+        const productImg = new Image();
+        productImg.crossOrigin = 'anonymous';
+        productImg.onload = () => {
+          const productCanvas = document.createElement('canvas');
+          productCanvas.width = outputWidth;
+          productCanvas.height = outputHeight;
+          const ctx = productCanvas.getContext('2d');
+          if (!ctx) return finish(null);
+          ctx.drawImage(productImg, 0, 0, outputWidth, outputHeight);
+
+          const designImg = new Image();
+          designImg.onload = () => {
+            if (flatPrint) {
+              const margin = Math.round(Math.min(outputWidth, outputHeight) * 0.035);
+              ctx.drawImage(designImg, margin, margin, outputWidth - margin * 2, outputHeight - margin * 2);
+            } else {
+              const config = DESIGN_CONFIG[activeProduct] || { top: 80, left: 210, scale: 1.0 };
+              ctx.drawImage(designImg, config.left, config.top, 380 * config.scale, 480 * config.scale);
+            }
+            finish(canvasToCompactDataUrl(productCanvas, 0.88));
+          };
+          designImg.onerror = () => finish(null);
+          designImg.src = tempCanvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 });
+        };
+        productImg.onerror = () => finish(null);
+        productImg.src = PRODUCT_DATA[activeProduct]?.[activeColor]?.[side] || '';
+      });
+    });
+  }, [activeProduct, activeColor]);
 
   const saveToShop = async () => {
     if (!user || !fabricCanvas || !saveDesignName) return;
@@ -629,17 +849,31 @@ const Designer: React.FC = () => {
       }
 
       const currentJSON = fabricCanvas.toJSON();
-      const updatedData = { ...designData, [activeSide]: currentJSON };
+      const sideDesigns = { ...designDataRef.current, [activeSide]: currentJSON };
+      const [frontPreview, backPreview] = await Promise.all([
+        renderSidePreview('front', sideDesigns.front),
+        renderSidePreview('back', sideDesigns.back),
+      ]);
+      const updatedData = {
+        ...sideDesigns,
+        previews: { front: frontPreview, back: backPreview },
+        activeSide,
+      };
       
       const designPayload = {
         name: saveDesignName,
         designerId: user.designerId,
         shopId: user.shopId,
         productId: activeProduct,
-        preview: mirrorPreview,
+        preview: (activeSide === 'front' ? frontPreview : backPreview) || frontPreview || backPreview || mirrorPreview,
         designData: updatedData,
         price: parseInt(saveDesignPrice) || 2500,
         isFeatured: 'false',
+        isEditorsPick: 'false',
+        isExclusive: 'false',
+        isSpringCollection: 'false',
+        isMinimalist: 'false',
+        isFlashSale: 'false',
       };
 
       const editId = searchParams.get('edit');
@@ -663,12 +897,13 @@ const Designer: React.FC = () => {
   const saveAsDraft = () => {
     if (!fabricCanvas) return;
     const currentJSON = fabricCanvas.toJSON();
-    const updatedData = { ...designData, [activeSide]: currentJSON };
+    const updatedData = { ...designData, [activeSide]: currentJSON, activeSide };
     
     const draft = {
       id: Date.now().toString(),
       productId: activeProduct,
       color: activeColor,
+      activeSide,
       designData: updatedData,
       preview: mirrorPreview,
       createdAt: new Date().toISOString()
@@ -716,17 +951,26 @@ const Designer: React.FC = () => {
   };
 
   const loadDraft = (draft: any) => {
+    const draftSide = draft.activeSide === 'back' ? 'back' : 'front';
     setActiveProduct(draft.productId);
     setActiveColor(draft.color);
+    setActiveSide(draftSide);
+    designDataRef.current = draft.designData;
     setDesignData(draft.designData);
     
     if (fabricCanvas) {
+      fabricCanvas.setDimensions(getCanvasDimensions(draft.productId, draftSide));
       fabricCanvas.clear();
-      const currentSideDesign = draft.designData[activeSide];
+      const currentSideDesign = draft.designData[draftSide];
       if (currentSideDesign) {
         fabricCanvas.loadFromJSON(currentSideDesign, () => {
           fabricCanvas.renderAll();
+          setHistory([JSON.stringify(fabricCanvas.toJSON())]);
+          setHistoryIndex(0);
         });
+      } else {
+        setHistory([JSON.stringify(fabricCanvas.toJSON())]);
+        setHistoryIndex(0);
       }
     }
     setShowDrafts(false);
@@ -739,56 +983,16 @@ const Designer: React.FC = () => {
     }
     if (!fabricCanvas) return;
     const currentJSON = fabricCanvas.toJSON();
-    const updatedData = { ...designData, [activeSide]: currentJSON };
-    
-    const getSidePreview = async (side: 'front' | 'back') => {
-      const sideData = updatedData[side];
-      if (!sideData || !sideData.objects || sideData.objects.length === 0) return null;
-
-      return new Promise<string>((resolve) => {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 800;
-        tempCanvas.height = 1000;
-        const ctx = tempCanvas.getContext('2d');
-        if (!ctx) return resolve('');
-
-        const productImg = new Image();
-        productImg.crossOrigin = "anonymous";
-        productImg.src = PRODUCT_DATA[activeProduct]?.[activeColor]?.[side] || '';
-        
-        productImg.onload = () => {
-          ctx.drawImage(productImg, 0, 0, 800, 1000);
-          const processDesign = (canvasToUse: fabric.Canvas) => {
-            canvasToUse.discardActiveObject().renderAll();
-            const designDataUrl = canvasToUse.toDataURL({ 
-              format: 'png', 
-              quality: 1, 
-              multiplier: 2
-            });
-            const designImg = new Image();
-            designImg.src = designDataUrl;
-            designImg.onload = () => {
-              const config = DESIGN_CONFIG[activeProduct] || { top: 80, left: 210, scale: 1.0 };
-              ctx.drawImage(designImg, config.left, config.top, 380 * config.scale, 480 * config.scale);
-              resolve(tempCanvas.toDataURL('image/png'));
-            };
-          };
-
-          if (side === activeSide && fabricCanvas) {
-            processDesign(fabricCanvas);
-          } else {
-            const tempFabric = new fabric.Canvas(null, { width: 380, height: 480 });
-            tempFabric.loadFromJSON(sideData, () => {
-              processDesign(tempFabric);
-            });
-          }
-        };
-        productImg.onerror = () => resolve('');
-      });
+    const sideDesigns = { ...designDataRef.current, [activeSide]: currentJSON };
+    const [frontPreview, backPreview] = await Promise.all([
+      renderSidePreview('front', sideDesigns.front),
+      renderSidePreview('back', sideDesigns.back),
+    ]);
+    const updatedData = {
+      ...sideDesigns,
+      previews: { front: frontPreview, back: backPreview },
+      activeSide,
     };
-
-    const frontPreview = await getSidePreview('front');
-    const backPreview = await getSidePreview('back');
     const mainPreview = (activeSide === 'front' ? frontPreview : backPreview) || frontPreview || backPreview || mirrorPreview;
 
     let basePrice = activeProduct === 'hoodie' ? 3500 : (activeProduct === 't-shirt' ? 1500 : 1200);
@@ -804,7 +1008,7 @@ const Designer: React.FC = () => {
       isCustomizable: true
     }, 1, 'M', activeColor, {
       productId: activeProduct,
-      elements: updatedData,
+      elements: updatedData as any,
       previewImage: mainPreview,
       isDoubleSided: !!(frontPreview && backPreview),
       previews: { front: frontPreview, back: backPreview }
@@ -824,7 +1028,7 @@ const Designer: React.FC = () => {
   return (
     <Layout>
       <div 
-        className="flex flex-col h-screen overflow-hidden bg-transparent"
+        className="designer-workspace flex flex-col h-screen overflow-hidden bg-transparent"
         onContextMenu={(e) => e.preventDefault()}
       >
         {/* Header Toolbar - Responsive */}
@@ -916,8 +1120,8 @@ const Designer: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden p-2 md:p-6 gap-2 md:gap-6 flex-col">
-          <div className="flex flex-1 overflow-hidden gap-2 md:gap-6 lg:flex-row flex-col relative">
+        <div className="designer-workspace-body flex flex-1 overflow-hidden p-2 md:p-6 gap-2 md:gap-6 flex-col">
+          <div className="designer-workspace-columns flex flex-1 overflow-hidden gap-2 md:gap-6 lg:flex-row flex-col relative">
             
 {/* Redesigned Integrated Sidebar */}
              <AnimatePresence>
@@ -986,23 +1190,28 @@ const Designer: React.FC = () => {
                             </div>
                           </div>
 
-                          {activeProduct !== 'poster' && (
+                          {(
                             <div>
-                              <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+                              <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
                                 <div className="w-1 h-1 bg-primary-500 rounded-full" />
-                                Perspective
+                                {flatProduct ? 'Print orientation' : 'Perspective'}
                               </h4>
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-2 gap-2">
                                 {(['front', 'back'] as const).map(side => (
                                   <button
                                     key={side}
                                     onClick={() => switchSide(side)}
+                                    aria-pressed={activeSide === side}
                                     className={clsx(
-                                      "py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] border transition-all duration-300",
-                                      activeSide === side ? "bg-white text-black border-white shadow-2xl" : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10"
+                                      "flex items-center gap-3 p-3 rounded-xl text-left border transition-all duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-300",
+                                      activeSide === side ? "bg-primary-400/15 text-white border-primary-300/50 shadow-[0_8px_24px_rgba(14,165,233,.12)]" : "bg-white/[0.035] border-white/10 text-white/55 hover:bg-white/[0.08]"
                                     )}
                                   >
-                                    {side} View
+                                    {flatProduct && <span className={clsx('mx-auto flex shrink-0 items-center justify-center rounded-sm border', side === 'front' ? 'h-9 w-6' : 'h-6 w-9', activeSide === side ? 'border-primary-200 bg-primary-200/10' : 'border-white/30')}><span className="h-1 w-1 rounded-full bg-lime-300" /></span>}
+                                    <span className="min-w-0">
+                                      <span className="block text-[9px] font-black uppercase tracking-[.16em]">{flatProduct ? (side === 'front' ? 'Portrait' : 'Landscape') : `${side} view`}</span>
+                                      {flatProduct && <span className="mt-1 block text-[8px] font-semibold text-white/40">{side === 'front' ? '2:3 ratio' : '3:2 ratio'}</span>}
+                                    </span>
                                   </button>
                                 ))}
                               </div>
@@ -1072,25 +1281,80 @@ const Designer: React.FC = () => {
                       )}
 
                       {activeTab === 'upload' && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                          <div className="space-y-4">
-                            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
-                              <div className="w-1 h-1 bg-primary-500 rounded-full" />
-                              Asset Manager
-                            </h4>
-                            <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-white/10 rounded-[2rem] bg-white/5 hover:bg-white/10 transition-all cursor-pointer group shadow-inner">
-                              <div className="w-16 h-16 rounded-2xl bg-primary-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                                <ImageIcon className="w-8 h-8 text-primary-400" />
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                          <section className="rounded-2xl border border-white/10 bg-white/[.035] p-4" aria-labelledby="image-corners-title">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <h4 id="image-corners-title" className="text-[10px] font-black uppercase tracking-[.18em] text-white">Image corners</h4>
+                                <p className="mt-1 text-[9px] leading-relaxed text-white/45">Round the full selected image.</p>
                               </div>
-                              <span className="text-[10px] font-black text-white uppercase tracking-widest mb-1">Upload Artwork</span>
-                              <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">PNG, JPG up to 10MB</span>
-                              <input type="file" className="hidden" onChange={handleImageUpload} />
-                            </label>
-                            
-                            <div className="relative py-4">
-                              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
-                              <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest text-white/20"><span className="bg-[#0a0a0a] px-4 italic">OR</span></div>
+                              {selectedImage && <output className="shrink-0 rounded-lg border border-white/10 bg-black/25 px-2.5 py-1.5 text-[9px] font-bold tabular-nums text-primary-200">{imageCornerRadius}px</output>}
                             </div>
+                            {selectedImage ? (
+                              <>
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={Math.floor(Math.min(selectedImage.width || 0, selectedImage.height || 0) / 2)}
+                                  step={1}
+                                  value={imageCornerRadius}
+                                  onChange={(event) => applyImageCornerRadius(Number(event.target.value))}
+                                  onPointerUp={() => saveHistoryRef.current?.()}
+                                  onKeyUp={() => saveHistoryRef.current?.()}
+                                  aria-label="Selected image corner radius"
+                                  aria-describedby="image-corners-help"
+                                  className="mt-4 h-2 w-full cursor-pointer accent-sky-400"
+                                />
+                                <div id="image-corners-help" className="mt-2 flex justify-between text-[8px] font-semibold uppercase tracking-[.14em] text-white/35">
+                                  <span>Square</span><span>Fully rounded</span>
+                                </div>
+                              </>
+                            ) : (
+                              <p className="mt-4 rounded-xl border border-dashed border-white/10 px-3 py-3 text-[9px] leading-relaxed text-white/45">Select an uploaded image on the Precision Pad to adjust its corners.</p>
+                            )}
+                          </section>
+
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="text-xs font-black text-white uppercase tracking-[0.2em]">Add your artwork</h4>
+                              <p className="mt-2 text-[10px] leading-relaxed text-white/45">Bring a logo, illustration, or photo onto your product.</p>
+                            </div>
+                            <span className="shrink-0 rounded-full border border-primary-400/20 bg-primary-400/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-primary-300">PNG · JPG</span>
+                          </div>
+
+                          <label className={clsx(
+                            'designer-upload-zone group relative flex min-h-[204px] w-full flex-col items-center justify-center overflow-hidden rounded-[1.75rem] border border-dashed p-5 text-center transition-all',
+                            isUploadingImage ? 'pointer-events-none border-primary-300/50 bg-primary-500/10' : 'cursor-pointer border-white/20 bg-gradient-to-br from-white/[0.08] to-white/[0.02] hover:border-primary-300/55 hover:from-primary-500/10'
+                          )}>
+                            <div className="pointer-events-none absolute inset-3 rounded-[1.25rem] border border-white/[0.045]" />
+                            {isUploadingImage ? (
+                              <div className="relative z-10 flex w-full flex-col items-center" role="status" aria-live="polite">
+                                <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-primary-300/25 bg-primary-400/10 text-primary-300">
+                                  <RefreshCcw className="h-6 w-6 animate-spin" />
+                                </div>
+                                <span className="max-w-full truncate text-[11px] font-bold text-white">{uploadFileName}</span>
+                                <span className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-primary-200/75">Preparing your artwork · {uploadProgress}%</span>
+                                <div className="mt-4 h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-white/10">
+                                  <motion.div className="h-full rounded-full bg-gradient-to-r from-primary-400 to-cyan-300" animate={{ width: `${Math.max(uploadProgress, 6)}%` }} transition={{ duration: .2, ease: 'easeOut' }} />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="relative z-10 flex flex-col items-center">
+                                <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-primary-300/20 bg-gradient-to-br from-primary-400/20 to-cyan-400/5 text-primary-200 shadow-[0_10px_35px_rgba(14,165,233,.12)] transition-transform duration-200 group-hover:scale-105">
+                                  <UploadCloud className="h-6 w-6" />
+                                </div>
+                                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-white">Choose an image</span>
+                                <span className="mt-2 text-[9px] text-white/45">Select a file from your device</span>
+                                <span className="mt-4 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[8px] font-bold uppercase tracking-widest text-white/55">Up to 10 MB</span>
+                              </div>
+                            )}
+                            <input type="file" accept="image/*" className="sr-only" disabled={isUploadingImage} onChange={handleImageUpload} />
+                          </label>
+
+                          <div className="relative flex items-center justify-center">
+                            <div className="absolute inset-x-0 border-t border-white/10" />
+                            <span className="relative bg-[#0a0a0a] px-3 text-[8px] font-black uppercase tracking-[0.24em] text-white/35">or import by link</span>
+                          </div>
 
                             {!showUrlInput ? (
                               <Button variant="outline" className="w-full h-16 border-white/5 bg-white/5 rounded-2xl text-[10px] uppercase font-black tracking-[0.2em] gap-3 text-blue-400" onClick={() => setShowUrlInput(true)}>
@@ -1111,7 +1375,6 @@ const Designer: React.FC = () => {
                                 </div>
                               </div>
                             )}
-                          </div>
                         </div>
                       )}
                     </div>
@@ -1124,30 +1387,64 @@ const Designer: React.FC = () => {
              <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 overflow-hidden">
                
                {/* Live Preview Panel - Top on Mobile, Right on Desktop */}
-               <div className="w-full lg:w-[400px] flex flex-col gap-4 sm:gap-6 order-1 lg:order-2 shrink-0">
+               <div className="designer-preview-column w-full lg:w-[400px] flex flex-col gap-4 sm:gap-6 order-1 lg:order-2 shrink-0">
                  <div className="flex-1 relative bg-black/60 backdrop-blur-3xl rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-2xl flex flex-col overflow-hidden min-h-[200px] sm:min-h-[250px] lg:min-h-0">
-                   <div className="p-4 sm:p-6 border-b border-white/5 flex items-center justify-between">
+                    <div className="p-4 sm:p-6 border-b border-white/5 flex items-center justify-between gap-3">
                        <h3 className="text-[9px] sm:text-[10px] md:text-xs font-black text-white uppercase tracking-[0.2em] sm:tracking-[0.3em] flex items-center gap-2 sm:gap-3 italic">
                          <Eye className="w-3 h-3 sm:w-4 sm:h-4 text-primary-500" />
                          Live Preview
                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowLargePreview(true)}
+                          disabled={!mirrorPreview || isPreviewLoading}
+                          aria-label="Open large preview"
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-[8px] font-black uppercase tracking-[.14em] text-white/75 transition hover:border-primary-300/40 hover:bg-primary-400/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+                        >
+                          <Maximize2 className="h-3.5 w-3.5 text-primary-300" />
+                          <span className="hidden sm:inline">View large</span>
+                        </button>
                    </div>
                   
                    <div className="flex-1 flex items-center justify-center p-4 sm:p-6 relative">
-                       <div className="relative w-full aspect-[4/5] rounded-[1.5rem] sm:rounded-2xl md:rounded-[2rem] overflow-hidden bg-slate-900 shadow-2xl border border-white/5">
+                       <div className="relative w-full rounded-[1.5rem] sm:rounded-2xl md:rounded-[2rem] overflow-hidden bg-slate-900 shadow-2xl border border-white/5" style={{ aspectRatio: flatProduct ? (activeSide === 'front' ? '2 / 3' : '3 / 2') : '4 / 5' }}>
                          {mirrorPreview ? (
                            <motion.img 
-                             key={mirrorPreview}
-                             initial={{ opacity: 0.8 }}
-                             animate={{ opacity: 1 }}
+                             key={`${activeProduct}-${activeColor}-${activeSide}`}
+                             initial={{ opacity: 0.72, scale: 0.985 }}
+                             animate={{ opacity: 1, scale: 1 }}
+                             transition={{ duration: 0.18, ease: 'easeOut' }}
                              src={mirrorPreview} 
                              className="w-full h-full object-contain"
+                             alt={`${activeColor} ${activeProduct} ${activeSide} live design preview`}
                            />
                          ) : (
                            <div className="w-full h-full flex flex-col items-center justify-center gap-3 sm:gap-4 text-white/10">
                              <RefreshCcw className="w-6 h-6 sm:w-8 sm:h-8 animate-spin-slow" />
                            </div>
                          )}
+                          <AnimatePresence>
+                            {isPreviewLoading && (
+                              <motion.div
+                                key="preview-brand-loader"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: .16 }}
+                                className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md"
+                                role="status"
+                                aria-live="polite"
+                                aria-label={`Loading ${activeColor} ${activeProduct} ${activeSide} preview`}
+                              >
+                                <div className="relative mb-5 grid h-20 w-20 place-items-center rounded-full border border-white/10 bg-black/35">
+                                  <motion.div className="absolute inset-[-7px] rounded-full border border-primary-300/20 border-t-primary-300" animate={{ rotate: 360 }} transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }} />
+                                  <img src="https://i.imgur.com/1PBylbz.png" alt="" className="h-12 w-12 object-contain brightness-0 invert drop-shadow-[0_0_12px_rgba(56,189,248,.5)]" />
+                                </div>
+                                <span className="text-[9px] font-black uppercase tracking-[.22em] text-white/85">Updating preview</span>
+                                <span className="mt-2 text-[8px] font-semibold uppercase tracking-[.14em] text-white/45">{activeColor} · {activeProduct.replace('-', ' ')} · {activeSide}</span>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                        </div>
                    </div>
 
@@ -1161,14 +1458,29 @@ const Designer: React.FC = () => {
                        </div>
                    </div>
                  </div>
+                 {flatProduct && (
+                   <div className="mx-4 mb-4 rounded-2xl border border-lime-200/20 bg-[linear-gradient(120deg,rgba(190,242,100,.09),rgba(255,255,255,.035)_46%,rgba(255,255,255,.02))] p-4 sm:mx-6 sm:mb-6 sm:p-5">
+                     <div className="flex items-start justify-between gap-4">
+                       <div>
+                         <p className="text-[8px] font-black uppercase tracking-[.22em] text-lime-200/80">Print proof · {printSpec.orientation}</p>
+                         <p className="mt-2 text-sm font-black text-white">{printSpec.mockup} <span className="text-white/35">/ {printSpec.ratio}</span></p>
+                       </div>
+                       <div className={clsx('mt-1 grid shrink-0 place-items-center rounded-sm border border-lime-200/50 bg-lime-100/[.07]', activeSide === 'front' ? 'h-11 w-7' : 'h-7 w-11')} aria-hidden="true"><span className="h-1.5 w-1.5 rounded-full bg-lime-200 shadow-[0_0_12px_rgba(217,249,157,.8)]" /></div>
+                     </div>
+                     <div className="mt-3 flex items-baseline justify-between gap-2 border-t border-white/10 pt-3">
+                       <span className="text-[8px] font-bold uppercase tracking-[.14em] text-white/45">Recommended artwork</span>
+                       <span className="text-[10px] font-black tracking-wide text-white">{printSpec.artwork}</span>
+                     </div>
+                   </div>
+                 )}
                </div>
 
                {/* Main Interaction Area - Bottom on Mobile, Left/Center on Desktop */}
-               <div className="flex-1 flex flex-col gap-4 sm:gap-6 order-2 lg:order-1 min-h-[250px] sm:min-h-[300px] lg:min-h-0 overflow-hidden">
-                 <div className="flex-1 relative bg-black/40 backdrop-blur-2xl rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-2xl flex items-center justify-center overflow-hidden">
+               <div className="designer-pad-column flex-1 flex flex-col gap-4 sm:gap-6 order-2 lg:order-1 min-h-[250px] sm:min-h-[300px] lg:min-h-0 overflow-hidden">
+                 <div className="designer-pad relative flex-1 min-h-0 bg-black/40 backdrop-blur-2xl rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-2xl flex items-center justify-center overflow-hidden">
                    <div className="absolute top-3 sm:top-4 md:top-8 left-4 sm:left-6 md:left-10 flex items-center gap-1 sm:gap-2 md:gap-3 z-10">
                      <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]" />
-                     <span className="text-[7px] sm:text-[8px] md:text-[10px] font-black text-white/40 uppercase tracking-[0.2em] sm:tracking-[0.3em]">Precision Pad</span>
+                     <span className="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white/75 uppercase tracking-[0.15em] sm:tracking-[0.25em]">Precision Pad <span className="text-white/35">/ {activeProduct.replace('-', ' ')}</span></span>
                    </div>
 
                    {/* Quick Actions Toolbar */}
@@ -1209,10 +1521,8 @@ const Designer: React.FC = () => {
                      </div>
                    </div>
                    
-                   <div 
-                     className="relative z-10 p-2 sm:p-4 bg-white/5 rounded-xl sm:rounded-2xl md:rounded-[2rem] border border-white/5 shadow-inner scale-[0.6] sm:scale-[0.75] md:scale-[0.85] lg:scale-100"
-                   >
-                     <div className="w-full h-full rounded-lg overflow-hidden bg-transparent">
+                   <div className="precision-canvas-shell relative z-10 rounded-xl sm:rounded-2xl md:rounded-[2rem] border border-white/10 bg-white/[0.035] shadow-[0_24px_70px_rgba(0,0,0,.3)] overflow-hidden" style={{ width: flatProduct ? (activeSide === 'front' ? 'min(100%, 320px)' : 'min(100%, 480px)') : 'min(100%, 380px)', aspectRatio: flatProduct ? (activeSide === 'front' ? '2 / 3' : '3 / 2') : '4 / 5' }}>
+                     <div className="w-full h-full overflow-hidden bg-transparent">
                        <canvas ref={canvasRef} className="outline-none" />
                      </div>
                    </div>
@@ -1232,6 +1542,50 @@ const Designer: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <AnimatePresence>
+          {showLargePreview && mirrorPreview && (
+            <motion.div
+              className="fixed inset-0 z-[130] flex flex-col bg-[#05080e]/95 p-3 backdrop-blur-2xl sm:p-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLargePreview(false)}
+            >
+              <div className="mx-auto flex h-full w-full max-w-7xl flex-col" onClick={(event) => event.stopPropagation()}>
+                <div className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 px-1 py-3 sm:px-3 sm:py-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <img src="https://i.imgur.com/1PBylbz.png" alt="Crownstroke" className="h-8 w-8 shrink-0 object-contain brightness-0 invert" />
+                    <div className="min-w-0">
+                      <h2 className="truncate text-xs font-black uppercase tracking-[.18em] text-white sm:text-sm">Design preview</h2>
+                      <p className="mt-1 truncate text-[8px] font-semibold uppercase tracking-[.15em] text-white/45 sm:text-[9px]">{activeColor} · {activeProduct.replace('-', ' ')} · {activeSide} view</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setShowLargePreview(false)} aria-label="Close large preview" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[.06] text-white/75 transition hover:bg-white/10 hover:text-white">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="relative flex min-h-0 flex-1 items-center justify-center py-3 sm:py-6">
+                  <motion.img
+                    key={`large-${activeProduct}-${activeColor}-${activeSide}`}
+                    src={mirrorPreview}
+                    alt={`${activeColor} ${activeProduct} ${activeSide} product design preview`}
+                    className="h-full w-full object-contain drop-shadow-[0_28px_48px_rgba(0,0,0,.42)]"
+                    initial={{ opacity: .6, scale: .985 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: .2, ease: 'easeOut' }}
+                  />
+                  {isPreviewLoading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#05080e]/70 backdrop-blur-sm">
+                      <img src="https://i.imgur.com/1PBylbz.png" alt="" className="h-16 w-16 animate-pulse object-contain brightness-0 invert" />
+                      <span className="mt-4 text-[9px] font-black uppercase tracking-[.2em] text-white/75">Refreshing design</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Modals remain mostly same but with responsive max-widths */}
         <AnimatePresence>

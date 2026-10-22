@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import React, { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout/Layout';
 import { useSeo } from '../hooks/useSeo';
@@ -7,24 +8,43 @@ import ProductCard from '../components/catalog/ProductCard';
 import { Product } from '../types';
 import { CheckCircle2, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal, X } from 'lucide-react';
 import { db } from '../db';
-import { designerDesigns, designers } from '../db/schema';
-import { eq, or } from 'drizzle-orm';
+import { designerDesigns, designers, shops } from '../db/schema';
+import { PRODUCT_DATA } from '../data/seed';
 
-import { PRODUCT_DATA as SEED_DATA, READY_MADE_PRODUCTS } from '../data/seed';
 
 type SortMode = 'featured' | 'price-low' | 'price-high' | 'name';
 type ViewMode = 'grid' | 'list';
 
 const categories = [
-  { id: 'all', label: 'All Products' },
+  { id: 'all', label: 'All products' },
   { id: 't-shirt', label: 'T-Shirts' },
   { id: 'hoodie', label: 'Hoodies' },
   { id: 'long-sleeve-tee', label: 'Long Sleeve' },
   { id: 'tank-top', label: 'Tank Tops' },
   { id: 'mug', label: 'Mugs' },
   { id: 'poster', label: 'Posters' },
-  { id: 'art-design', label: 'Art Designs' }
+  { id: 'art-design', label: 'Art Designs' },
 ];
+
+const blankProducts: Product[] = Object.entries(PRODUCT_DATA).map(([category, colorSet]: [string, any]) => {
+  const colors = Object.keys(colorSet);
+  const first = colorSet[colors[0]];
+  const label = category.split('-').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ');
+  const apparel = ['t-shirt', 'hoodie', 'long-sleeve-tee', 'tank-top'].includes(category);
+
+  return {
+    id: 'template-' + category,
+    name: label + ' Blank',
+    description: 'A clean ' + label.toLowerCase() + ' ready for your own artwork.',
+    price: category === 't-shirt' ? 1500 : category === 'hoodie' ? 3500 : category === 'poster' ? 1800 : category === 'mug' ? 1200 : 1600,
+    image: first.front,
+    category: category as Product['category'],
+    isCustomizable: true,
+    colors,
+    sizes: apparel ? ['S', 'M', 'L', 'XL', 'XXL'] : undefined,
+    images: { front: first.front, back: first.back },
+  };
+});
 
 const sortOptions: Array<{ id: SortMode; label: string }> = [
   { id: 'featured', label: 'Featured first' },
@@ -37,10 +57,10 @@ const categoryLabel = (category: string) => categories.find((item) => item.id ==
 
 const Shop: React.FC = () => {
   useSeo({
-    title: 'Shop Designs | Crownstroke',
+    title: 'Designer Shops | Crownstroke',
 
     description:
-      'Browse ready-made designer drops and customizable creations on Crownstroke. Find premium artifacts and deploy your next design.',
+      'Discover original products listed by independent designers in their own Crownstroke shops.',
     canonicalUrl: `${CROWNSTROKE_BASE.url}/shop`,
     ogImage: CROWNSTROKE_BASE.ogImage,
     robots: 'index,follow'
@@ -48,7 +68,7 @@ const Shop: React.FC = () => {
 
   const [activeCategory, setActiveCategory] = useState('all');
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(blankProducts);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('featured');
@@ -60,62 +80,47 @@ const Shop: React.FC = () => {
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const featured = await db.select({
-          id: designerDesigns.id,
-          name: designerDesigns.name,
-          productId: designerDesigns.productId,
-          preview: designerDesigns.preview,
-          price: designerDesigns.price,
-          designerEmail: designers.email,
-          designerId: designers.id,
-        })
-          .from(designerDesigns)
-          .innerJoin(designers, eq(designerDesigns.designerId, designers.id))
-          .where(or(eq(designerDesigns.isFeatured, 'shop'), eq(designerDesigns.isFeatured, 'true')));
+        const [featured, designerRows, shopRows] = await Promise.all([
+          db.select({
+            id: designerDesigns.id,
+            name: designerDesigns.name,
+            productId: designerDesigns.productId,
+            preview: designerDesigns.preview,
+            price: designerDesigns.price,
+            designerId: designerDesigns.designerId,
+            shopId: designerDesigns.shopId,
+          }).from(designerDesigns),
+          db.select({ id: designers.id, name: designers.name, email: designers.email }).from(designers),
+          db.select({ id: shops.id, name: shops.name, slug: shops.slug }).from(shops),
+        ]);
 
-        const dbProducts: Product[] = featured.map((f) => ({
-          id: f.id,
-          name: f.name,
-          description: `Designer creation: ${f.name}`,
-          price: f.price ?? 0,
-          image: f.preview,
-          category: f.productId as any,
-          isCustomizable: false,
-          designerEmail: f.designerEmail,
-          designerId: f.designerId,
-          designId: f.id
-        } as any));
-
-        const templateProducts: Product[] = Object.entries(SEED_DATA).map(([category, colorsData]) => {
-          const colors = colorsData as any;
-          const firstColor = Object.keys(colors)[0];
-          const firstImageData = colors[firstColor];
+        const designersById = new Map(designerRows.map((designer) => [String(designer.id).toLowerCase(), designer]));
+        const shopsById = new Map(shopRows.map((shop) => [String(shop.id).toLowerCase(), shop]));
+        const dbProducts: Product[] = featured.map((f) => {
+          const designer = designersById.get(String(f.designerId).toLowerCase());
+          const shop = shopsById.get(String(f.shopId).toLowerCase());
 
           return {
-            id: `template-${category}`,
-            name: `${category.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Essential`,
-            description: `Premium customizable ${category.replace(/-/g, ' ')}. Add your own artwork and make it personal.`,
-            price: category === 't-shirt' ? 1500 : category === 'hoodie' ? 3500 : 1200,
-            image: firstImageData.front,
-            category: category as any,
-            isCustomizable: true,
-            colors: Object.keys(colors),
-            sizes: ['t-shirt', 'hoodie', 'long-sleeve-tee', 'tank-top'].includes(category) ? ['S', 'M', 'L', 'XL', 'XXL'] : undefined,
-            images: {
-              front: firstImageData.front,
-              back: firstImageData.back
-            }
+            id: f.id,
+            name: f.name,
+            description: 'An original design by ' + (designer?.name || 'an independent designer') + '.',
+            price: f.price ?? 0,
+            image: f.preview,
+            category: f.productId as Product['category'],
+            isCustomizable: false,
+            designerEmail: designer?.email,
+            designerId: f.designerId,
+            designerName: designer?.name || undefined,
+            shopSlug: shop?.slug || undefined,
+            shopName: shop?.name || undefined,
+            designId: f.id,
           };
         });
 
-        const readyMade: Product[] = READY_MADE_PRODUCTS.map((p) => ({
-          ...p,
-          isCustomizable: false
-        })) as Product[];
-
-        setProducts([...dbProducts, ...readyMade, ...templateProducts]);
+        setProducts([...blankProducts, ...dbProducts]);
       } catch (err) {
         console.error('Failed to fetch shop products:', err);
+        setProducts(blankProducts);
       } finally {
         setIsLoading(false);
       }
@@ -147,7 +152,9 @@ const Shop: React.FC = () => {
         !query ||
         product.name.toLowerCase().includes(query) ||
         product.description.toLowerCase().includes(query) ||
-        product.category.toLowerCase().includes(query);
+        product.category.toLowerCase().includes(query) ||
+        (product.designerName || '').toLowerCase().includes(query) ||
+        (product.shopName || '').toLowerCase().includes(query);
 
       return matchesCategory && matchesSearch;
     });
@@ -156,7 +163,7 @@ const Shop: React.FC = () => {
       if (sortMode === 'price-low') return (a.price ?? 0) - (b.price ?? 0);
       if (sortMode === 'price-high') return (b.price ?? 0) - (a.price ?? 0);
       if (sortMode === 'name') return a.name.localeCompare(b.name);
-      return Number(Boolean((b as any).designerId)) - Number(Boolean((a as any).designerId));
+      return Number(Boolean(b.isCustomizable)) - Number(Boolean(a.isCustomizable));
     });
   }, [activeCategory, products, searchTerm, sortMode]);
 
@@ -205,18 +212,18 @@ const Shop: React.FC = () => {
               <div>
                 <p className="mb-1 text-[10px] font-black uppercase tracking-[0.22em] text-primary-200">Crownstroke Marketplace</p>
                 <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
-                  <h1 className="text-3xl font-black leading-none tracking-tight text-white drop-shadow md:text-4xl">Shop Designs</h1>
+                  <h1 className="text-3xl font-black leading-none tracking-tight text-white drop-shadow md:text-4xl">Make room for great design</h1>
                   <p className="pb-1 text-xs font-black uppercase tracking-widest text-white/55">
                     {filteredProducts.length} of {products.length} products
                   </p>
                 </div>
                 <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-white">
-                  Browse ready-made pieces, designer drops, and blank products you can customize instantly.
+                  Start with a blank canvas, or shop original pieces from independent designers.
                 </p>
               </div>
               <div className="hidden rounded-lg border border-white/25 bg-white/15 px-4 py-3 backdrop-blur-md lg:block">
                 <p className="text-[10px] font-black uppercase tracking-widest text-white/55">Catalog</p>
-                <p className="mt-1 text-xl font-black text-white">Live drops</p>
+                <p className="mt-1 text-xl font-black text-white">Blanks + originals</p>
               </div>
             </header>
 
@@ -331,8 +338,8 @@ const Shop: React.FC = () => {
                   </div>
                 ) : filteredProducts.length === 0 ? (
                   <div className="rounded-lg border border-white/25 bg-white/15 p-12 text-center backdrop-blur-md">
-                    <h2 className="text-2xl font-black text-white">No products match those filters</h2>
-                    <p className="mt-2 text-sm font-semibold text-white/70">Try a different category or search term.</p>
+                    <h2 className="text-2xl font-black text-white">Nothing in this corner yet</h2>
+                    <p className="mt-2 text-sm font-semibold text-white/70">Try another search, or clear the filters to browse every blank and artist original.</p>
                     <button onClick={resetFilters} className="mt-6 rounded-lg bg-white px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-950">
                       Reset Filters
                     </button>
@@ -361,5 +368,6 @@ const Shop: React.FC = () => {
     </Layout>
   );
 };
+
 
 export default Shop;

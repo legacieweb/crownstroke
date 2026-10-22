@@ -14,6 +14,10 @@ export interface Product {
   };
   designerId?: string;
   designerEmail?: string;
+  designerName?: string;
+  shopName?: string;
+  shopSlug?: string;
+  designId?: string;
 }
 
 export interface DesignElement {

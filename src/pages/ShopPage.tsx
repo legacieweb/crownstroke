@@ -29,6 +29,7 @@ const ShopPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [heroImage, setHeroImage] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [previewSides, setPreviewSides] = useState<Record<string, 'front' | 'back'>>({});
 
   useEffect(() => {
     const fetchShopDesigns = async () => {
@@ -58,6 +59,7 @@ const ShopPage: React.FC = () => {
             name: designerDesigns.name,
             productId: designerDesigns.productId,
             preview: designerDesigns.preview,
+            designData: designerDesigns.designData,
             price: designerDesigns.price,
             designerId: designerDesigns.designerId,
             designerEmail: designers.email
@@ -79,24 +81,44 @@ const ShopPage: React.FC = () => {
     fetchShopDesigns();
   }, [shopName]);
 
-  const handleAddToCart = (design: any) => {
-    if (!isOnline) {
-      alert('Shop is currently closed! You can still design and save to drafts.');
-      return;
-    }
+  const buildShopCartItem = (design: any) => {
+    const savedDesign = design.designData || {};
+    const previews = savedDesign.previews || {};
+    const frontPreview = previews.front || null;
+    const backPreview = previews.back || null;
+    const isDoubleSided = Boolean(frontPreview && backPreview);
+    const previewImage = frontPreview || backPreview || design.preview;
     const product = {
       id: design.id,
       name: design.name,
       description: `Designer creation by ${design.designerEmail}`,
       price: design.price,
-      image: design.preview,
+      image: previewImage,
       category: design.productId as any,
       isCustomizable: false,
       designerId: design.designerId,
       designerEmail: design.designerEmail,
       designId: design.id
     };
-    addToCart(product as any, 1, 'M', '#ffffff');
+    const customDesign = {
+      id: design.id,
+      designerId: design.designerId,
+      productId: design.productId,
+      elements: savedDesign,
+      previewImage,
+      isDoubleSided,
+      previews: { front: frontPreview || previewImage, back: backPreview },
+    };
+    return { product, customDesign };
+  };
+
+  const handleAddToCart = (design: any) => {
+    if (!isOnline) {
+      alert('Shop is currently closed! You can still design and save to drafts.');
+      return;
+    }
+    const { product, customDesign } = buildShopCartItem(design);
+    addToCart(product as any, 1, 'M', '#ffffff', customDesign as any);
     alert(`${design.name} added to cart!`);
   };
 
@@ -105,19 +127,8 @@ const ShopPage: React.FC = () => {
       alert('Shop is currently closed! You can still design and save to drafts.');
       return;
     }
-    const product = {
-      id: design.id,
-      name: design.name,
-      description: `Designer creation by ${design.designerEmail}`,
-      price: design.price,
-      image: design.preview,
-      category: design.productId as any,
-      isCustomizable: false,
-      designerId: design.designerId,
-      designerEmail: design.designerEmail,
-      designId: design.id
-    };
-    addToCart(product as any, 1, 'M', '#ffffff');
+    const { product, customDesign } = buildShopCartItem(design);
+    addToCart(product as any, 1, 'M', '#ffffff', customDesign as any);
     navigate('/checkout');
   };
 
@@ -136,18 +147,7 @@ const ShopPage: React.FC = () => {
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
           </>
         ) : (
-          <>
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover"
-            >
-              <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />
-            </video>
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          </>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
         )}
       </div>
 
@@ -234,7 +234,12 @@ const ShopPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6 sm:gap-12">
                  <AnimatePresence mode="popLayout">
-                   {filteredDesigns.map((design, i) => (
+                   {filteredDesigns.map((design, i) => {
+                     const availablePreviews = design.designData?.previews || {};
+                     const hasFrontAndBack = Boolean(availablePreviews.front && availablePreviews.back);
+                     const selectedPreviewSide = previewSides[design.id] || 'front';
+                     const cardPreview = (selectedPreviewSide === 'back' ? availablePreviews.back : availablePreviews.front) || design.preview;
+                     return (
                      <motion.div 
                        key={design.id}
                        layout
@@ -247,10 +252,29 @@ const ShopPage: React.FC = () => {
                        <div className="relative aspect-[4/5] rounded-[2rem] sm:rounded-[3.5rem] overflow-hidden bg-white/5 border border-white/10 transition-all duration-700 group-hover:border-primary-500/50 group-hover:shadow-[0_40px_80px_rgba(0,0,0,0.5)]">
                           {/* Product Image */}
                           <img 
-                            src={design.preview} 
+                            src={cardPreview}
                             className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
                             alt={design.name} 
                           />
+
+                          {hasFrontAndBack && (
+                            <div className="absolute top-4 right-4 z-20 inline-flex rounded-xl border border-white/15 bg-slate-950/75 p-1 shadow-xl backdrop-blur-md" role="group" aria-label={`${design.name} preview side`}>
+                              {(['front', 'back'] as const).map((side) => (
+                                <button
+                                  key={side}
+                                  type="button"
+                                  onClick={() => setPreviewSides((current) => ({ ...current, [design.id]: side }))}
+                                  aria-pressed={selectedPreviewSide === side}
+                                  className={clsx(
+                                    'min-h-11 rounded-lg px-3 text-[8px] font-black uppercase tracking-[.13em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300 sm:min-h-8',
+                                    selectedPreviewSide === side ? 'bg-lime-300 text-slate-950' : 'text-white/65 hover:bg-white/10 hover:text-white'
+                                  )}
+                                >
+                                  {side}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                           
                           {/* Overlay Logic */}
                           <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent opacity-60 group-hover:opacity-90 transition-opacity" />
@@ -317,7 +341,8 @@ const ShopPage: React.FC = () => {
                        {/* Floating Decorative Elements */}
                        <div className="absolute -bottom-2 -right-2 sm:-bottom-4 sm:-right-4 w-12 h-12 sm:w-24 sm:h-24 bg-primary-600/20 blur-2xl sm:blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                      </motion.div>
-                   ))}
+                     );
+                   })}
                  </AnimatePresence>
               </div>
             )}

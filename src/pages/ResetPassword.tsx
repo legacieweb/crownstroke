@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
+import VideoBackground, { DEFAULT_BG_VIDEO_URL } from '../components/layout/VideoBackground';
 import { Lock, Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
 import { authService } from '../services/auth';
 
@@ -45,8 +46,9 @@ const ResetPassword: React.FC = () => {
 
   if (!email || !token) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-8">
-        <div className="max-w-md w-full text-center">
+      <div className="relative isolate min-h-screen bg-transparent flex items-center justify-center p-8">
+        <VideoBackground videoUrl={DEFAULT_BG_VIDEO_URL} className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]" videoClassName="h-full w-full object-cover opacity-70" />
+        <div className="site-glass-panel max-w-md w-full rounded-3xl border p-8 text-center">
           <h1 className="text-2xl font-black text-white mb-4 uppercase italic">Invalid Link</h1>
           <p className="text-gray-400 mb-8">This password reset link is invalid or incomplete.</p>
           <Link to="/login">
@@ -58,7 +60,8 @@ const ResetPassword: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-black overflow-hidden">
+    <div className="relative isolate min-h-screen flex bg-transparent overflow-hidden">
+      <VideoBackground videoUrl={DEFAULT_BG_VIDEO_URL} className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]" videoClassName="h-full w-full object-cover opacity-70" />
       {/* Left Side - Image */}
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img 
@@ -75,7 +78,7 @@ const ResetPassword: React.FC = () => {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#0a0a0a] relative">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-slate-950/55 backdrop-blur-xl relative">
         <div className="max-w-md w-full">
           {isSuccess ? (
             <div className="text-center animate-in zoom-in duration-300">

@@ -34,7 +34,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(authenticatedUser);
       localStorage.setItem('pod_user', JSON.stringify(authenticatedUser));
     } catch (error) {
-      console.error('Login failed:', error);
+      // Query error objects can include SQL parameters such as the password.
+      console.error('Login failed:', error instanceof Error ? error.name : 'Unknown error');
       throw error;
     }
   };
@@ -45,7 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(newUser);
       localStorage.setItem('pod_user', JSON.stringify(newUser));
     } catch (error) {
-      console.error('Signup failed:', error);
+      // Query error objects can include SQL parameters such as the password.
+      console.error('Signup failed:', error instanceof Error ? error.name : 'Unknown error');
       throw error;
     }
   };

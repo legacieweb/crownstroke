@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { users, designers, shops, designerDesigns, orders } from '../db/schema';
 import { emailService } from './email';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 // Backend Service for Authentication
 // Now uses the database for persistence
@@ -10,10 +10,26 @@ export interface User {
   id: string;
   email: string;
   role: 'user' | 'admin' | 'designer';
+  plan?: 'free' | 'pro' | 'business';
+  planToken?: string;
   name?: string;
   shopName?: string;
   designerId?: string;
   shopId?: string;
+}
+
+async function createPlanSession(email: string, password: string) {
+  const apiUrl = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || '').trim();
+  const response = await fetch(`${apiUrl}/api/auth/plan-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.token) {
+    throw new Error(data.error || 'Could not load your account plan.');
+  }
+  return { plan: data.plan as User['plan'], planToken: data.token as string };
 }
 
 export const authService = {
@@ -35,17 +51,24 @@ export const authService = {
       }
     }
 
-    const userId = Math.random().toString(36).substr(2, 9);
-    
     // Create user in DB
     await db.insert(users).values({
-      id: userId,
       email,
       password: pass,
       name,
       role,
       shopName
     });
+
+    // IyonicDB generates the user ID, so read it back before creating related records.
+    const [createdUser] = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    if (!createdUser?.id) {
+      throw new Error('Account was saved, but its generated ID could not be loaded');
+    }
+    const userId = String(createdUser.id);
 
     // Send welcome email
     emailService.sendSignupWelcome(email, name, role).catch(err => {
@@ -60,17 +83,20 @@ export const authService = {
       try {
         console.log('Syncing designer to DB...', { userId, name, email });
         // Sync Designer to database
-        const designerResults = await db.insert(designers).values({
+        await db.insert(designers).values({
           userId: userId,
           name,
           email,
-        }).returning();
-        
-        if (!designerResults || designerResults.length === 0) {
+        });
+
+        const [designer] = await db.select({ id: designers.id })
+          .from(designers)
+          .where(eq(designers.userId, userId))
+          .limit(1);
+        if (!designer?.id) {
           throw new Error('Failed to create designer record: No data returned');
         }
 
-        const designer = designerResults[0];
         // Convert UUID to string format (Buffer/Uint8Array from DB needs conversion)
         dbDesignerId = typeof designer.id === 'string'
           ? designer.id
@@ -81,17 +107,21 @@ export const authService = {
 
         if (shopName) {
           console.log('Creating shop...', { designerId: dbDesignerId, shopName });
-          const shopResults = await db.insert(shops).values({
+          await db.insert(shops).values({
             designerId: dbDesignerId as string,
             name: shopName,
             slug: shopName.toLowerCase().replace(/\s+/g, '-'),
-          }).returning();
-          
-          if (!shopResults || shopResults.length === 0) {
+          });
+
+          const [shop] = await db.select({ id: shops.id })
+            .from(shops)
+            .where(eq(shops.designerId, dbDesignerId as any))
+            .limit(1);
+          if (!shop?.id) {
             throw new Error('Failed to create shop record: No data returned');
           }
 
-          dbShopId = shopResults[0].id?.toString() || undefined;
+          dbShopId = shop.id.toString();
           console.log('Shop created:', dbShopId);
         }
       } catch (err) {
@@ -101,11 +131,13 @@ export const authService = {
       }
     }
 
+    const planSession = await createPlanSession(email, pass);
     return {
       id: userId,
       email,
       name,
       role,
+      ...planSession,
       shopName,
       designerId: dbDesignerId,
       shopId: dbShopId
@@ -128,11 +160,13 @@ export const authService = {
       throw new Error('Invalid credentials');
     }
 
-    const resultUser: User = { 
+    const planSession = await createPlanSession(email, pass);
+    const resultUser: User = {
       id: user.id,
       email: user.email,
       name: user.name || undefined,
       role: user.role as 'user' | 'admin' | 'designer',
+      ...planSession,
       shopName: user.shopName || undefined
     };
 
@@ -177,12 +211,16 @@ export const authService = {
       .from(users)
       .where(and(
         eq(users.email, email), 
-        eq(users.resetToken, token),
-        gt(users.resetExpires, new Date())
+        eq(users.resetToken, token)
       ))
       .limit(1);
 
     if (!user) {
+      throw new Error('Invalid or expired reset token');
+    }
+
+    const now = new Date();
+    if (user.resetExpires && new Date(user.resetExpires) < now) {
       throw new Error('Invalid or expired reset token');
     }
 

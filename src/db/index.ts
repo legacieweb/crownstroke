@@ -57,17 +57,31 @@ function serializeParams(params: any[]): any[] {
 
 const proxy = async (sql: string, params: any[], method: 'all' | 'execute') => {
   const serializedParams = serializeParams(params);
-  console.log(`[DB Proxy] ${method} ${sql.substring(0, 100)}${sql.length > 100 ? '...' : ''}`, serializedParams);
-  console.log(`[DB Proxy] Full SQL: ${sql}`);
-  console.log(`[DB Proxy] Params types: ${serializedParams.map((p, i) => `${i}: ${typeof p} ${p !== null ? JSON.stringify(p).substring(0, 50) : 'null'}`).join(', ')}`);
+  // Never log parameter values: auth queries include passwords and reset tokens.
+  console.log(`[DB Proxy] ${method} ${sql.substring(0, 160)}${sql.length > 160 ? '...' : ''} (${serializedParams.length} params)`);
 
   const url = `${API_URL}/api/db`;
   console.log(`[DB Proxy] Fetching from: ${url}`);
 
   try {
+    let authorization = '';
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const session = JSON.parse(localStorage.getItem('pod_user') || 'null');
+        if (typeof session?.planToken === 'string') {
+          authorization = `Bearer ${session.planToken}`;
+        }
+      } catch {
+        authorization = '';
+      }
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authorization ? { Authorization: authorization } : {}),
+      },
       body: JSON.stringify({ query: sql, params: serializedParams, isValues: method === 'all' }),
     });
 

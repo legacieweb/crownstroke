@@ -322,21 +322,23 @@ const AdminDashboard: React.FC = () => {
     <Layout>
       <Preloader isLoading={isDashboardLoading} />
 
-      <div className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
+      <div className="admin-console relative min-h-screen px-3 py-5 text-white sm:px-6 sm:py-8 lg:px-8">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(ellipse_at_50%_0%,rgba(132,204,22,.12),transparent_68%)]" />
+        <div className="mx-auto max-w-[1440px]">
           <motion.header
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 rounded-lg border border-white/10 bg-zinc-950/80 p-5 shadow-2xl backdrop-blur-xl"
+            className="mb-5 overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-[0_24px_80px_rgba(0,0,0,.32)] backdrop-blur-2xl sm:p-7"
           >
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-zinc-950">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-lime-300/20 bg-lime-300/10 text-lime-200 shadow-[0_10px_35px_rgba(190,242,100,.08)]">
                   <Shield className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.24em] text-primary-300">Operations Console</p>
-                  <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">Admin Dashboard</h1>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[.24em] text-lime-200">Crownstroke · Operations</p>
+                  <h1 className="mt-1 text-3xl font-black tracking-[-.045em] text-white sm:text-4xl">Admin dashboard</h1>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-white/55">A clear view of orders, designers, and the work featured across the marketplace.</p>
                 </div>
               </div>
 
@@ -344,14 +346,14 @@ const AdminDashboard: React.FC = () => {
                 <button
                   onClick={fetchAllData}
                   disabled={isUpdating || isDashboardLoading}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-950 transition hover:bg-primary-100 disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/[.06] px-4 py-2 text-xs font-bold text-white/80 transition hover:border-lime-200/40 hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-200 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCw className={clsx('h-4 w-4', isDashboardLoading && 'animate-spin')} />
                   Refresh
                 </button>
                 <button
                   onClick={logout}
-                  className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-red-200 transition hover:bg-red-500/25"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-4 py-2 text-xs font-bold text-white/65 transition hover:border-red-300/30 hover:bg-red-500/10 hover:text-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-200"
                 >
                   <LogOut className="h-4 w-4" />
                   Sign Out
@@ -379,9 +381,9 @@ const AdminDashboard: React.FC = () => {
             )}
           </AnimatePresence>
 
-          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section aria-label="Marketplace overview" className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
             {[
-              { label: 'Revenue', value: money(stats.totalRevenue), icon: DollarSign, tone: 'text-emerald-200', detail: `${stats.totalOrders} paid orders` },
+              { label: 'Order value', value: money(stats.totalRevenue), icon: DollarSign, tone: 'text-emerald-200', detail: `${stats.totalOrders} orders tracked` },
               { label: 'Orders', value: stats.totalOrders, icon: ShoppingBag, tone: 'text-sky-200', detail: `${pendingOrders} pending fulfillment` },
               { label: 'Designers', value: stats.totalDesigners, icon: Palette, tone: 'text-fuchsia-200', detail: `${designs.length} marketplace designs` },
               { label: 'Featured', value: featuredDesigns, icon: Eye, tone: 'text-amber-200', detail: 'Promoted designs live' }
@@ -391,30 +393,31 @@ const AdminDashboard: React.FC = () => {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.04 }}
-                className="rounded-lg border border-white/10 bg-zinc-950/75 p-5 backdrop-blur-xl"
+                className="group rounded-2xl border border-white/10 bg-slate-950/65 p-4 shadow-xl backdrop-blur-xl transition hover:border-white/20 sm:p-5"
               >
-                <div className="mb-5 flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">{stat.label}</span>
-                  <stat.icon className={clsx('h-5 w-5', stat.tone)} />
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <span className="text-[9px] font-extrabold uppercase tracking-[.16em] text-white/50 sm:text-[10px]">{stat.label}</span>
+                  <span className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/[.04] transition group-hover:bg-white/[.07]"><stat.icon className={clsx('h-4 w-4', stat.tone)} /></span>
                 </div>
-                <div className="text-3xl font-black text-white">{stat.value}</div>
-                <p className="mt-2 text-sm font-medium text-zinc-400">{stat.detail}</p>
+                <div className="truncate text-2xl font-black tracking-tight text-white sm:text-3xl">{stat.value}</div>
+                <p className="mt-1.5 text-[10px] leading-4 text-white/45 sm:text-xs">{stat.detail}</p>
               </motion.div>
             ))}
           </section>
 
-          <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_360px]">
-            <div className="rounded-lg border border-white/10 bg-zinc-950/80 p-2 backdrop-blur-xl">
-              <div className="flex flex-wrap gap-2">
+          <section className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <nav aria-label="Admin sections" className="rounded-2xl border border-white/10 bg-slate-950/65 p-2 backdrop-blur-xl">
+              <div className="flex gap-2 overflow-x-auto">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
+                    aria-current={activeTab === tab.id ? 'page' : undefined}
                     className={clsx(
-                      'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-xs font-black uppercase tracking-widest transition md:flex-none',
+                      'inline-flex min-h-12 flex-1 shrink-0 items-center justify-center gap-2 rounded-xl px-3 py-3 text-[10px] font-extrabold uppercase tracking-[.12em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-200 sm:flex-none sm:px-5 sm:text-xs',
                       activeTab === tab.id
-                        ? 'bg-white text-zinc-950'
-                        : 'text-zinc-400 hover:bg-white/10 hover:text-white'
+                        ? 'border border-lime-200/30 bg-lime-300 text-slate-950 shadow-[0_8px_25px_rgba(190,242,100,.14)]'
+                        : 'border border-transparent text-white/55 hover:border-white/10 hover:bg-white/[.05] hover:text-white'
                     )}
                   >
                     <tab.icon className="h-4 w-4" />
@@ -422,12 +425,12 @@ const AdminDashboard: React.FC = () => {
                   </button>
                 ))}
               </div>
-            </div>
+            </nav>
 
-            <div className="rounded-lg border border-white/10 bg-zinc-950/80 p-4 backdrop-blur-xl">
+            <aside className="rounded-2xl border border-white/10 bg-slate-950/65 p-4 backdrop-blur-xl sm:p-5">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-black uppercase tracking-widest text-white">Recent Orders</h2>
-                <button onClick={() => setActiveTab('orders')} className="text-xs font-bold text-primary-300 hover:text-primary-100">
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[.18em] text-white/75">Recent orders</h2>
+                <button onClick={() => setActiveTab('orders')} className="rounded-lg px-2 py-1 text-xs font-bold text-lime-200 transition hover:bg-white/[.06] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-200">
                   View all
                 </button>
               </div>
@@ -436,37 +439,81 @@ const AdminDashboard: React.FC = () => {
                   <p className="text-sm text-zinc-500">No orders yet.</p>
                 ) : (
                   recentOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between gap-3 border-t border-white/10 pt-3 first:border-t-0 first:pt-0">
+                    <div key={order.id} className="flex items-center justify-between gap-3 border-t border-white/[.08] pt-3 first:border-t-0 first:pt-0">
                       <div>
-                        <p className="text-sm font-black text-white">#{order.id.slice(-6)}</p>
-                        <p className="text-xs text-zinc-400">{order.customerName}</p>
+                        <p className="text-xs font-black text-white">#{order.id.slice(-6)}</p>
+                        <p className="mt-0.5 truncate text-xs text-white/50">{order.customerName}</p>
                       </div>
                       <span className="text-sm font-black text-emerald-200">{money(order.totalAmount)}</span>
                     </div>
                   ))
                 )}
               </div>
-            </div>
+            </aside>
           </section>
 
-          <div className="rounded-lg border border-white/10 bg-zinc-950/85 backdrop-blur-xl">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/70 shadow-[0_20px_70px_rgba(0,0,0,.22)] backdrop-blur-2xl">
             <AnimatePresence mode="wait">
               {activeTab === 'designs' && (
-                <motion.section key="designs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5">
+                <motion.section key="designs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 sm:p-6">
                   <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h2 className="text-2xl font-black text-white">Marketplace Designs</h2>
-                      <p className="text-sm text-zinc-400">Promote, curate, or remove designer submissions.</p>
+                      <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-lime-200">Curation desk</p>
+                      <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">Marketplace designs</h2>
+                      <p className="mt-1 text-sm text-white/50">Promote, curate, or remove designer submissions.</p>
                     </div>
-                    <Link to="/designer" className="inline-flex items-center justify-center rounded-lg bg-primary-500 px-4 py-2 text-xs font-black uppercase tracking-widest text-white transition hover:bg-primary-400">
+                    <Link to="/designer" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-lime-200/25 bg-lime-300 px-4 py-2 text-xs font-extrabold uppercase tracking-widest text-slate-950 transition hover:bg-lime-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-200">
                       Open Studio
                     </Link>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[960px]">
+                  <div className="grid gap-3 lg:hidden">
+                    {designs.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-white/15 px-5 py-12 text-center text-sm text-white/50">No designs found.</div>
+                    ) : designs.map((design) => (
+                      <article key={`mobile-${design.id}`} className="rounded-2xl border border-white/10 bg-white/[.035] p-4">
+                        <div className="flex items-center gap-3">
+                          <img src={design.preview} alt={design.name} className="h-16 w-16 shrink-0 rounded-xl border border-white/10 bg-slate-900 object-cover" />
+                          <div className="min-w-0 flex-1">
+                            <h3 className="truncate text-sm font-bold text-white">{design.name}</h3>
+                            <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-[.12em] text-white/45">{design.productId} · {money(design.price)}</p>
+                            <p className="mt-1 truncate text-xs text-white/60">{design.shopName} <span className="text-white/30">/</span> {design.designerName}</p>
+                          </div>
+                          <button
+                            onClick={() => deleteDesign(design.id)}
+                            disabled={isUpdating}
+                            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-red-300/20 bg-red-400/[.08] text-red-200 transition hover:bg-red-400/[.16] focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-200 disabled:opacity-50"
+                            aria-label={`Delete ${design.name}`}
+                          ><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {flagFields.map((field) => {
+                            const enabled = design[field.key] === 'true';
+                            return (
+                              <button
+                                key={field.key}
+                                onClick={() => updateDesignFlag(design.id, field.key, enabled ? 'false' : 'true')}
+                                disabled={isUpdating}
+                                aria-pressed={enabled}
+                                className={clsx(
+                                  'inline-flex min-h-10 items-center justify-between gap-2 rounded-xl border px-3 text-left text-[10px] font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lime-200 disabled:opacity-50',
+                                  enabled ? 'border-emerald-300/25 bg-emerald-300/[.09] text-emerald-100' : 'border-white/10 bg-white/[.025] text-white/55 hover:bg-white/[.06] hover:text-white'
+                                )}
+                              >
+                                {field.label}
+                                {enabled ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 opacity-50" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-x-auto lg:block">
+                    <table className="w-full min-w-[960px] text-left">
                       <thead>
-                        <tr className="border-b border-white/10">
+                        <tr className="border-b border-white/10 bg-white/[.025]">
                           <th className="px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-zinc-500">Design</th>
                           <th className="px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-zinc-500">Shop</th>
                           {flagFields.map((field) => (
@@ -489,7 +536,7 @@ const AdminDashboard: React.FC = () => {
                             <tr key={design.id} className="border-b border-white/5 transition hover:bg-white/[0.04]">
                               <td className="px-3 py-4">
                                 <div className="flex items-center gap-3">
-                                  <img src={design.preview} alt={design.name} className="h-14 w-14 rounded-lg border border-white/10 object-cover" />
+                                  <img src={design.preview} alt={design.name} className="h-14 w-14 rounded-xl border border-white/10 bg-slate-900 object-cover" />
                                   <div>
                                     <p className="font-black text-white">{design.name}</p>
                                     <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">{design.productId} · {money(design.price)}</p>
@@ -512,12 +559,13 @@ const AdminDashboard: React.FC = () => {
                                     }
                                     disabled={isUpdating}
                                     className={clsx(
-                                      'mx-auto flex h-9 w-9 items-center justify-center rounded-lg border transition disabled:opacity-50',
+                                      'mx-auto flex h-9 w-9 items-center justify-center rounded-xl border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-200 disabled:cursor-not-allowed disabled:opacity-50',
                                       design[field.key] === 'true'
                                         ? 'border-emerald-400/30 bg-emerald-500/20 text-emerald-200'
                                         : 'border-white/10 bg-white/5 text-zinc-500 hover:bg-white/10'
                                     )}
                                     aria-label={`Toggle ${field.label}`}
+                                    aria-pressed={design[field.key] === 'true'}
                                   >
                                     {design[field.key] === 'true' ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
                                   </button>
@@ -527,8 +575,8 @@ const AdminDashboard: React.FC = () => {
                                 <button
                                   onClick={() => deleteDesign(design.id)}
                                   disabled={isUpdating}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-400/20 bg-red-500/10 text-red-200 transition hover:bg-red-500/20 disabled:opacity-50"
-                                  aria-label="Delete design"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-400/20 bg-red-500/10 text-red-200 transition hover:bg-red-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                  aria-label={`Delete ${design.name}`}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
@@ -543,15 +591,16 @@ const AdminDashboard: React.FC = () => {
               )}
 
               {activeTab === 'orders' && (
-                <motion.section key="orders" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5">
+                <motion.section key="orders" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 sm:p-6">
                   <div className="mb-5">
-                    <h2 className="text-2xl font-black text-white">Orders & Sold Designs</h2>
-                    <p className="text-sm text-zinc-400">Every order now shows the design or product image sold.</p>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-sky-200">Fulfillment desk</p>
+                    <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">Orders &amp; sold designs</h2>
+                    <p className="mt-1 text-sm text-white/50">Every order includes the design or product image sold.</p>
                   </div>
 
                   <div className="space-y-3">
                     {orders.length === 0 ? (
-                      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-12 text-center text-sm font-semibold text-zinc-500">
+                      <div className="rounded-2xl border border-dashed border-white/15 bg-white/[.02] p-12 text-center text-sm font-semibold text-white/50">
                         No orders found.
                       </div>
                     ) : (
@@ -561,13 +610,14 @@ const AdminDashboard: React.FC = () => {
                         const firstImage = firstItem?.design?.preview || firstItem?.design?.previewImage || firstItem?.image;
 
                         return (
-                          <div key={order.id} className="rounded-lg border border-white/10 bg-white/[0.03]">
+                          <div key={order.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025] transition hover:border-white/15">
                             <button
                               onClick={() => setExpandedOrderId(isOpen ? null : order.id)}
-                              className="grid w-full grid-cols-1 gap-4 p-4 text-left transition hover:bg-white/[0.04] md:grid-cols-[minmax(260px,1fr)_140px_130px_120px_32px]"
+                              aria-expanded={isOpen}
+                              className="grid w-full grid-cols-2 items-center gap-x-4 gap-y-3 p-4 text-left transition hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-lime-200 sm:p-5 md:grid-cols-[minmax(260px,1fr)_100px_140px_120px_24px]"
                             >
                               <div className="flex min-w-0 items-center gap-3">
-                                <div className="h-16 w-16 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
+                                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900 sm:h-16 sm:w-16">
                                   {firstImage ? (
                                     <img src={firstImage} alt={firstItem?.name || 'Sold design'} className="h-full w-full object-cover" />
                                   ) : (
@@ -580,18 +630,18 @@ const AdminDashboard: React.FC = () => {
                                   <p className="truncate text-sm text-zinc-400">{order.customerEmail}</p>
                                 </div>
                               </div>
-                              <div>
-                                <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Items</p>
+                              <div className="pl-[68px] sm:pl-[76px] md:pl-0">
+                                <p className="text-[10px] font-extrabold uppercase tracking-widest text-white/40">Items</p>
                                 <p className="font-black text-white">{order.items.length}</p>
                               </div>
                               <div>
-                                <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Total</p>
+                                <p className="text-[10px] font-extrabold uppercase tracking-widest text-white/40">Total</p>
                                 <p className="font-black text-emerald-200">{money(order.totalAmount)}</p>
                               </div>
                               <div>
                                 <span
                                   className={clsx(
-                                    'inline-flex rounded-md border px-2 py-1 text-xs font-black uppercase tracking-widest',
+                                    'inline-flex rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest',
                                     order.status === 'pending'
                                       ? 'border-amber-400/30 bg-amber-500/15 text-amber-200'
                                       : 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'
@@ -599,7 +649,7 @@ const AdminDashboard: React.FC = () => {
                                 >
                                   {order.status}
                                 </span>
-                                <p className="mt-2 text-xs text-zinc-500">{new Date(order.createdAt || '').toLocaleDateString()}</p>
+                                <p className="mt-2 text-[10px] text-white/40">{new Date(order.createdAt || '').toLocaleDateString()}</p>
                               </div>
                               <ChevronDown className={clsx('h-5 w-5 self-center text-zinc-500 transition', isOpen && 'rotate-180')} />
                             </button>
@@ -612,13 +662,13 @@ const AdminDashboard: React.FC = () => {
                                   exit={{ height: 0, opacity: 0 }}
                                   className="overflow-hidden border-t border-white/10"
                                 >
-                                  <div className="grid gap-4 p-4 lg:grid-cols-[1fr_280px]">
+                                  <div className="grid gap-4 bg-black/15 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_300px]">
                                     <div className="space-y-3">
                                       {order.items.map((item, idx) => {
                                         const image = item.design?.preview || item.design?.previewImage || item.image;
                                         return (
-                                          <div key={`${order.id}-${idx}`} className="flex gap-3 rounded-lg border border-white/10 bg-zinc-950/60 p-3">
-                                            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
+                                          <div key={`${order.id}-${idx}`} className="flex min-w-0 gap-3 rounded-xl border border-white/10 bg-slate-950/60 p-3">
+                                            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900 sm:h-20 sm:w-20">
                                               {image ? (
                                                 <img src={image} alt={item.name || 'Sold design'} className="h-full w-full object-cover" />
                                               ) : (
@@ -626,8 +676,8 @@ const AdminDashboard: React.FC = () => {
                                               )}
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                              <p className="font-black text-white">{item.name || 'Custom design'}</p>
-                                              <p className="mt-1 text-sm text-zinc-400">
+                                              <p className="break-words font-black text-white">{item.name || 'Custom design'}</p>
+                                              <p className="mt-1 text-xs leading-5 text-zinc-400 sm:text-sm">
                                                 {item.productId || item.design?.productId || 'product'} · Qty {item.quantity || 1}
                                                 {item.size ? ` · ${item.size}` : ''}
                                                 {item.color ? ` · ${item.color}` : ''}
@@ -636,7 +686,7 @@ const AdminDashboard: React.FC = () => {
                                                 <p className="mt-1 text-xs font-semibold text-primary-300">Design ID: {item.design.id}</p>
                                               )}
                                             </div>
-                                            <p className="shrink-0 font-black text-zinc-200">{money(item.price)}</p>
+                                            <p className="shrink-0 text-xs font-black text-zinc-200 sm:text-sm">{money(item.price)}</p>
                                           </div>
                                         );
                                       })}
@@ -670,22 +720,23 @@ const AdminDashboard: React.FC = () => {
               )}
 
               {activeTab === 'designers' && (
-                <motion.section key="designers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5">
+                <motion.section key="designers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 sm:p-6">
                   <div className="mb-5">
-                    <h2 className="text-2xl font-black text-white">Designers & Shops</h2>
-                    <p className="text-sm text-zinc-400">Monitor shop ownership and storefront links.</p>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-fuchsia-200">Creator network</p>
+                    <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">Designers &amp; shops</h2>
+                    <p className="mt-1 text-sm text-white/50">Monitor shop ownership and storefront links.</p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                     {designersList.length === 0 ? (
-                      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-12 text-center text-sm font-semibold text-zinc-500 lg:col-span-2">
+                      <div className="rounded-2xl border border-dashed border-white/15 bg-white/[.02] p-12 text-center text-sm font-semibold text-white/50 lg:col-span-2">
                         No designers found.
                       </div>
                     ) : (
                       designersList.map((designer) => (
-                        <div key={designer.id} className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                        <div key={designer.id} className="flex min-w-0 flex-col items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[.025] p-4 transition hover:border-white/20 sm:flex-row sm:items-center sm:p-5">
                           <div className="flex min-w-0 items-center gap-3">
-                            <div className="h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
+                            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
                               {designer.heroImage ? (
                                 <img src={designer.heroImage} alt={designer.name} className="h-full w-full object-cover" />
                               ) : (
@@ -701,7 +752,7 @@ const AdminDashboard: React.FC = () => {
                           {designer.shopName && (
                             <Link
                               to={`/shop/${designer.shopName.toLowerCase().replace(/\s+/g, '-')}`}
-                              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-widest text-zinc-200 transition hover:bg-white/10"
+                              className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-widest text-zinc-200 transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-200 sm:w-auto"
                             >
                               <Eye className="h-4 w-4" />
                               Shop
@@ -716,17 +767,17 @@ const AdminDashboard: React.FC = () => {
             </AnimatePresence>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3 rounded-lg border border-white/10 bg-zinc-950/75 p-4 backdrop-blur-xl">
-            <Link to="/shop" className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-200 transition hover:bg-white/10">
+          <nav aria-label="Admin shortcuts" className="mt-5 flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-slate-950/60 p-3 backdrop-blur-xl sm:mt-6 sm:gap-3 sm:p-4">
+            <Link to="/shop" className="inline-flex min-h-10 items-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-200 transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-200">
               View Shop
             </Link>
-            <Link to="/designer" className="rounded-lg border border-primary-400/30 bg-primary-500/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-primary-100 transition hover:bg-primary-500/25">
+            <Link to="/designer" className="inline-flex min-h-10 items-center rounded-xl border border-lime-200/20 bg-lime-300/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-lime-100 transition hover:bg-lime-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-200">
               Design Studio
             </Link>
-            <Link to="/" className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-200 transition hover:bg-white/10">
+            <Link to="/" className="inline-flex min-h-10 items-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-200 transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-200">
               Home
             </Link>
-          </div>
+          </nav>
         </div>
       </div>
     </Layout>

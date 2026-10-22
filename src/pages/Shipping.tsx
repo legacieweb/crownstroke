@@ -1,11 +1,9 @@
 import React from 'react';
 import Layout from '../components/layout/Layout';
-import VideoBackground from '../components/layout/VideoBackground';
 
 const Shipping: React.FC = () => {
   return (
     <Layout>
-      <VideoBackground videoUrl="https://i.imgur.com/d2d8Llz.mp4" />
       <div className="min-h-screen py-12 relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 p-8 md:p-12">

@@ -4,9 +4,9 @@ import Layout from '../components/layout/Layout';
 const PrivacyPolicy: React.FC = () => {
   return (
     <Layout>
-      <div className="bg-slate-50 min-h-screen py-12">
+      <div className="bg-transparent min-h-screen py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 md:p-12">
+          <div className="site-glass-panel rounded-3xl border p-8 md:p-12">
             <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-8">
               Privacy Policy
             </h1>

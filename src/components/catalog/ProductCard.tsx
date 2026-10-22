@@ -65,7 +65,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
         className="product-motion grid gap-4 rounded-lg border border-white/25 bg-white/15 p-4 shadow-xl shadow-black/10 backdrop-blur-md md:grid-cols-[180px_1fr_auto]"
       >
         <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-white/15">
-          <Link to={`/product/${product.id}`} className="block cursor-pointer">
+          <Link to={'/product/' + product.id} className="block cursor-pointer">
             <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
           </Link>
           <button
@@ -79,19 +79,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
           </button>
         </div>
         <div className="min-w-0">
-          <Link to={`/product/${product.id}`} className="block cursor-pointer">
+          <Link to={'/product/' + product.id} className="block cursor-pointer">
             <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-primary-200">{product.category.replace(/-/g, ' ')}</p>
             <h3 className="text-2xl font-black text-white drop-shadow">{product.name}</h3>
           </Link>
           <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/72">{product.description}</p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            {product.isCustomizable && (
-              <span className="inline-flex items-center gap-1 rounded-md border border-primary-200/40 bg-white/15 px-2 py-1 text-xs font-black uppercase tracking-widest text-primary-100">
-                <Palette className="h-3 w-3" />
-                Customizable
-              </span>
-            )}
-            <span className="text-xs font-bold text-white/55">4.8 rating</span>
+            <span className={product.isCustomizable ? 'inline-flex items-center gap-1 rounded-md border border-lime-200/30 bg-lime-200/10 px-2 py-1 text-xs font-black uppercase tracking-widest text-lime-100' : 'inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/10 px-2 py-1 text-xs font-black uppercase tracking-widest text-white/75'}>
+              {product.isCustomizable ? 'Blank canvas' : 'Artist original'}
+            </span>
+            {product.shopName && <span className="text-xs font-bold text-white/55">From {product.shopName}</span>}
           </div>
         </div>
         <div className="flex flex-col justify-between gap-3 md:items-end">
@@ -105,6 +102,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
               <ShoppingCart className="h-4 w-4" />
               Add
             </Button>
+            {product.isCustomizable ? (
+              <Link to={`/designer?product=${product.category}&id=${product.id}`} className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary-200/40 bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-widest text-primary-100 hover:bg-white/15">
+                <Palette className="h-4 w-4" /> Customize
+              </Link>
+            ) : product.shopSlug ? (
+              <Link to={'/shop/' + product.shopSlug} className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-widest text-white/80 hover:bg-white/10">Visit shop</Link>
+            ) : null}
           </div>
         </div>
       </motion.div>
@@ -114,7 +118,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="product-motion group">
       <div className="overflow-hidden rounded-lg border border-white/25 bg-white/15 shadow-xl shadow-black/10 backdrop-blur-md transition hover:border-primary-200/60 hover:bg-white/20">
-        <Link to={`/product/${product.id}`} className="block cursor-pointer">
+        <Link to={'/product/' + product.id} className="block cursor-pointer">
           <div className="relative aspect-[4/5] overflow-hidden bg-white/15">
             <img
               src={product.image}
@@ -123,12 +127,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
             />
 
             <div className="absolute left-3 top-3 flex flex-col gap-2">
-              {product.isCustomizable && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-950 shadow">
-                  <Palette className="h-3 w-3" />
-                  Custom
-                </span>
-              )}
+              <span className={product.isCustomizable ? 'inline-flex items-center gap-1 rounded-md bg-lime-200 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-950 shadow' : 'inline-flex items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow'}>
+                {product.isCustomizable ? 'Blank canvas' : 'Artist original'}
+              </span>
             </div>
 
             <button
@@ -144,10 +145,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
         </Link>
 
         <div className="space-y-3 p-3 sm:space-y-4 sm:p-4">
-          <Link to={`/product/${product.id}`} className="block cursor-pointer">
+          <Link to={'/product/' + product.id} className="block cursor-pointer">
             <div>
               <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary-200 sm:mb-2 sm:text-xs sm:tracking-[0.2em]">{product.category.replace(/-/g, ' ')}</p>
               <h3 className="min-h-[2.8rem] text-sm font-black leading-5 text-white drop-shadow sm:min-h-[3.5rem] sm:text-xl sm:leading-7">{product.name}</h3>
+              {product.shopSlug && <span className="mt-1 inline-block text-[10px] font-bold text-primary-200 sm:text-xs">By {product.designerName || product.shopName}</span>}
             </div>
           </Link>
 
@@ -170,6 +172,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
               Add
             </Button>
           </div>
+
+          {product.shopSlug && (
+            <Link to={'/shop/' + product.shopSlug} className="flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-2 py-2 text-[10px] font-black uppercase tracking-widest text-white/80 transition hover:border-primary-200/60 hover:bg-white/10 sm:gap-2 sm:px-3 sm:text-xs">
+              Visit {product.shopName || 'designer shop'}
+            </Link>
+          )}
 
           {product.isCustomizable && (
             <Link

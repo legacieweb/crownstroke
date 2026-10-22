@@ -169,7 +169,7 @@ const PopularProducts: React.FC = () => {
   };
 
   return (
-    <section className="py-32 relative overflow-hidden">
+    <section className="py-24 md:py-32 relative overflow-hidden border-y border-white/10 bg-black/20">
       {/* Background Accents */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary-500/5 blur-[120px] rounded-full" />
@@ -179,16 +179,14 @@ const PopularProducts: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-20 gap-8">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-3 mb-6">
-              <div className="w-12 h-1 bg-primary-500" />
-              <span className="text-xs font-black text-primary-500 uppercase tracking-[0.4em]">Curated Pieces</span>
+            <div className="inline-flex items-center gap-3 mb-5">
+              <span className="text-xs font-bold text-primary-300 uppercase tracking-[0.3em]">The community edit</span>
             </div>
-            <h2 className="text-7xl md:text-8xl font-black text-white tracking-tighter mb-8 uppercase leading-none">
-              <span className="block">TRENDING</span>
-              <span className="text-primary-500 italic">NOW.</span>
+            <h2 className="text-5xl md:text-7xl font-black text-white tracking-[-0.06em] mb-6 leading-[0.92]">
+              Good things<br /><span className="text-white/45">are happening.</span>
             </h2>
-            <p className="text-xl font-medium text-gray-400 max-w-md">
-              Elite designs hand-picked for their exceptional artistry and premium quality.
+            <p className="text-lg font-medium text-white/60 max-w-md">
+              A rotating selection of designs and useful things, made by artists in our community.
             </p>
           </div>
           <Link to="/shop" className="hidden lg:block">
@@ -209,15 +207,17 @@ const PopularProducts: React.FC = () => {
                className="group cursor-pointer"
                onClick={() => navigate(`/designer?product=${product.category?.toLowerCase()}`)}
              >
-              <div className="relative aspect-[4/3] sm:aspect-[4/5] lg:aspect-[3/4] overflow-hidden bg-gradient-to-br from-[#0c0c0c] to-[#050505] rounded-[2.5rem] border border-white/5 transition-all duration-700 group-hover:border-primary-500/40 group-hover:shadow-[0_30px_80px_rgba(var(--primary-rgb),0.25)]">
+              <div className="relative aspect-[4/3] sm:aspect-[4/5] lg:aspect-[3/4] overflow-hidden bg-white/[0.06] rounded-2xl border border-white/10 transition-all duration-500 group-hover:border-white/30 group-hover:-translate-y-1">
                 <img
                   src={product.image}
                   alt={product.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-contain sm:object-cover lg:object-contain transition-transform duration-1000 group-hover:scale-105"
                 />
                 
                 <div className="absolute top-6 left-6">
-                  <span className="bg-primary-500 text-white text-[9px] font-black px-4 py-1 rounded-full tracking-widest shadow-2xl uppercase">
+                  <span className="bg-black/70 text-white text-[9px] font-semibold px-3 py-1.5 rounded-full tracking-widest border border-white/20 uppercase">
                     {product.tag}
                   </span>
                 </div>
@@ -227,7 +227,7 @@ const PopularProducts: React.FC = () => {
                   className={`absolute top-6 right-6 w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-xl backdrop-blur-md border ${
                     wishlist.includes(product.id) 
                       ? 'bg-red-500 border-red-500 text-white scale-110' 
-                      : 'bg-white/5 border-white/10 text-white hover:bg-white hover:text-red-500'
+                    : 'bg-black/45 border-white/20 text-white hover:bg-white hover:text-red-500'
                   }`}
                 >
                   <Heart className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-current' : ''}`} />
@@ -255,20 +255,20 @@ const PopularProducts: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-6 space-y-1 px-2">
+              <div className="mt-5 space-y-1 px-1">
                 <div className="flex justify-between items-center">
-                  <p className="text-[10px] font-black text-primary-500 uppercase tracking-[0.3em]">
+                  <p className="text-[10px] font-bold text-primary-300 uppercase tracking-[0.2em]">
                     {product.category}
                   </p>
                   <div className="flex items-center gap-2">
                     <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                    <span className="text-[10px] font-black text-gray-500">{product.rating}</span>
+                    <span className="text-[10px] font-semibold text-white/50">{product.rating}</span>
                   </div>
                 </div>
-                <h3 className="text-xl font-black text-white tracking-tighter leading-tight group-hover:text-primary-500 transition-colors uppercase italic">
+                <h3 className="text-lg font-semibold text-white tracking-tight leading-tight group-hover:text-primary-200 transition-colors">
                   {product.name}
                 </h3>
-                <p className="text-2xl font-black text-gray-400 tracking-tighter italic">KES {(product.price ?? 0).toLocaleString()}</p>
+                <p className="text-lg font-semibold text-white/75 tracking-tight">KES {(product.price ?? 0).toLocaleString()}</p>
               </div>
             </motion.div>
           ))}

@@ -1,22 +1,28 @@
 import React, { useState } from 'react';
 import { useAuth } from '../store/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
+import VideoBackground, { DEFAULT_BG_VIDEO_URL } from '../components/layout/VideoBackground';
 import { Mail, Lock, User, Plus, Eye, EyeOff, LayoutGrid, Palette, ArrowLeft } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const Signup: React.FC = () => {
   const { signup } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<'user' | 'designer'>('user');
+  const [role, setRole] = useState<'user' | 'designer'>(location.pathname === '/designer-signup' ? 'designer' : 'user');
   const [shopName, setShopName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    setRole(location.pathname === '/designer-signup' ? 'designer' : 'user');
+  }, [location.pathname]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,8 +32,9 @@ const Signup: React.FC = () => {
       await signup(email, password, name, role, role === 'designer' ? shopName : undefined);
       
       navigate(role === 'designer' ? '/designer-dashboard' : '/');
-    } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+    } catch {
+      // Driver errors may contain the SQL and credential parameters.
+      setError('Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -35,25 +42,19 @@ const Signup: React.FC = () => {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
-      {/* Video Background */}
-      <div className="fixed inset-0 z-[-1]">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-        >
-          <source src="https://i.imgur.com/d2d8Llz.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-black/90" />
-      </div>
+      <VideoBackground
+        videoUrl={DEFAULT_BG_VIDEO_URL}
+        className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]"
+        videoClassName="h-full w-full object-cover opacity-70"
+      />
 
       {/* Left Side - Image/Creative */}
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img 
           src="https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=2000&auto=format&fit=crop" 
           alt="Signup background" 
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 w-full h-full object-cover opacity-60"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent flex flex-col justify-end p-20">
@@ -98,7 +99,7 @@ const Signup: React.FC = () => {
           <div className="grid grid-cols-2 gap-4 mb-10">
             <button
               type="button"
-              onClick={() => setRole('user')}
+              onClick={() => navigate('/customer-signup')}
               className={clsx(
                 "p-6 rounded-3xl border transition-all text-left group relative overflow-hidden",
                 role === 'user' ? "border-primary-500 bg-primary-500/10 shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]" : "border-white/5 bg-white/5 hover:border-white/10"
@@ -111,7 +112,7 @@ const Signup: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setRole('designer')}
+              onClick={() => navigate('/designer-signup')}
               className={clsx(
                 "p-6 rounded-3xl border transition-all text-left group relative overflow-hidden",
                 role === 'designer' ? "border-primary-500 bg-primary-500/10 shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]" : "border-white/5 bg-white/5 hover:border-white/10"
@@ -212,7 +213,7 @@ const Signup: React.FC = () => {
 
           <div className="mt-10 pt-10 border-t border-white/5 text-center">
             <p className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-6">Already have an account?</p>
-            <Link to="/login">
+            <Link to={role === 'designer' ? '/designer-login' : '/customer-login'}>
               <Button variant="outline" className="w-full py-4 rounded-2xl font-black uppercase tracking-widest gap-2 border-white/10 text-white hover:bg-white/5">
                 Sign In Instead
                 <Plus className="w-5 h-5 rotate-45" />

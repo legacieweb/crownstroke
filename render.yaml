@@ -9,7 +9,3 @@ services:
       - key: VITE_API_URL
         value: https://ratings-cartoons-david-cameras.trycloudflare.com
     autoDeploy: true
-
-databases:
-  - name: crownstroke-db
-    type: postgresql

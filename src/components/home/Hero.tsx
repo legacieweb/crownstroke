@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Palette, Sparkles, Star, ChevronRight } from 'lucide-react';
+import { ArrowRight, Palette, Sparkles, Star } from 'lucide-react';
 import Button from '../ui/Button';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../../db';
 import { designerDesigns } from '../../db/schema';
 import { eq } from 'drizzle-orm';
-
 import { PRODUCT_DATA as SEED_DATA } from '../../data/seed';
 
 const Hero: React.FC = () => {
@@ -15,157 +14,48 @@ const Hero: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
-    const fetchEditorsPick = async () => {
-      try {
-        const results = await db.select()
-          .from(designerDesigns)
-          .where(eq(designerDesigns.isEditorsPick, 'true' as any))
-          .limit(1);
-        
-        if (results.length > 0) {
-          setEditorsPick(results[0] as any);
-        }
-      } catch (error: any) {
-        if (error?.message?.includes('fetch') || error?.message?.includes('HTTP2')) {
-          console.warn('Database temporarily unavailable, using fallback');
-        } else {
-          console.error('Failed to fetch editor\'s pick:', error);
-        }
-      }
-    };
-
-    fetchEditorsPick();
-  }, []);
-
-  // Listen for mobile menu state changes
-  useEffect(() => {
-    const handleMenuToggle = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      setIsMenuOpen(customEvent.detail?.isOpen || false);
-    };
+    db.select().from(designerDesigns).where(eq(designerDesigns.isEditorsPick, 'true' as any)).limit(1)
+      .then(results => { if (results.length) setEditorsPick(results[0]); })
+      .catch(error => console.warn('Could not load editor pick:', error));
+    const handleMenuToggle = (e: Event) => setIsMenuOpen((e as CustomEvent).detail?.isOpen || false);
     window.addEventListener('mobileMenuToggle', handleMenuToggle);
     return () => window.removeEventListener('mobileMenuToggle', handleMenuToggle);
   }, []);
 
   return (
-    <section className={`relative min-h-screen flex items-center pt-20 overflow-hidden bg-transparent transition-all duration-300 ${isMenuOpen ? 'opacity-0 pointer-events-none' : ''}`}>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          {/* Left Content */}
-          <div className="space-y-10">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 shadow-sm"
-            >
-              <Sparkles className="w-4 h-4 text-primary-500" />
-              <span className="text-xs font-black text-white uppercase tracking-widest">New Art Collections Live</span>
-              <ChevronRight className="w-3 h-3 text-white/60" />
+    <section className={`relative min-h-[calc(100svh-7rem)] flex items-center py-16 md:py-24 overflow-hidden transition-opacity duration-300 ${isMenuOpen ? 'opacity-0 pointer-events-none' : ''}`}>
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_72%_48%,rgba(14,165,233,.12),transparent_42%)]" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_.95fr] gap-12 lg:gap-20 items-center">
+          <div className="max-w-2xl">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center gap-2.5 border border-white/20 bg-white/[0.06] backdrop-blur px-4 py-2 rounded-full mb-8">
+              <Sparkles className="w-4 h-4 text-primary-300" /><span className="text-[10px] md:text-xs font-semibold text-white/85 uppercase tracking-[0.18em]">Independent art. Made wearable.</span>
             </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <h1 className="text-7xl lg:text-8xl font-black text-white leading-[0.9] tracking-tighter mb-8">
-                Create Your <br />
-                <span className="text-primary-400 italic">Masterpiece.</span>
-              </h1>
-              <p className="text-xl text-gray-200 max-w-lg leading-relaxed font-medium">
-                Crownstroke offers an elite canvas for your imagination. Minimal design, premium quality, and the world's most intuitive design tools.
-              </p>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+              <h1 className="text-[clamp(3.5rem,8vw,7rem)] font-black text-white leading-[.88] tracking-[-.075em]">Wear what<br />you <span className="text-primary-300">mean.</span></h1>
+              <p className="text-lg md:text-xl text-white/65 max-w-lg leading-relaxed mt-7">Turn your ideas into pieces worth keeping. Design your own, discover new artists, and make everyday things feel personal.</p>
             </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex flex-wrap gap-4"
-            >
-              <Link to="/designer">
-                <Button variant="premium" size="lg" className="h-16 px-10 !rounded-2xl gap-3 text-lg">
-                  START DESIGNING
-                  <Palette className="w-5 h-5" />
-                </Button>
-              </Link>
-              <Link to="/shop">
-                <Button variant="outline" size="lg" className="h-16 px-10 !rounded-2xl border-slate-200 text-white hover:border-primary-400 hover:text-primary-400 transition-all font-black">
-                  BROWSE COLLECTIONS
-                </Button>
-              </Link>
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .15 }} className="flex flex-wrap gap-3 mt-9">
+              <Link to="/designer"><Button variant="premium" size="lg" className="h-14 px-7 !rounded-xl gap-3">Create your design <Palette className="w-5 h-5" /></Button></Link>
+              <Link to="/shop"><Button variant="outline" size="lg" className="h-14 px-7 !rounded-xl border-white/25 text-white hover:bg-white/10 gap-2">Shop the collection <ArrowRight className="w-4 h-4" /></Button></Link>
             </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="flex items-center gap-8 pt-4"
-            >
-              <div className="flex -space-x-3">
-                {[1,2,3,4].map(i => (
-                  <div key={i} className="w-10 h-10 rounded-full border-4 border-black/30 bg-slate-100 overflow-hidden">
-                    <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="User" />
-                  </div>
-                ))}
-              </div>
-              <div>
-                <p className="text-sm font-black text-white leading-none mb-1">Joined by 50,000+ artists</p>
-                <div className="flex items-center gap-1">
-                  {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 text-yellow-400 fill-yellow-400" />)}
-                  <span className="text-[10px] font-bold text-white/60 ml-1">4.9/5 RATING</span>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Right Visual */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8 }}
-            className="relative cursor-pointer group"
-            onClick={() => {
-              if (editorsPick) {
-                navigate(`/shop?design=${editorsPick.id}`);
-              } else {
-                navigate('/designer?product=t-shirt');
-              }
-            }}
-          >
-            <div className="relative z-10 glass-card p-4 rounded-[3.5rem] shadow-3xl transition-all duration-500 group-hover:shadow-[0_0_60px_rgba(var(--primary-rgb),0.2)]">
-              <div className="rounded-[2.5rem] overflow-hidden bg-slate-50 aspect-[4/5] relative">
-                <img
-                  src={editorsPick ? editorsPick.preview : SEED_DATA['t-shirt']['#ffffff'].front}
-                  alt={editorsPick ? editorsPick.name : "Elegant Merch"}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                
-                {/* Clean Floating Tag */}
-                <div className="absolute top-8 right-8 px-4 py-2 bg-white/90 backdrop-blur-md rounded-xl border border-white shadow-xl flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">In Stock</span>
-                </div>
-              </div>
-
-              {/* Minimal Design Element */}
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -bottom-8 -left-8 glass-card p-6 rounded-3xl shadow-2xl border border-white max-w-[200px]"
-              >
-                <p className="text-[10px] font-black text-primary-600 uppercase tracking-widest mb-2">Editor's Choice</p>
-                <p className="text-lg font-black text-slate-900 tracking-tight leading-tight">
-                  {editorsPick ? editorsPick.name : "Minimalist Essential Tee"}
-                </p>
-<p className="text-xl font-black text-slate-400 mt-2">
-                   KES {editorsPick ? (editorsPick.price ?? 0).toLocaleString() : "1,500"}
-                </p>
-              </motion.div>
+            <div className="flex items-center gap-4 mt-10">
+              <div className="flex -space-x-2">{[11,12,13,14].map(n => <img key={n} src={`https://i.pravatar.cc/80?img=${n}`} alt="Crownstroke community member" loading="lazy" decoding="async" className="w-9 h-9 rounded-full border-2 border-black object-cover" />)}</div>
+              <div><p className="text-sm font-semibold text-white">Made by a creative community</p><div className="flex items-center gap-1 mt-1">{[1,2,3,4,5].map(n => <Star key={n} className="w-3 h-3 text-amber-300 fill-amber-300" />)}<span className="text-[10px] ml-1 text-white/50">Loved by creators</span></div></div>
             </div>
-            
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-primary-100/30 rounded-full blur-[100px] -z-10" />
+          </div>
+          <motion.div initial={{ opacity: 0, scale: .96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .7 }} className="relative max-w-lg w-full mx-auto cursor-pointer" onClick={() => navigate(editorsPick ? `/shop?design=${editorsPick.id}` : '/designer?product=t-shirt')}>
+            <div className="absolute -inset-10 bg-primary-500/10 blur-[90px] rounded-full" />
+            <div className="relative rounded-[1.75rem] border border-white/15 bg-white/[0.07] backdrop-blur-md p-3 shadow-2xl">
+              <div className="relative aspect-[4/5] rounded-[1.25rem] overflow-hidden bg-[#efeee9]">
+                <img src={editorsPick?.preview || SEED_DATA['t-shirt']['#ffffff'].front} alt={editorsPick?.name || 'Featured Crownstroke design'} loading="eager" decoding="async" className="w-full h-full object-cover transition-transform duration-700 hover:scale-[1.03]" />
+                <span className="absolute top-5 left-5 rounded-full bg-black/75 text-white text-[10px] font-semibold uppercase tracking-[.16em] px-4 py-2 backdrop-blur">Artist spotlight</span>
+              </div>
+              <div className="flex items-end justify-between p-5 md:p-6">
+                <div><p className="text-[10px] uppercase tracking-[.22em] text-primary-200 mb-2">This week’s pick</p><h2 className="text-xl font-semibold text-white">{editorsPick?.name || 'The everyday original'}</h2></div>
+                <p className="text-sm font-semibold text-white/75">KES {(editorsPick?.price ?? 1500).toLocaleString()}</p>
+              </div>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -174,3 +64,4 @@ const Hero: React.FC = () => {
 };
 
 export default Hero;
+
