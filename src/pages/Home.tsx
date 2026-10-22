@@ -19,6 +19,11 @@ const products = [
 
 type FeaturedDesign = { id: string; name: string; designer: string; preview: string; shopSlug: string; productId: string };
 
+const toShopSlug = (value: unknown): string =>
+  typeof value === 'string' && value.trim() && value.trim().toLowerCase() !== 'null'
+    ? value.trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    : '';
+
 const Home: React.FC = () => {
   const [featuredDesigns, setFeaturedDesigns] = useState<FeaturedDesign[]>([]);
 
@@ -31,13 +36,18 @@ const Home: React.FC = () => {
       productId: designerDesigns.productId,
       designer: designers.name,
       shopSlug: shops.slug,
+      shopName: shops.name,
     })
       .from(designerDesigns)
       .innerJoin(designers, eq(designerDesigns.designerId, designers.id))
       .innerJoin(shops, eq(designerDesigns.shopId, shops.id))
       .limit(3)
       .then((designs) => {
-        if (active && designs.length > 0) setFeaturedDesigns(designs);
+        if (!active) return;
+        const validDesigns = designs
+          .map((design) => ({ ...design, shopSlug: toShopSlug(design.shopSlug) || toShopSlug(design.shopName) }))
+          .filter((design) => design.shopSlug && design.shopSlug !== 'null');
+        setFeaturedDesigns(validDesigns);
       })
       .catch(() => {
         if (active) setFeaturedDesigns([]);

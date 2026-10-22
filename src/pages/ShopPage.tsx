@@ -50,9 +50,12 @@ const ShopPage: React.FC = () => {
         if (shop.length === 0) {
           const normalizedSlug = shopName.replace(/-/g, '').toLowerCase();
           const allShops = await db.select().from(shops).limit(100);
-          const found = allShops.find(s =>
-            (s.slug || '').replace(/-/g, '').toLowerCase() === normalizedSlug
-          );
+          const found = allShops.find(s => {
+            const normalize = (value: unknown) => typeof value === 'string'
+              ? value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+              : '';
+            return normalize(s.slug) === normalizedSlug || normalize(s.name) === normalizedSlug;
+          });
           if (found) {
             resolvedShop = [found];
           }

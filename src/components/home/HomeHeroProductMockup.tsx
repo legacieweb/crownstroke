@@ -29,7 +29,6 @@ const HomeHeroProductMockup: React.FC = () => {
         <div><b>READY MADE</b><span>Designer original</span></div>
         <span className="home-chip-check"><Check size={15} /></span>
       </Link>
-      <span className="home-stage-caption">Your idea,<br />made tangible.</span>
     </div>
   );
 };
