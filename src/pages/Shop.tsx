@@ -86,6 +86,7 @@ const Shop: React.FC = () => {
             name: designerDesigns.name,
             productId: designerDesigns.productId,
             preview: designerDesigns.preview,
+            designData: designerDesigns.designData,
             price: designerDesigns.price,
             designerId: designerDesigns.designerId,
             shopId: designerDesigns.shopId,
@@ -99,15 +100,23 @@ const Shop: React.FC = () => {
         const dbProducts: Product[] = featured.map((f) => {
           const designer = designersById.get(String(f.designerId).toLowerCase());
           const shop = shopsById.get(String(f.shopId).toLowerCase());
+          const designData = (f.designData || {}) as { activeSide?: 'front' | 'back'; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
+          const productMockups = PRODUCT_DATA[f.productId] || {};
+          const blankMockups = productMockups['#ffffff'] || productMockups[Object.keys(productMockups)[0]] || {};
+          const sideImage = (side: 'front' | 'back') => designData[side]?.objects?.length
+            ? designData.previews?.[side] || (designData.activeSide === side ? f.preview : blankMockups[side]) || f.preview
+            : blankMockups[side] || f.preview;
 
           return {
             id: f.id,
             name: f.name,
             description: 'An original design by ' + (designer?.name || 'an independent designer') + '.',
             price: f.price ?? 0,
-            image: f.preview,
+            image: sideImage(designData.activeSide || 'front'),
             category: f.productId as Product['category'],
             isCustomizable: false,
+            images: { front: sideImage('front'), back: sideImage('back') },
+            previewOrder: designData.back?.objects?.length && !designData.front?.objects?.length ? ['back', 'front'] : ['front', 'back'],
             designerEmail: designer?.email,
             designerId: f.designerId,
             designerName: designer?.name || undefined,
@@ -271,10 +280,11 @@ const Shop: React.FC = () => {
               <select
                 value={sortMode}
                 onChange={(e) => setSortMode(e.target.value as SortMode)}
-                className="rounded-lg border border-white/25 bg-white/20 px-4 py-2.5 text-sm font-black uppercase tracking-widest text-white outline-none backdrop-blur-md focus:border-primary-200"
+                aria-label="Sort products"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-950 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-300/40"
               >
                 {sortOptions.map((option) => (
-                  <option key={option.id} value={option.id}>{option.label}</option>
+                  <option key={option.id} value={option.id} className="bg-white font-medium text-slate-950">{option.label}</option>
                 ))}
               </select>
 

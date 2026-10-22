@@ -26,6 +26,7 @@ const API = React.lazy(() => import('./pages/API'));
 const DesignerDashboard = React.lazy(() => import('./pages/DesignerDashboard'));
 const ShopPage = React.lazy(() => import('./pages/ShopPage'));
 const ProductDetail = React.lazy(() => import('./pages/ProductDetail'));
+const WaysToMake = React.lazy(() => import('./pages/WaysToMake'));
 import { CartProvider } from './store/CartContext';
 import { AuthProvider } from './store/AuthContext';
 import Preloader from './components/ui/Preloader';
@@ -57,6 +58,7 @@ const App: React.FC = () => {
 <Route path="/shop" element={<Shop />} />
                <Route path="/product/:productId" element={<ProductDetail />} />
                <Route path="/designer" element={<Designer />} />
+              <Route path="/ways-to-make" element={<WaysToMake />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/login" element={<Login />} />

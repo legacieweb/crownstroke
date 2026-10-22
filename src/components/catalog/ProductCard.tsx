@@ -19,6 +19,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
   const navigate = useNavigate();
   const wishlistKey = user ? `wishlist_${user.id}` : '';
   const [isWishlisted, setIsWishlisted] = React.useState(false);
+  const [imageSide, setImageSide] = React.useState<'front' | 'back'>(product.previewOrder?.[0] || 'front');
+  const displayImage = product.images?.[imageSide] || product.image;
+  const hasImageControls = Boolean(product.images?.front || product.images?.back);
+
+  React.useEffect(() => {
+    setImageSide(product.previewOrder?.[0] || 'front');
+  }, [product.id, product.previewOrder]);
 
   React.useEffect(() => {
     if (!wishlistKey) {
@@ -65,9 +72,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
         className="product-motion grid gap-4 rounded-lg border border-white/25 bg-white/15 p-4 shadow-xl shadow-black/10 backdrop-blur-md md:grid-cols-[180px_1fr_auto]"
       >
         <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-white/15">
-          <Link to={'/product/' + product.id} className="block cursor-pointer">
-            <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          <Link to={'/product/' + product.id} className="block h-full cursor-pointer">
+            <img src={displayImage} alt={`${product.name} ${imageSide} view`} className="h-full w-full object-contain" />
           </Link>
+          {hasImageControls && (
+            <div className="absolute bottom-2 left-2 z-10 inline-flex gap-1 rounded-lg border border-white/20 bg-slate-950/85 p-1 shadow-lg backdrop-blur" role="group" aria-label={`${product.name} image side`}>
+              {(['front', 'back'] as const).map((side) => <button key={side} type="button" onClick={() => setImageSide(side)} aria-pressed={imageSide === side} className={`rounded-md px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider transition ${imageSide === side ? 'bg-white text-slate-950' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}>{side}</button>)}
+            </div>
+          )}
           <button
             onClick={toggleWishlist}
             className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/90 shadow transition hover:text-red-500 ${
@@ -85,9 +97,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
           </Link>
           <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/72">{product.description}</p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span className={product.isCustomizable ? 'inline-flex items-center gap-1 rounded-md border border-lime-200/30 bg-lime-200/10 px-2 py-1 text-xs font-black uppercase tracking-widest text-lime-100' : 'inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/10 px-2 py-1 text-xs font-black uppercase tracking-widest text-white/75'}>
-              {product.isCustomizable ? 'Blank canvas' : 'Artist original'}
-            </span>
             {product.shopName && <span className="text-xs font-bold text-white/55">From {product.shopName}</span>}
           </div>
         </div>
@@ -118,22 +127,21 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="product-motion group">
       <div className="overflow-hidden rounded-lg border border-white/25 bg-white/15 shadow-xl shadow-black/10 backdrop-blur-md transition hover:border-primary-200/60 hover:bg-white/20">
-        <Link to={'/product/' + product.id} className="block cursor-pointer">
-          <div className="relative aspect-[4/5] overflow-hidden bg-white/15">
+        <div className="relative aspect-[4/5] overflow-hidden bg-white/15">
+          <Link to={'/product/' + product.id} className="block h-full cursor-pointer">
             <img
-              src={product.image}
-              alt={product.name}
-              className="h-full w-full object-cover opacity-95 transition duration-500 group-hover:scale-105"
+              src={displayImage}
+              alt={`${product.name} ${imageSide} view`}
+              className="h-full w-full object-contain opacity-95 transition duration-500 group-hover:scale-[1.02]"
             />
-
-            <div className="absolute left-3 top-3 flex flex-col gap-2">
-              <span className={product.isCustomizable ? 'inline-flex items-center gap-1 rounded-md bg-lime-200 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-950 shadow' : 'inline-flex items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow'}>
-                {product.isCustomizable ? 'Blank canvas' : 'Artist original'}
-              </span>
+          </Link>
+          {hasImageControls && (
+            <div className="absolute bottom-2 left-2 z-10 inline-flex gap-1 rounded-lg border border-white/20 bg-slate-950/85 p-1 shadow-lg backdrop-blur" role="group" aria-label={`${product.name} image side`}>
+              {(['front', 'back'] as const).map((side) => <button key={side} type="button" onClick={() => setImageSide(side)} aria-pressed={imageSide === side} className={`rounded-md px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider transition ${imageSide === side ? 'bg-white text-slate-950' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}>{side}</button>)}
             </div>
-
+          )}
             <button
-              onClick={(e) => { e.preventDefault(); toggleWishlist(); }}
+              onClick={toggleWishlist}
               className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/90 shadow transition hover:text-red-500 sm:h-10 sm:w-10 ${
                 isWishlisted ? 'text-red-500' : 'text-zinc-500'
               }`}
@@ -141,8 +149,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid', onA
             >
               <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-red-500' : ''}`} />
             </button>
-          </div>
-        </Link>
+        </div>
 
         <div className="space-y-3 p-3 sm:space-y-4 sm:p-4">
           <Link to={'/product/' + product.id} className="block cursor-pointer">

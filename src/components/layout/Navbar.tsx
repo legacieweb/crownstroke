@@ -22,6 +22,7 @@ const Navbar: React.FC = () => {
     { name: 'Home', path: '/', icon: Home },
     { name: 'Shop Merch', path: '/shop', icon: ShoppingBag },
     { name: 'Design Your Own', path: '/designer', icon: Palette, highlight: true },
+    { name: 'Ways to Make', path: '/ways-to-make', icon: Palette },
     { name: 'Pricing', path: '/pricing', icon: Zap },
   ];
 

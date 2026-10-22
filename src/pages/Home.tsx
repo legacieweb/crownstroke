@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowDown, ArrowRight, ArrowUpRight, Brush, PackageCheck, Palette, Sparkles, Upload, WandSparkles } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Brush, PackageCheck, Palette, Sparkles, Upload, WandSparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import HomeHeroProductMockup from '../components/home/HomeHeroProductMockup';
@@ -75,11 +75,7 @@ const Home: React.FC = () => {
 
             <HomeHeroProductMockup />
           </div>
-          <a className="home-scroll-cue" href="#ways-to-make"><span>TAKE A LOOK AROUND</span><ArrowDown size={14} /></a>
-        </section>
-
-        <section className="home-product-strip" id="ways-to-make" aria-label="Products you can customise">
-          <div className="home-shell home-strip-inner"><p>PUT YOUR IDEA ON</p>{products.map((product) => <Link key={product.query} to={`/designer?product=${product.query}`} className="home-strip-item"><span>{product.name}</span><ArrowUpRight size={14} /></Link>)}</div>
+          <Link className="home-scroll-cue" to="/ways-to-make"><span>EXPLORE WAYS TO MAKE</span><ArrowUpRight size={14} /></Link>
         </section>
 
         <section className="home-custom-section">

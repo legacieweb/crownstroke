@@ -8,6 +8,7 @@ import { useCart } from '../store/CartContext';
 import { db } from '../db';
 import { designerDesigns, designers, shops } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import { PRODUCT_DATA } from '../data/seed';
 import {
   Zap,
   Share2,
@@ -253,9 +254,14 @@ const ShopPage: React.FC = () => {
                  <AnimatePresence mode="popLayout">
                    {filteredDesigns.map((design, i) => {
                      const availablePreviews = design.designData?.previews || {};
-                     const hasFrontAndBack = Boolean(availablePreviews.front || availablePreviews.back);
-                     const selectedPreviewSide = previewSides[design.id] || (availablePreviews.back && !availablePreviews.front ? 'back' : 'front');
-                     const cardPreview = (selectedPreviewSide === 'back' ? availablePreviews.back : availablePreviews.front) || design.preview;
+                     const sideArtwork = (side: 'front' | 'back') => Boolean(design.designData?.[side]?.objects?.length);
+                     const mockups = PRODUCT_DATA[design.productId] || {};
+                     const blankMockups = mockups['#ffffff'] || mockups[Object.keys(mockups)[0]] || {};
+                     const hasFrontAndBack = Boolean(availablePreviews.front || availablePreviews.back || blankMockups.front || blankMockups.back);
+                     const selectedPreviewSide = previewSides[design.id] || (sideArtwork('back') && !sideArtwork('front') ? 'back' : 'front');
+                     const cardPreview = sideArtwork(selectedPreviewSide)
+                       ? (selectedPreviewSide === 'back' ? availablePreviews.back : availablePreviews.front) || (design.designData?.activeSide === selectedPreviewSide ? design.preview : blankMockups[selectedPreviewSide]) || design.preview
+                       : blankMockups[selectedPreviewSide] || design.preview;
                      return (
                      <motion.div 
                        key={design.id}

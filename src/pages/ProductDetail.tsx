@@ -81,9 +81,16 @@ const ProductDetail: React.FC = () => {
             const designer = designerRows[0];
             const shop = shopRows[0];
             const designerName = designer?.name || 'an independent designer';
-            const savedDesign = (d.designData || {}) as { activeSide?: 'front' | 'back'; front?: unknown; back?: unknown; previews?: { front?: string | null; back?: string | null } };
-            const frontPreview = savedDesign.previews?.front || (savedDesign.activeSide === 'front' ? d.preview : undefined) || d.preview;
-            const backPreview = savedDesign.previews?.back || (savedDesign.activeSide === 'back' ? d.preview : undefined) || d.preview;
+            const savedDesign = (d.designData || {}) as { activeSide?: 'front' | 'back'; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
+            const hasSideArtwork = (side: 'front' | 'back') => Boolean(savedDesign[side]?.objects?.length);
+            const productMockups = PRODUCT_DATA[d.productId] || {};
+            const blankMockups = productMockups['#ffffff'] || productMockups[Object.keys(productMockups)[0]] || {};
+            const frontPreview = hasSideArtwork('front')
+              ? savedDesign.previews?.front || (savedDesign.activeSide === 'front' ? d.preview : undefined) || blankMockups.front || d.preview
+              : blankMockups.front || d.preview;
+            const backPreview = hasSideArtwork('back')
+              ? savedDesign.previews?.back || (savedDesign.activeSide === 'back' ? d.preview : undefined) || blankMockups.back || d.preview
+              : blankMockups.back || d.preview;
 
             foundProduct = {
               id: d.id,
@@ -94,7 +101,7 @@ const ProductDetail: React.FC = () => {
               category: d.productId as Product['category'],
               isCustomizable: false,
               images: { front: frontPreview, back: backPreview },
-              previewOrder: savedDesign.activeSide === 'back' && !savedDesign.front ? ['back', 'front'] : ['front', 'back'],
+              previewOrder: hasSideArtwork('back') && !hasSideArtwork('front') ? ['back', 'front'] : ['front', 'back'],
               designerEmail: designer?.email,
               designerId: d.designerId,
               designerName: designer?.name || undefined,
@@ -221,7 +228,7 @@ const ProductDetail: React.FC = () => {
               className="space-y-6 lg:sticky lg:top-24"
             >
               <div>
-                <div className="mb-3 flex flex-wrap items-center gap-2"><span className="rounded-full border border-white/15 bg-white/[.06] px-3 py-1 text-[10px] font-bold uppercase tracking-[.17em] text-white/60">{product.category.replace(/-/g, ' ')}</span><span className={product.isCustomizable ? 'rounded-full bg-lime-200 px-3 py-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-950' : 'rounded-full border border-primary-200/30 bg-primary-200/10 px-3 py-1 text-[10px] font-black uppercase tracking-[.14em] text-primary-100'}>{product.isCustomizable ? 'Make it yours' : 'Artist original'}</span></div>
+                <div className="mb-3"><span className="rounded-full border border-white/15 bg-white/[.06] px-3 py-1 text-[10px] font-bold uppercase tracking-[.17em] text-white/60">{product.category.replace(/-/g, ' ')}</span></div>
                 <h1 className="max-w-2xl text-4xl font-black leading-[.96] tracking-[-.045em] text-white drop-shadow sm:text-5xl">{product.name}</h1>
                 {product.shopSlug && <Link to={'/shop/' + product.shopSlug} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary-100 transition hover:text-white"><span className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/10 text-[11px] font-black">{(product.designerName || product.shopName || 'D').slice(0, 1)}</span><span>By <b>{product.designerName || product.shopName}</b> <span className="text-white/45">· Visit shop</span></span></Link>}
               </div>
