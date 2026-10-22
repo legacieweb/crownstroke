@@ -202,10 +202,15 @@ app.post('/api/auth/request-password-reset', async (req, res) => {
     if (user?.id) {
       const code = String(randomInt(100000, 1000000));
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      await iyonicDB.updateRow('users', String(user.id), {
-        reset_token: code,
-        reset_expires: expiresAt.toISOString(),
-      });
+      try {
+        await iyonicDB.updateRow('users', String(user.id), {
+          reset_token: code,
+          reset_expires: expiresAt.toISOString(),
+        });
+      } catch (updateError) {
+        console.error('Password reset token update failed:', updateError instanceof Error ? updateError.message : String(updateError));
+        throw updateError;
+      }
 
       try {
         await sendEmailThroughMailer(email, 'Reset your Crownstroke password', 'password_reset', {
@@ -260,7 +265,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     });
     res.json({ success: true });
   } catch (error) {
-    console.error('Password reset failed:', error instanceof Error ? error.name : 'Unknown error');
+    console.error('Password reset failed:', error instanceof Error ? error.message : String(error));
     res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
   }
 });

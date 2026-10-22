@@ -96,8 +96,7 @@ export const iyonicDB = {
     const path = `/tables/${encodeURIComponent(table)}/rows/${encodeURIComponent(rowId)}`;
     return request(path, {
       method: 'PUT',
-      // Support both update payload names used by IyonicDB API versions.
-      body: JSON.stringify({ table, id: rowId, rowId, row, data: row }),
+      body: JSON.stringify({ table, id: rowId, row }),
     });
   },
 
