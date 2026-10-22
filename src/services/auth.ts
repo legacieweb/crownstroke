@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { users, designers, shops, designerDesigns, orders } from '../db/schema';
 import { emailService } from './email';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 // Backend Service for Authentication
 // Now uses the database for persistence
@@ -18,8 +18,10 @@ export interface User {
   shopId?: string;
 }
 
+const getApiUrl = () => import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || '').trim();
+
 async function createPlanSession(email: string, password: string) {
-  const apiUrl = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || '').trim();
+  const apiUrl = getApiUrl();
   const response = await fetch(`${apiUrl}/api/auth/plan-token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -153,81 +155,70 @@ export const authService = {
       return { id: 'admin-id', email, role: 'admin', name: 'System Admin' };
     }
 
-    // Check user in DB
-    const [user] = await db.select().from(users).where(and(eq(users.email, email), eq(users.password, pass))).limit(1);
-
-    if (!user) {
-      throw new Error('Invalid credentials');
+    let response: Response;
+    try {
+      response = await fetch(`${getApiUrl()}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password: pass }),
+      });
+    } catch {
+      throw new Error('Unable to connect to the login service. Check your connection and try again.');
     }
 
-    const planSession = await createPlanSession(email, pass);
-    const resultUser: User = {
-      id: user.id,
-      email: user.email,
-      name: user.name || undefined,
-      role: user.role as 'user' | 'admin' | 'designer',
-      ...planSession,
-      shopName: user.shopName || undefined
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(typeof result.error === 'string' ? result.error : 'Sign in failed. Please try again.');
+    }
+    if (!result.id || !result.token && !result.planToken) {
+      throw new Error('The login service returned an incomplete response. Please try again.');
+    }
+
+    return {
+      id: String(result.id),
+      email: String(result.email || email),
+      name: result.name || undefined,
+      role: result.role as User['role'],
+      plan: result.plan as User['plan'],
+      planToken: result.planToken || result.token,
+      shopName: result.shopName || undefined,
+      designerId: result.designerId || undefined,
+      shopId: result.shopId || undefined,
     };
-
-    if (user.role === 'designer') {
-      try {
-        const [designer] = await db.select().from(designers).where(eq(designers.userId, user.id)).limit(1);
-        if (designer) {
-          resultUser.designerId = designer.id;
-          const [shop] = await db.select().from(shops).where(eq(shops.designerId, designer.id)).limit(1);
-          if (shop) {
-            resultUser.shopId = shop.id;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch designer details on login:', err);
-      }
-    }
-
-    return resultUser;
   },
 
   async requestPasswordReset(email: string): Promise<void> {
-    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    
-    if (!user) {
-      return;
+    let response: Response;
+    try {
+      response = await fetch(`${getApiUrl()}/api/auth/request-password-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+    } catch {
+      throw new Error('Unable to connect to the password reset service. Please try again.');
     }
-
-    const resetToken = Math.random().toString(36).substr(2, 12);
-    const resetExpires = new Date(Date.now() + 3600000); // 1 hour
-
-    await db.update(users)
-      .set({ resetToken, resetExpires })
-      .where(eq(users.id, user.id));
-
-    const resetParams = new URLSearchParams({ token: resetToken, email });
-    const resetLink = `${window.location.origin}/#/reset-password?${resetParams.toString()}`;
-    await emailService.sendPasswordReset(email, user.name || 'User', resetLink);
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(typeof result.error === 'string' ? result.error : 'Could not request a password reset. Please try again.');
+    }
   },
 
   async resetPassword(email: string, token: string, newPass: string): Promise<void> {
-    const [user] = await db.select()
-      .from(users)
-      .where(and(
-        eq(users.email, email), 
-        eq(users.resetToken, token)
-      ))
-      .limit(1);
-
-    if (!user) {
-      throw new Error('Invalid or expired reset token');
+    let response: Response;
+    try {
+      response = await fetch(`${getApiUrl()}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), token, password: newPass }),
+      });
+    } catch {
+      throw new Error('Unable to connect to the password reset service. Please try again.');
     }
-
-    const now = new Date();
-    if (user.resetExpires && new Date(user.resetExpires) < now) {
-      throw new Error('Invalid or expired reset token');
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(typeof result.error === 'string' ? result.error : 'Could not reset the password. Please try again.');
     }
-
-    await db.update(users)
-      .set({ password: newPass, resetToken: null, resetExpires: null })
-      .where(eq(users.id, user.id));
   },
 
   async updateProfile(userId: string, data: { name?: string }): Promise<void> {

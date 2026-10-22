@@ -37,8 +37,8 @@ const ResetPassword: React.FC = () => {
       await authService.resetPassword(email, token, password);
       setIsSuccess(true);
       setTimeout(() => navigate('/login'), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to reset password. The link may be expired.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset password. The link may be expired.');
     } finally {
       setIsLoading(false);
     }

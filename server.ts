@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { iyonicDB, IyonicDBError } from './src/services/iyonicdb.js';
 
 dotenv.config();
@@ -127,6 +127,140 @@ app.post('/api/auth/plan-token', async (req, res) => {
     });
   } catch (error) {
     iyonicDBErrorHandler(error, res);
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!email || !password) {
+    res.status(400).json({ error: 'Email and password are required.' });
+    return;
+  }
+
+  try {
+    const rows = await iyonicDB.query(
+      'SELECT id, email, name, role, plan, shop_name FROM users WHERE email = $1 AND password = $2 LIMIT 1',
+      [email, password]
+    );
+    const account = rows[0];
+    if (!account?.id) {
+      res.status(401).json({ error: 'Invalid email or password.' });
+      return;
+    }
+
+    const userId = String(account.id);
+    let designerId: string | undefined;
+    let shopId: string | undefined;
+    if (account.role === 'designer') {
+      const [designer] = await iyonicDB.query(
+        'SELECT id FROM designers WHERE user_id = $1 LIMIT 1',
+        [userId]
+      );
+      if (designer?.id) {
+        designerId = String(designer.id);
+        const [shop] = await iyonicDB.query(
+          'SELECT id FROM shops WHERE designer_id = $1 LIMIT 1',
+          [designerId]
+        );
+        if (shop?.id) shopId = String(shop.id);
+      }
+    }
+
+    const plan = normalizePlan(account.plan);
+    const planToken = createPlanToken(userId, plan);
+    res.json({
+      id: userId,
+      email: String(account.email || email),
+      name: account.name ? String(account.name) : undefined,
+      role: account.role,
+      shopName: account.shop_name || account.shopName || undefined,
+      designerId,
+      shopId,
+      plan,
+      planToken,
+    });
+  } catch (error) {
+    // Avoid returning database details or credentials to the browser.
+    console.error('Login authentication failed:', error instanceof Error ? error.name : 'Unknown error');
+    res.status(503).json({ error: 'The login service is temporarily unavailable. Please try again.' });
+  }
+});
+
+app.post('/api/auth/request-password-reset', async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  if (!email) {
+    res.status(400).json({ error: 'Email is required.' });
+    return;
+  }
+
+  try {
+    const [user] = await iyonicDB.query(
+      'SELECT id, name FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
+    if (user?.id) {
+      const token = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      await iyonicDB.updateRow('users', String(user.id), {
+        reset_token: token,
+        reset_expires: expiresAt.toISOString(),
+      });
+
+      const siteUrl = (process.env.SITE_URL || 'https://crownstroke.iyonicorp.com').replace(/\/$/, '');
+      const params = new URLSearchParams({ email, token });
+      const resetLink = `${siteUrl}/#/reset-password?${params.toString()}`;
+      try {
+        await sendEmailThroughMailer(email, 'Reset your Crownstroke password', 'password_reset', {
+          name: user.name || 'there',
+          resetLink,
+        });
+      } catch (error) {
+        // Invalidate the token if we could not deliver its link.
+        await iyonicDB.updateRow('users', String(user.id), { reset_token: null, reset_expires: null }).catch(() => undefined);
+        console.error('Password reset email failed:', error instanceof Error ? error.name : 'Unknown error');
+        throw error;
+      }
+    }
+
+    // Keep the response the same whether or not the account exists.
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Password reset request failed:', error instanceof Error ? error.name : 'Unknown error');
+    res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!email || !token || password.length < 6 || password.length > 200) {
+    res.status(400).json({ error: 'Provide a valid reset link and a password of at least 6 characters.' });
+    return;
+  }
+
+  try {
+    const [user] = await iyonicDB.query(
+      'SELECT id, reset_token, reset_expires FROM users WHERE email = $1 AND reset_token = $2 LIMIT 1',
+      [email, token]
+    );
+    const expiresValue = user?.reset_expires ?? user?.resetExpires;
+    const expiresAt = expiresValue ? new Date(expiresValue).getTime() : 0;
+    if (!user?.id || !expiresAt || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      res.status(400).json({ error: 'This reset link is invalid or has expired. Request a new one.' });
+      return;
+    }
+
+    await iyonicDB.updateRow('users', String(user.id), {
+      password,
+      reset_token: null,
+      reset_expires: null,
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Password reset failed:', error instanceof Error ? error.name : 'Unknown error');
+    res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
   }
 });
 
@@ -374,6 +508,36 @@ const buildEmailContent = (template: EmailTemplate, subject: string, data: any):
       };
   }
 };
+
+async function sendEmailThroughMailer(to: string, subject: string, template: EmailTemplate, data: any) {
+  const emailContent = buildEmailContent(template, subject, data);
+  const html = renderEmail(emailContent);
+  const text = renderTextEmail(emailContent);
+
+  if (!process.env.IYONIC_MAILER_API_KEY) {
+    throw new Error('Email service is not configured');
+  }
+
+  const mailerUrl = (process.env.IYONIC_MAILER_API_URL || 'https://api.iyonicorp.com/api/mailer/v1') + '/send';
+  const response = await fetch(mailerUrl, {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.IYONIC_MAILER_API_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ to, subject, html, text }),
+  });
+  const responseText = await response.text();
+  let result: any;
+  try {
+    result = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    result = { message: responseText };
+  }
+  if (!response.ok) {
+    throw new Error(result.error || result.message || `Mailer error: ${response.status}`);
+  }
+}
 
 // Initialize IyonicDB connection
 (async () => {
@@ -1143,46 +1307,8 @@ app.post('/api/send-email', async (req, res) => {
   const { to, subject, template, data } = req.body;
 
   try {
-    const emailContent = buildEmailContent(template as EmailTemplate, subject, data);
-    const html = renderEmail(emailContent);
-    const text = renderTextEmail(emailContent);
-
-    if (!process.env.IYONIC_MAILER_API_KEY) {
-      console.error('IYONIC_MAILER_API_KEY environment variable is missing');
-      throw new Error('IYONIC_MAILER_API_KEY environment variable is not defined');
-    }
-
-    const mailerUrl =
-      (process.env.IYONIC_MAILER_API_URL || 'https://api.iyonicorp.com/api/mailer/v1') + '/send';
     console.log(`Attempting to send email to ${to} using IyonicMailer API`);
-
-    const response = await fetch(mailerUrl, {
-      method: 'POST',
-      headers: {
-        'x-api-key': process.env.IYONIC_MAILER_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        to,
-        subject,
-        html,
-        text,
-      }),
-    });
-
-    const responseText = await response.text();
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      result = { message: responseText };
-    }
-
-    if (!response.ok) {
-      console.error('IYONIC_MAILER ERROR RESPONSE:', result);
-      throw new Error(result.error || result.message || `IyonicMailer error: ${response.status}`);
-    }
-
+    await sendEmailThroughMailer(String(to || ''), String(subject || ''), template as EmailTemplate, data);
     console.log(`Email sent successfully via IyonicMailer`);
     res.json({ success: true, message: 'Email sent successfully', provider: 'IyonicMailer' });
   } catch (error) {

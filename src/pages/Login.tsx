@@ -32,7 +32,7 @@ const Login: React.FC = () => {
       await login(email, password);
       navigate('/');
     } catch (err) {
-      setError('Invalid email or password');
+      setError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +47,7 @@ const Login: React.FC = () => {
       await authService.requestPasswordReset(email);
       setMessage('If an account exists, a reset link has been sent.');
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      setError(err instanceof Error ? err.message : 'Could not request a password reset. Please try again.');
     } finally {
       setIsLoading(false);
     }
