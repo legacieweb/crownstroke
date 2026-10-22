@@ -456,6 +456,26 @@ const generatedInsertColumns: Record<string, Set<string>> = {
   orders: new Set(['id', 'created_at']),
 };
 
+// Drizzle emits DEFAULT for columns with .default() that weren't explicitly provided.
+// parseInsert skips those, so the row sent to IyonicDB's table-level API is missing
+// them. IyonicDB's /tables endpoint does not apply PostgreSQL column defaults,
+// so we fill them in here to avoid "Provide a value for every required column."
+const columnDefaults: Record<string, Record<string, any>> = {
+  users: { plan: 'free' },
+  designer_designs: {
+    is_featured: 'false',
+    is_editors_pick: 'false',
+    is_exclusive: 'false',
+    is_spring_collection: 'false',
+    is_minimalist: 'false',
+    is_flash_sale: 'false',
+  },
+  orders: {
+    status: 'pending',
+    payment_status: 'pending',
+  },
+};
+
 function parseUpdate(sql: string): {
   table: string;
   setColumns: { name: string; paramIdx: number }[];
@@ -1007,6 +1027,12 @@ app.post('/api/db', async (req, res) => {
             row[column] = params[paramIndex - 1];
           }
         });
+        const defaults = columnDefaults[parsed.table] ?? {};
+        for (const [col, defaultVal] of Object.entries(defaults)) {
+          if (!(col in row)) {
+            row[col] = defaultVal;
+          }
+        }
         const insertResult = await iyonicDB.insertRow(parsed.table, row);
         result = normalizeResult(insertResult);
         break;
