@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { iyonicDB, IyonicDBError } from './src/services/iyonicdb.js';
 
@@ -1186,10 +1187,14 @@ app.post('/api/upload-video', async (req, res) => {
   }
 });
 
-app.use(express.static(path.join(__dirname, 'dist')));
+const frontendDistDir = fs.existsSync(path.join(__dirname, 'dist'))
+  ? path.join(__dirname, 'dist')
+  : path.join(__dirname, '..', 'dist');
+
+app.use(express.static(frontendDistDir));
 
 app.get(/^\/(?!api).*/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(frontendDistDir, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3001;
