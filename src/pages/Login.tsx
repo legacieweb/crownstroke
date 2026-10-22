@@ -46,7 +46,7 @@ const Login: React.FC = () => {
     setIsLoading(true);
     try {
       await authService.requestPasswordReset(email);
-      setMessage('If an account exists, a reset link has been sent.');
+      setMessage('If an account exists, a reset code has been sent.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not request a password reset. Please try again.');
     } finally {
@@ -107,7 +107,7 @@ const Login: React.FC = () => {
               {isForgotMode ? 'Reset Password' : 'Welcome back'}
             </h1>
             <p className="text-gray-400 font-medium uppercase text-[10px] tracking-[0.3em]">
-              {isForgotMode ? 'Enter your email to receive a reset link' : 'Sign in to your Crownstroke account'}
+              {isForgotMode ? 'Enter your email to receive a reset code' : 'Sign in to your Crownstroke account'}
             </p>
           </div>
 
@@ -193,8 +193,13 @@ const Login: React.FC = () => {
               </div>
 
               {message && (
-                <div className="bg-primary-500/10 border border-primary-500/20 text-primary-400 text-xs font-bold p-4 rounded-xl text-center">
-                  {message}
+                <div className="space-y-3">
+                  <div className="bg-primary-500/10 border border-primary-500/20 text-primary-400 text-xs font-bold p-4 rounded-xl text-center">
+                    {message}
+                  </div>
+                  <Link to={`/reset-password?email=${encodeURIComponent(email.trim())}`} className="block text-center text-xs font-black uppercase tracking-widest text-white hover:text-primary-400">
+                    Enter reset code
+                  </Link>
                 </div>
               )}
 
@@ -210,7 +215,7 @@ const Login: React.FC = () => {
                 type="submit"
                 loading={isLoading}
               >
-                Send Reset Link
+                Send Reset Code
               </Button>
 
               <button 

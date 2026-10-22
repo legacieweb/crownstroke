@@ -9,8 +9,8 @@ const ResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const email = searchParams.get('email') || '';
-  const token = searchParams.get('token') || '';
 
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -34,23 +34,23 @@ const ResetPassword: React.FC = () => {
 
     setIsLoading(true);
     try {
-      await authService.resetPassword(email, token, password);
+      await authService.resetPassword(email, code, password);
       setIsSuccess(true);
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset password. The link may be expired.');
+      setError(err instanceof Error ? err.message : 'Failed to reset password. The code may be expired.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!email || !token) {
+  if (!email) {
     return (
       <div className="relative isolate min-h-screen bg-transparent flex items-center justify-center p-8">
         <VideoBackground videoUrl={DEFAULT_BG_VIDEO_URL} className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]" videoClassName="h-full w-full object-cover opacity-70" />
         <div className="site-glass-panel max-w-md w-full rounded-3xl border p-8 text-center">
-          <h1 className="text-2xl font-black text-white mb-4 uppercase italic">Invalid Link</h1>
-          <p className="text-gray-400 mb-8">This password reset link is invalid or incomplete.</p>
+          <h1 className="text-2xl font-black text-white mb-4 uppercase italic">Request a reset code</h1>
+          <p className="text-gray-400 mb-8">Enter your email on the login page to receive a password reset code.</p>
           <Link to="/login">
             <Button variant="premium" className="w-full">Back to Login</Button>
           </Link>
@@ -100,11 +100,33 @@ const ResetPassword: React.FC = () => {
               <div className="mb-10 text-center lg:text-left">
                 <h1 className="text-4xl font-black text-white mb-2 uppercase italic">New Password</h1>
                 <p className="text-gray-400 font-medium uppercase text-[10px] tracking-[0.3em]">
-                  Create a secure password for your account
+                  Enter the emailed code and create a new password
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Email Address</label>
+                  <input type="email" value={email} readOnly className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold text-white/70 outline-none" />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">6-Digit Reset Code</label>
+                  <input
+                    type="text"
+                    required
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl focus:border-primary-500/50 focus:ring-2 focus:ring-primary-500/20 font-black text-white text-center text-2xl tracking-[0.5em] placeholder-gray-600 outline-none transition-all"
+                    placeholder="000000"
+                  />
+                  <p className="px-2 text-xs text-gray-500">The code expires after 10 minutes.</p>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">New Password</label>
                   <div className="relative group">

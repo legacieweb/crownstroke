@@ -56,12 +56,12 @@ export const emailService = {
     });
   },
 
-  async sendPasswordReset(email: string, name: string, resetLink: string) {
+  async sendPasswordReset(email: string, name: string, code: string) {
     await this.sendEmail({
       to: email,
       subject: 'Reset your Crownstroke password',
       template: 'password_reset',
-      data: { name, resetLink }
+      data: { name, code }
     });
   },
 

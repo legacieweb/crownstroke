@@ -204,13 +204,13 @@ export const authService = {
     }
   },
 
-  async resetPassword(email: string, token: string, newPass: string): Promise<void> {
+  async resetPassword(email: string, code: string, newPass: string): Promise<void> {
     let response: Response;
     try {
       response = await fetch(`${getApiUrl()}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), token, password: newPass }),
+        body: JSON.stringify({ email: email.trim(), code: code.trim(), password: newPass }),
       });
     } catch {
       throw new Error('Unable to connect to the password reset service. Please try again.');

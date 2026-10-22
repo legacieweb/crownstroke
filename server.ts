@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { createHmac, randomInt, timingSafeEqual } from 'crypto';
 import { iyonicDB, IyonicDBError } from './src/services/iyonicdb.js';
 
 dotenv.config();
@@ -200,23 +200,20 @@ app.post('/api/auth/request-password-reset', async (req, res) => {
       [email]
     );
     if (user?.id) {
-      const token = randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      const code = String(randomInt(100000, 1000000));
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       await iyonicDB.updateRow('users', String(user.id), {
-        reset_token: token,
+        reset_token: code,
         reset_expires: expiresAt.toISOString(),
       });
 
-      const siteUrl = (process.env.SITE_URL || 'https://crownstroke.iyonicorp.com').replace(/\/$/, '');
-      const params = new URLSearchParams({ email, token });
-      const resetLink = `${siteUrl}/#/reset-password?${params.toString()}`;
       try {
         await sendEmailThroughMailer(email, 'Reset your Crownstroke password', 'password_reset', {
           name: user.name || 'there',
-          resetLink,
+          code,
         });
       } catch (error) {
-        // Invalidate the token if we could not deliver its link.
+        // Invalidate the code if we could not deliver it.
         await iyonicDB.updateRow('users', String(user.id), { reset_token: null, reset_expires: null }).catch(() => undefined);
         console.error('Password reset email failed:', error instanceof Error ? error.message : String(error));
         res.status(503).json({ error: 'We could not send the reset email right now. Please try again later.' });
@@ -234,22 +231,22 @@ app.post('/api/auth/request-password-reset', async (req, res) => {
 
 app.post('/api/auth/reset-password', async (req, res) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
-  const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+  const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  if (!email || !token || password.length < 6 || password.length > 200) {
-    res.status(400).json({ error: 'Provide a valid reset link and a password of at least 6 characters.' });
+  if (!email || !/^\d{6}$/.test(code) || password.length < 6 || password.length > 200) {
+    res.status(400).json({ error: 'Enter the 6-digit reset code and a password of at least 6 characters.' });
     return;
   }
 
   try {
     const [user] = await iyonicDB.query(
       'SELECT id, reset_token, reset_expires FROM users WHERE email = $1 AND reset_token = $2 LIMIT 1',
-      [email, token]
+      [email, code]
     );
     const expiresValue = user?.reset_expires ?? user?.resetExpires;
     const expiresAt = expiresValue ? new Date(expiresValue).getTime() : 0;
     if (!user?.id || !expiresAt || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-      res.status(400).json({ error: 'This reset link is invalid or has expired. Request a new one.' });
+      res.status(400).json({ error: 'This reset code is invalid or has expired. Request a new one.' });
       return;
     }
 
@@ -489,10 +486,10 @@ const buildEmailContent = (template: EmailTemplate, subject: string, data: any):
     case 'password_reset':
       return {
         eyebrow: 'Security',
-        title: 'Reset your password',
-        intro: `Hi ${data?.name || 'there'}, use the secure link below to choose a new password for your Crownstroke account.`,
-        cta: { label: 'Reset password', href: data?.resetLink || '#' },
-        note: 'If you did not request this reset, you can ignore this message and your password will stay the same.',
+        title: 'Your password reset code',
+        intro: `Hi ${data?.name || 'there'}, enter this code on Crownstroke to choose a new password.`,
+        details: [{ label: 'Reset code', value: data?.code || '' }],
+        note: 'This code expires in 10 minutes. If you did not request this reset, you can ignore this message.',
       };
     case 'account_deleted':
       return {
