@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 const Home = React.lazy(() => import('./pages/Home'));
 const Shop = React.lazy(() => import('./pages/Shop'));
 const Designer = React.lazy(() => import('./pages/Designer'));

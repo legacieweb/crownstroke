@@ -1,11 +1,31 @@
 services:
-  - type: static
-    name: crownstroke-frontend
-    staticSite:
-      source: ./dist
-      publicPath: /
-    buildCommand: npm install && npm run build:client
+  - type: web
+    name: crownstroke-web
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # === REQUIRED — set via Render dashboard, never commit actual values ===
+      - key: IYONIC_DB_API_KEY
+        sync: false
+      - key: IYONIC_MAILER_API_KEY
+        sync: false
+      # === OPTIONAL ===
+      # HMAC secret for plan tokens (falls back to IYONIC_DB_API_KEY)
+      - key: APP_AUTH_SECRET
+        sync: false
+      # Base URL for email links (defaults to https://crownstroke.iyonicorp.com)
+      - key: SITE_URL
+        value: https://crownstroke.onrender.com
+      # Leave VITE_API_URL empty — server serves frontend + API on same origin
       - key: VITE_API_URL
-        value: https://ratings-cartoons-david-cameras.trycloudflare.com
+        value: ""
+      - key: VITE_ADMIN_EMAIL
+        sync: false
+      - key: VITE_ADMIN_PASSWORD
+        sync: false
+      - key: VITE_PAYSTACK_PUBLIC_KEY
+        sync: false
     autoDeploy: true

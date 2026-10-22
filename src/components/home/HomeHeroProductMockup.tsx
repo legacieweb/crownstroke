@@ -3,9 +3,9 @@ import { Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const HERO_IMAGES = {
-  artwork: 'Dream Bigger, Work Harder, Stay Focused.png',
-  tee: 'Good Vibes Only Hoodie Model.png',
-  mug: 'Better_Things_Ahead_Mug-removebg-preview.png',
+  artwork: '/Dream Bigger, Work Harder, Stay Focused.png',
+  tee: '/Good Vibes Only Hoodie Model.png',
+  mug: '/Better_Things_Ahead_Mug-removebg-preview.png',
 };
 
 /** The three hero images are intentionally sourced directly in this component. */
