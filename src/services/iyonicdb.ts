@@ -96,8 +96,8 @@ export const iyonicDB = {
     const path = `/tables/${encodeURIComponent(table)}/rows/${encodeURIComponent(rowId)}`;
     return request(path, {
       method: 'PUT',
-      // IyonicDB's update endpoint validates rowId; keep id as a compatibility alias.
-      body: JSON.stringify({ table, id: rowId, rowId, row }),
+      // Support both update payload names used by IyonicDB API versions.
+      body: JSON.stringify({ table, id: rowId, rowId, row, data: row }),
     });
   },
 

@@ -202,10 +202,10 @@ app.post('/api/auth/request-password-reset', async (req, res) => {
     if (user?.id) {
       const code = String(randomInt(100000, 1000000));
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      await iyonicDB.query(
-        'UPDATE users SET reset_token = $1, reset_expires = $2 WHERE id = $3',
-        [code, expiresAt.toISOString(), String(user.id)]
-      );
+      await iyonicDB.updateRow('users', String(user.id), {
+        reset_token: code,
+        reset_expires: expiresAt.toISOString(),
+      });
 
       try {
         await sendEmailThroughMailer(email, 'Reset your Crownstroke password', 'password_reset', {
@@ -214,10 +214,10 @@ app.post('/api/auth/request-password-reset', async (req, res) => {
         });
       } catch (error) {
         // Invalidate the code if we could not deliver it.
-        await iyonicDB.query(
-          'UPDATE users SET reset_token = $1, reset_expires = $2 WHERE id = $3',
-          [null, null, String(user.id)]
-        ).catch(() => undefined);
+        await iyonicDB.updateRow('users', String(user.id), {
+          reset_token: null,
+          reset_expires: null,
+        }).catch(() => undefined);
         console.error('Password reset email failed:', error instanceof Error ? error.message : String(error));
         res.status(503).json({ error: 'We could not send the reset email right now. Please try again later.' });
         return;
@@ -253,10 +253,11 @@ app.post('/api/auth/reset-password', async (req, res) => {
       return;
     }
 
-    await iyonicDB.query(
-      'UPDATE users SET password = $1, reset_token = $2, reset_expires = $3 WHERE id = $4',
-      [password, null, null, String(user.id)]
-    );
+    await iyonicDB.updateRow('users', String(user.id), {
+      password,
+      reset_token: null,
+      reset_expires: null,
+    });
     res.json({ success: true });
   } catch (error) {
     console.error('Password reset failed:', error instanceof Error ? error.name : 'Unknown error');
