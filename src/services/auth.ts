@@ -202,7 +202,8 @@ export const authService = {
       .set({ resetToken, resetExpires })
       .where(eq(users.id, user.id));
 
-    const resetLink = `${window.location.origin}/reset-password?token=${resetToken}&email=${email}`;
+    const resetParams = new URLSearchParams({ token: resetToken, email });
+    const resetLink = `${window.location.origin}/#/reset-password?${resetParams.toString()}`;
     await emailService.sendPasswordReset(email, user.name || 'User', resetLink);
   },
 
