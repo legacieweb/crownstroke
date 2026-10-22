@@ -213,7 +213,7 @@ const Signup: React.FC = () => {
 
           <div className="mt-10 pt-10 border-t border-white/5 text-center">
             <p className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-6">Already have an account?</p>
-            <Link to={role === 'designer' ? '/designer-login' : '/customer-login'}>
+            <Link to="/login">
               <Button variant="outline" className="w-full py-4 rounded-2xl font-black uppercase tracking-widest gap-2 border-white/10 text-white hover:bg-white/5">
                 Sign In Instead
                 <Plus className="w-5 h-5 rotate-45" />

@@ -218,16 +218,17 @@ app.post('/api/auth/request-password-reset', async (req, res) => {
       } catch (error) {
         // Invalidate the token if we could not deliver its link.
         await iyonicDB.updateRow('users', String(user.id), { reset_token: null, reset_expires: null }).catch(() => undefined);
-        console.error('Password reset email failed:', error instanceof Error ? error.name : 'Unknown error');
-        throw error;
+        console.error('Password reset email failed:', error instanceof Error ? error.message : String(error));
+        res.status(503).json({ error: 'We could not send the reset email right now. Please try again later.' });
+        return;
       }
     }
 
     // Keep the response the same whether or not the account exists.
     res.json({ success: true });
   } catch (error) {
-    console.error('Password reset request failed:', error instanceof Error ? error.name : 'Unknown error');
-    res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
+    console.error('Password reset account lookup failed:', error instanceof Error ? error.message : String(error));
+    res.status(503).json({ error: 'The account service is temporarily unavailable. Please try again.' });
   }
 });
 

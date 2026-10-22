@@ -115,7 +115,7 @@ const Navbar: React.FC = () => {
               <Link to={getDashboardPath()}><Button size="sm" variant="outline" className="gap-2 border-white/30 bg-white/10 text-white hover:bg-white/20"><User className="w-4 h-4" />{getDashboardLabel()}</Button></Link>
               <Button size="sm" variant="ghost" onClick={handleLogout} className="gap-2 text-white/85 hover:text-white hover:bg-white/10"><LogOut className="w-4 h-4" />Log out</Button>
             </> : <>
-              <Link to="/customer-login"><Button size="sm" variant="ghost" className="text-white/90 hover:text-white hover:bg-white/10">Log in</Button></Link>
+              <Link to="/login"><Button size="sm" variant="ghost" className="text-white/90 hover:text-white hover:bg-white/10">Log in</Button></Link>
               <Link to="/customer-signup"><Button size="sm" className="gap-2 px-5 shadow-lg shadow-primary-900/30">Sign up <span aria-hidden="true">↗</span></Button></Link>
             </>}
           </div>
@@ -221,7 +221,7 @@ const Navbar: React.FC = () => {
                   <Link to={getDashboardPath()} onClick={() => setIsOpen(false)}><Button className="w-full h-12 rounded-xl border border-white/30 bg-slate-900 font-bold text-white shadow-md hover:bg-slate-800 gap-2"><User className="w-4 h-4" />Dashboard</Button></Link>
                   <Button onClick={handleLogout} variant="outline" className="w-full h-12 rounded-xl border-2 border-white/50 bg-slate-950 font-bold text-white shadow-md hover:bg-slate-800 gap-2"><LogOut className="w-4 h-4" />Log out</Button>
                 </div> : <div className="grid grid-cols-2 gap-3">
-                  <Link to="/customer-login" onClick={() => setIsOpen(false)}><Button variant="outline" className="w-full h-12 rounded-xl border-2 border-white/50 bg-slate-950 font-bold text-white shadow-md hover:bg-slate-800">Log in</Button></Link>
+                  <Link to="/login" onClick={() => setIsOpen(false)}><Button variant="outline" className="w-full h-12 rounded-xl border-2 border-white/50 bg-slate-950 font-bold text-white shadow-md hover:bg-slate-800">Log in</Button></Link>
                   <Link to="/customer-signup" onClick={() => setIsOpen(false)}><Button className="w-full h-12 rounded-xl border border-white/30 bg-primary-600 font-bold text-white shadow-lg hover:bg-primary-500">Sign up</Button></Link>
                 </div>}
               </div>

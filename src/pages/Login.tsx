@@ -4,14 +4,13 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import VideoBackground, { DEFAULT_BG_VIDEO_URL } from '../components/layout/VideoBackground';
-import { Mail, Lock, LogIn, ChevronRight, Eye, EyeOff, ArrowLeft, User, Palette } from 'lucide-react';
+import { Mail, Lock, LogIn, ChevronRight, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { authService } from '../services/auth';
 
 const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [accountType, setAccountType] = useState<'customer' | 'designer'>(location.pathname === '/designer-login' ? 'designer' : 'customer');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -20,17 +19,19 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotMode, setIsForgotMode] = useState(false);
 
-  React.useEffect(() => {
-    setAccountType(location.pathname === '/designer-login' ? 'designer' : 'customer');
-  }, [location.pathname]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
     try {
-      await login(email, password);
-      navigate('/');
+      const authenticatedUser = await login(email, password);
+      const redirect = new URLSearchParams(location.search).get('redirect');
+      const defaultRoute = authenticatedUser.role === 'admin'
+        ? '/admin'
+        : authenticatedUser.role === 'designer'
+          ? '/designer-dashboard'
+          : '/';
+      navigate(redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : defaultRoute);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
     } finally {
@@ -103,17 +104,12 @@ const Login: React.FC = () => {
         >
           <div className="mb-10 text-center lg:text-left">
             <h1 className="text-4xl font-black text-white mb-2 uppercase italic">
-              {isForgotMode ? 'Reset Password' : accountType === 'designer' ? 'Designer sign in' : 'Customer sign in'}
+              {isForgotMode ? 'Reset Password' : 'Welcome back'}
             </h1>
             <p className="text-gray-400 font-medium uppercase text-[10px] tracking-[0.3em]">
-              {isForgotMode ? 'Enter your email to receive a reset link' : accountType === 'designer' ? 'Access your artist workspace' : 'Access your orders and saved designs'}
+              {isForgotMode ? 'Enter your email to receive a reset link' : 'Sign in to your Crownstroke account'}
             </p>
           </div>
-
-          {!isForgotMode && <div className="grid grid-cols-2 gap-2 p-1 bg-black/25 rounded-2xl border border-white/10 mb-7">
-            <Link to="/customer-login" className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-colors ${accountType === 'customer' ? 'bg-white text-black' : 'text-white/60 hover:text-white'}`}><User className="w-4 h-4" />Customer</Link>
-            <Link to="/designer-login" className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-colors ${accountType === 'designer' ? 'bg-white text-black' : 'text-white/60 hover:text-white'}`}><Palette className="w-4 h-4" />Designer</Link>
-          </div>}
 
           {!isForgotMode ? (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -227,15 +223,15 @@ const Login: React.FC = () => {
             </form>
           )}
 
-          <div className="mt-10 pt-10 border-t border-white/5 text-center">
+          {!isForgotMode && <div className="mt-10 pt-10 border-t border-white/5 text-center">
             <p className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-6">Don't have an account?</p>
-            <Link to={accountType === 'designer' ? '/designer-signup' : '/customer-signup'}>
+            <Link to="/signup">
               <Button variant="outline" className="w-full py-4 rounded-2xl font-black uppercase tracking-widest gap-2 border-white/10 text-white hover:bg-white/5">
-                Join Crownstroke
+                Create an account
                 <ChevronRight className="w-5 h-5" />
               </Button>
             </Link>
-          </div>
+          </div>}
         </motion.div>
       </div>
     </div>

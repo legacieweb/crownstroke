@@ -5,7 +5,7 @@ interface AuthContextType {
   user: User | null;
   isAdmin: boolean;
   isDesigner: boolean;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string) => Promise<User>;
   signup: (email: string, pass: string, name: string, role?: 'user' | 'designer', shopName?: string) => Promise<void>;
   updateProfile: (data: { name?: string }) => Promise<void>;
   logout: () => void;
@@ -33,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const authenticatedUser = await authService.login(email, pass);
       setUser(authenticatedUser);
       localStorage.setItem('pod_user', JSON.stringify(authenticatedUser));
+      return authenticatedUser;
     } catch (error) {
       // Query error objects can include SQL parameters such as the password.
       console.error('Login failed:', error instanceof Error ? error.name : 'Unknown error');
