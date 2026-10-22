@@ -18,6 +18,7 @@ import {
   ArrowRight,
   LayoutGrid,
   ShoppingBag,
+  Eye,
 } from 'lucide-react';
 
 const ShopPage: React.FC = () => {
@@ -64,17 +65,12 @@ const ShopPage: React.FC = () => {
         if (resolvedShop.length > 0) {
           const s = resolvedShop[0];
           
-          // Fetch designer to get hero image
-          const designer = await db.select()
-            .from(designers)
-            .where(eq(designers.id, s.designerId))
-            .limit(1);
-          
-          if (designer.length > 0) {
-            setHeroImage(designer[0].heroImage);
-          }
-
-          const shopDesigns = await db.select({
+          const [designer, shopDesigns] = await Promise.all([
+            db.select({ heroImage: designers.heroImage })
+              .from(designers)
+              .where(eq(designers.id, s.designerId))
+              .limit(1),
+            db.select({
             id: designerDesigns.id,
             name: designerDesigns.name,
             productId: designerDesigns.productId,
@@ -83,11 +79,13 @@ const ShopPage: React.FC = () => {
             price: designerDesigns.price,
             designerId: designerDesigns.designerId,
             designerEmail: designers.email
-          })
-            .from(designerDesigns)
-            .innerJoin(designers, eq(designerDesigns.designerId, designers.id))
-            .where(eq(designerDesigns.shopId, resolvedShop[0].id));
+            })
+              .from(designerDesigns)
+              .innerJoin(designers, eq(designerDesigns.designerId, designers.id))
+              .where(eq(designerDesigns.shopId, resolvedShop[0].id)),
+          ]);
           
+          setHeroImage(designer[0]?.heroImage || null);
           setDesigns(shopDesigns);
         } else {
           setShopNotFound(true);
@@ -133,16 +131,6 @@ const ShopPage: React.FC = () => {
       previews: { front: frontPreview || previewImage, back: backPreview },
     };
     return { product, customDesign };
-  };
-
-  const handleAddToCart = (design: any) => {
-    if (!isOnline) {
-      alert('Shop is currently closed! You can still design and save to drafts.');
-      return;
-    }
-    const { product, customDesign } = buildShopCartItem(design);
-    addToCart(product as any, 1, 'M', '#ffffff', customDesign as any);
-    alert(`${design.name} added to cart!`);
   };
 
   const handleBuyNow = (design: any) => {
@@ -265,8 +253,8 @@ const ShopPage: React.FC = () => {
                  <AnimatePresence mode="popLayout">
                    {filteredDesigns.map((design, i) => {
                      const availablePreviews = design.designData?.previews || {};
-                     const hasFrontAndBack = Boolean(availablePreviews.front && availablePreviews.back);
-                     const selectedPreviewSide = previewSides[design.id] || 'front';
+                     const hasFrontAndBack = Boolean(availablePreviews.front || availablePreviews.back);
+                     const selectedPreviewSide = previewSides[design.id] || (availablePreviews.back && !availablePreviews.front ? 'back' : 'front');
                      const cardPreview = (selectedPreviewSide === 'back' ? availablePreviews.back : availablePreviews.front) || design.preview;
                      return (
                      <motion.div 
@@ -277,6 +265,18 @@ const ShopPage: React.FC = () => {
                        exit={{ opacity: 0, scale: 0.9 }}
                        transition={{ duration: 0.5, delay: i * 0.05 }}
                        className="product-motion group relative"
+                       role="link"
+                       tabIndex={0}
+                       aria-label={`View details for ${design.name}`}
+                       onClick={() => navigate(`/product/${design.id}`)}
+                       onKeyDown={(event) => {
+                         if (event.target !== event.currentTarget) return;
+                         if (event.key === 'Enter' || event.key === ' ') {
+                           event.preventDefault();
+                           navigate(`/product/${design.id}`);
+                         }
+                       }}
+                       style={{ cursor: 'pointer' }}
                      >
                        <div className="relative aspect-[4/5] rounded-[2rem] sm:rounded-[3.5rem] overflow-hidden bg-white/5 border border-white/10 transition-all duration-700 group-hover:border-primary-500/50 group-hover:shadow-[0_40px_80px_rgba(0,0,0,0.5)]">
                           {/* Product Image */}
@@ -292,7 +292,7 @@ const ShopPage: React.FC = () => {
                                 <button
                                   key={side}
                                   type="button"
-                                  onClick={() => setPreviewSides((current) => ({ ...current, [design.id]: side }))}
+                                  onClick={(event) => { event.stopPropagation(); setPreviewSides((current) => ({ ...current, [design.id]: side })); }}
                                   aria-pressed={selectedPreviewSide === side}
                                   className={clsx(
                                     'min-h-11 rounded-lg px-3 text-[8px] font-black uppercase tracking-[.13em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300 sm:min-h-8',
@@ -327,7 +327,7 @@ const ShopPage: React.FC = () => {
                                       "flex-1 sm:flex-initial h-12 sm:h-14 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] shadow-xl sm:shadow-2xl whitespace-nowrap",
                                       isOnline ? "shadow-primary-500/20" : "border-white/10 text-white/40 cursor-not-allowed"
                                     )}
-                                    onClick={() => handleBuyNow(design)}
+                                    onClick={(event) => { event.stopPropagation(); handleBuyNow(design); }}
                                   >
                                     <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                                     {isOnline ? "Buy Now" : "Shop Closed"}
@@ -338,9 +338,9 @@ const ShopPage: React.FC = () => {
                                       "flex-1 sm:flex-initial h-12 sm:h-14 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] shadow-xl sm:shadow-2xl whitespace-nowrap",
                                       isOnline ? "" : "border-white/10 text-white/40 cursor-not-allowed"
                                     )}
-                                    onClick={() => handleAddToCart(design)}
+                                    onClick={(event) => { event.stopPropagation(); navigate(`/product/${design.id}`); }}
                                   >
-                                    Deploy Asset
+                                    <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /> View details
                                   </Button>
                                   <button className="w-12 h-12 sm:w-14 sm:h-14 bg-white/10 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0">
                                     <Heart className="w-4 h-4 sm:w-5 sm:h-5" />

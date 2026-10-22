@@ -1090,18 +1090,19 @@ const Designer: React.FC = () => {
               <Menu className="w-5 h-5" />
             </button>
 
-            <div className="hidden lg:flex items-center gap-4">
+            <div className="flex items-center gap-1 sm:gap-2 lg:gap-4">
               {user?.role === 'designer' && (
-                <Button variant="premium" className="bg-purple-600 hover:bg-purple-700 h-11 px-6 !rounded-xl text-[10px] uppercase font-black tracking-widest gap-2 shadow-lg shadow-purple-500/20" onClick={() => setShowSaveModal(true)}>
-                  <LayoutGrid className="w-4 h-4" /> Save to Shop
+                <Button variant="premium" className="bg-purple-600 hover:bg-purple-700 h-10 sm:h-11 px-2.5 sm:px-4 lg:px-6 !rounded-xl text-[8px] sm:text-[10px] uppercase font-black tracking-widest gap-1 sm:gap-2 shadow-lg shadow-purple-500/20" onClick={() => setShowSaveModal(true)}>
+                  <LayoutGrid className="w-4 h-4" /><span className="hidden sm:inline">Save to Shop</span>
                 </Button>
               )}
-              <Button 
-                variant="premium" 
-                className="bg-slate-800 hover:bg-slate-700 h-11 px-6 !rounded-xl text-[10px] uppercase font-black tracking-widest gap-2 shadow-lg shadow-white/5 transition-all group" 
+              <Button
+                variant="premium"
+                aria-label="Open saved drafts"
+                className="bg-slate-800 hover:bg-slate-700 h-10 sm:h-11 px-2.5 sm:px-4 lg:px-6 !rounded-xl text-[8px] sm:text-[10px] uppercase font-black tracking-widest gap-1 sm:gap-2 shadow-lg shadow-white/5 transition-all group"
                 onClick={handleDraftsClick}
               >
-                <RefreshCcw className="w-4 h-4 text-white/40 group-hover:rotate-180 transition-transform duration-500" /> Drafts
+                <RefreshCcw className="w-4 h-4 text-white/40 group-hover:rotate-180 transition-transform duration-500" /><span className="hidden sm:inline">Drafts</span>
               </Button>
             </div>
             
@@ -1676,6 +1677,7 @@ const Designer: React.FC = () => {
             <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => !isSaving && setShowSaveModal(false)} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="relative w-full max-w-md bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 p-8 md:p-12 shadow-3xl">
+                <button type="button" aria-label="Close save design dialog" onClick={() => !isSaving && setShowSaveModal(false)} disabled={isSaving} className="absolute right-5 top-5 grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-white/55 transition hover:bg-white/10 hover:text-white disabled:opacity-40"><X className="h-4 w-4" /></button>
                 <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">Deploy Design</h2>
                 <p className="text-white/40 text-[10px] uppercase font-bold tracking-[0.2em] mb-8">Publish this masterpiece to your legendary shop</p>
                 
@@ -1720,8 +1722,12 @@ const Designer: React.FC = () => {
                 initial={{ opacity: 0, scale: 0.9, y: 20 }} 
                 animate={{ opacity: 1, scale: 1, y: 0 }} 
                 exit={{ opacity: 0, scale: 0.9, y: 20 }} 
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="designer-popup-title"
                 className="relative w-full max-w-sm bg-slate-900 border border-white/20 rounded-[2rem] p-8 shadow-2xl overflow-hidden"
               >
+                <button type="button" aria-label="Close dialog" onClick={() => { if (popup.type === 'confirm') popup.onCancel?.(); setPopup(p => ({ ...p, show: false })); }} className="absolute right-4 top-4 z-20 grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-white/55 transition hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></button>
                 {/* Decorative background element */}
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary-500/10 blur-[100px] rounded-full" />
                 
@@ -1730,7 +1736,7 @@ const Designer: React.FC = () => {
                     {popup.type === 'alert' ? <ShieldAlert className="w-6 h-6 text-primary-400" /> : <HelpCircle className="w-6 h-6 text-primary-400" />}
                   </div>
                   
-                  <h3 className="text-xl font-black text-white italic uppercase tracking-tighter mb-2">{popup.title}</h3>
+                  <h3 id="designer-popup-title" className="pr-8 text-xl font-black text-white italic uppercase tracking-tighter mb-2">{popup.title}</h3>
                   <p className="text-white/60 text-xs leading-relaxed mb-8">{popup.message}</p>
                   
                   <div className="flex gap-3">

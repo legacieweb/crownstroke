@@ -25,8 +25,9 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
     let idleCallbackId: number | undefined;
     const loadVideo = () => setSource(videoUrl);
 
-    if ('requestIdleCallback' in window) {
-      idleCallbackId = window.requestIdleCallback(loadVideo, { timeout: 1200 });
+    const requestIdle = (window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
+    if (requestIdle) {
+      idleCallbackId = requestIdle.call(window, loadVideo, { timeout: 1200 });
     } else {
       timeoutId = window.setTimeout(loadVideo, 350);
     }

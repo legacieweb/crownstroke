@@ -12,6 +12,7 @@ export interface Product {
     front?: string;
     back?: string;
   };
+  previewOrder?: ('front' | 'back')[];
   designerId?: string;
   designerEmail?: string;
   designerName?: string;

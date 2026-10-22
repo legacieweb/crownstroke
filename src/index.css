@@ -242,13 +242,24 @@
   .home-product-image,.home-product-card-2 .home-product-image,.home-product-card-3 .home-product-image,.home-product-card-4 .home-product-image { height: clamp(170px,52vw,250px); }
 }
 @media (max-width: 1023px) {
-  .designer-workspace { height: auto; min-height: 100svh; overflow: visible; }
+  .designer-workspace { height: auto; min-height: 100svh; min-height: 100dvh; overflow: visible; }
   .designer-workspace-body { flex: initial; overflow: visible; }
   .designer-workspace-columns { flex: initial; overflow: visible; }
   .designer-preview-column { height: min(58svh, 440px); min-height: 265px; }
   .designer-pad-column { height: min(74svh, 620px); min-height: 380px; overflow: visible; }
   .designer-pad { padding: 52px 14px 44px; }
   .designer-pad-column .absolute.bottom-3 { bottom: 12px; }
+  .designer-workspace-columns > :has(> .designer-preview-column) { min-width: 0; }
+}
+@media (max-width: 640px) {
+  .designer-workspace > .bg-black\/30 { position: sticky; top: 0; padding: 10px 8px; gap: 6px; }
+  .designer-workspace > .bg-black\/30 > div { min-width: 0; gap: 6px; }
+  .designer-workspace > .bg-black\/30 button { flex-shrink: 0; }
+  .designer-workspace-body { gap: 10px; }
+  .designer-workspace-columns { gap: 10px; }
+  .designer-preview-column { height: min(54svh, 390px); min-height: 240px; }
+  .designer-pad-column { height: min(68svh, 560px); min-height: 340px; }
+  .designer-workspace-columns > div[class*="fixed left-4 top-24"] { top: 4.25rem; bottom: max(1rem, env(safe-area-inset-bottom)); }
 }
 @media (max-width: 420px) {
   .designer-workspace-body { padding-inline: 10px; }

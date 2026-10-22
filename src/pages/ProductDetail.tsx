@@ -69,6 +69,7 @@ const ProductDetail: React.FC = () => {
             price: designerDesigns.price,
             designerId: designerDesigns.designerId,
             shopId: designerDesigns.shopId,
+            designData: designerDesigns.designData,
           }).from(designerDesigns).where(eq(designerDesigns.id, productId as string));
           const d = designRows[0];
 
@@ -80,6 +81,9 @@ const ProductDetail: React.FC = () => {
             const designer = designerRows[0];
             const shop = shopRows[0];
             const designerName = designer?.name || 'an independent designer';
+            const savedDesign = (d.designData || {}) as { activeSide?: 'front' | 'back'; front?: unknown; back?: unknown; previews?: { front?: string | null; back?: string | null } };
+            const frontPreview = savedDesign.previews?.front || (savedDesign.activeSide === 'front' ? d.preview : undefined) || d.preview;
+            const backPreview = savedDesign.previews?.back || (savedDesign.activeSide === 'back' ? d.preview : undefined) || d.preview;
 
             foundProduct = {
               id: d.id,
@@ -89,6 +93,8 @@ const ProductDetail: React.FC = () => {
               image: d.preview,
               category: d.productId as Product['category'],
               isCustomizable: false,
+              images: { front: frontPreview, back: backPreview },
+              previewOrder: savedDesign.activeSide === 'back' && !savedDesign.front ? ['back', 'front'] : ['front', 'back'],
               designerEmail: designer?.email,
               designerId: d.designerId,
               designerName: designer?.name || undefined,
@@ -158,10 +164,9 @@ const ProductDetail: React.FC = () => {
     );
   }
 
-  const galleryImages = product.images?.back
-    ? [product.image, product.images.back].filter(Boolean)
-    : product.images?.front
-    ? [product.images.front, product.images.back].filter(Boolean)
+  const gallerySides = product.previewOrder || ['front', 'back'];
+  const galleryImages = product.images?.front || product.images?.back
+    ? gallerySides.map((side) => product.images?.[side] || product.image)
     : [product.image];
 
   return (
@@ -194,14 +199,15 @@ const ProductDetail: React.FC = () => {
                       onClick={() => {
                         setSelectedImage(img!);
                         if (product.category === 'poster' || product.category === 'art-design') {
-                          setSelectedPrintOrientation(idx === 0 ? 'portrait' : 'landscape');
+                          setSelectedPrintOrientation(gallerySides[idx] === 'back' ? 'landscape' : 'portrait');
                         }
                       }}
-                      className={`aspect-[4/5] overflow-hidden rounded-lg border transition ${
+                      className={`relative aspect-[4/5] overflow-hidden rounded-lg border transition ${
                         selectedImage === img ? 'border-primary-500' : 'border-white/25 hover:border-white/50'
                       }`}
                     >
-                      <img src={img} alt={`${product.name} view ${idx + 1}`} className="h-full w-full object-cover" />
+                      <img src={img} alt={`${product.name} ${gallerySides[idx] || 'product'} view`} className="h-full w-full object-contain bg-black/20" />
+                      <span className="absolute inset-x-1 bottom-1 rounded-md bg-black/70 px-1 py-1 text-center text-[8px] font-black uppercase tracking-widest text-white">{gallerySides[idx] || 'Product'}</span>
                     </button>
                   ))}
                 </div>
@@ -233,13 +239,13 @@ const ProductDetail: React.FC = () => {
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     {([
-                      { side: 'front', title: 'Portrait', dimensions: '1024 × 1536 px', ratio: '2:3', artwork: '4000 × 6000 px' },
-                      { side: 'back', title: 'Landscape', dimensions: '1536 × 1024 px', ratio: '3:2', artwork: '6000 × 4000 px' },
+                      { orientation: 'portrait', side: 'front', title: 'Portrait', dimensions: '1024 × 1536 px', ratio: '2:3', artwork: '4000 × 6000 px' },
+                      { orientation: 'landscape', side: 'back', title: 'Landscape', dimensions: '1536 × 1024 px', ratio: '3:2', artwork: '6000 × 4000 px' },
                     ] as const).map((format) => {
                       const image = format.side === 'front' ? (product.images?.front || product.image) : (product.images?.back || product.image);
-                      const selected = selectedPrintOrientation === format.side;
+                      const selected = selectedPrintOrientation === format.orientation;
                       return (
-                        <button key={format.side} type="button" onClick={() => { setSelectedPrintOrientation(format.side); setSelectedImage(image); }} aria-pressed={selected}
+                        <button key={format.orientation} type="button" onClick={() => { setSelectedPrintOrientation(format.orientation); setSelectedImage(image); }} aria-pressed={selected}
                           className={`rounded-xl border p-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-200 ${selected ? 'border-lime-200/55 bg-lime-100/[.08]' : 'border-white/10 bg-black/15 hover:border-white/25'}`}>
                           <span className="flex items-center gap-2">
                             <span className={`grid shrink-0 place-items-center rounded-sm border border-lime-100/40 bg-lime-100/[.06] ${format.side === 'front' ? 'h-8 w-5' : 'h-5 w-8'}`}><span className="h-1 w-1 rounded-full bg-lime-200" /></span>
