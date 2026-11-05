@@ -18,6 +18,7 @@ const products = [
 ];
 
 type FeaturedDesign = { id: string; name: string; designer: string; preview: string; shopSlug: string; productId: string };
+type LimitedEdition = { id: string; name: string; description: string; price: number; frontImage: string; backImage: string; extraImages: string[] };
 
 const toShopSlug = (value: unknown): string =>
   typeof value === 'string' && value.trim() && value.trim().toLowerCase() !== 'null'
@@ -26,9 +27,13 @@ const toShopSlug = (value: unknown): string =>
 
 const Home: React.FC = () => {
   const [featuredDesigns, setFeaturedDesigns] = useState<FeaturedDesign[]>([]);
+  const [limitedEditions, setLimitedEditions] = useState<LimitedEdition[]>([]);
 
   useEffect(() => {
     let active = true;
+    fetch('/api/limited-editions').then((response) => response.ok ? response.json() : []).then((rows: any[]) => {
+      if (active) setLimitedEditions(rows.slice(0, 4).map((row) => ({ ...row, id: String(row.id), frontImage: row.front_image ?? row.frontImage, backImage: row.back_image ?? row.backImage, extraImages: row.extra_images ?? row.extraImages ?? [] })));
+    }).catch(() => { if (active) setLimitedEditions([]); });
     db.select({
       id: designerDesigns.id,
       name: designerDesigns.name,
@@ -108,6 +113,8 @@ const Home: React.FC = () => {
             <div className="home-product-grid">{products.map((product, index) => <Link key={product.query} to={`/designer?product=${product.query}`} className={`home-product-card home-product-card-${index + 1}`}><div className="home-product-image"><img src={product.image} alt={`${product.name} ready to customise`} loading="lazy" decoding="async" /><span className="home-product-arrow"><ArrowUpRight size={17} /></span></div><div className="home-product-info"><div><h3>{product.name}</h3><p>{product.detail}</p></div><span>0{index + 1}</span></div></Link>)}</div>
           </div>
         </section>
+
+        {limitedEditions.length > 0 && <section className="home-limited-section"><div className="home-shell"><div className="home-section-head"><div><p className="home-kicker"><Sparkles size={14} /> SMALL RUN. BIG CHARACTER.</p><h2>Limited editions.</h2><p className="home-canvas-description">Special releases, made to stand out and made in limited numbers.</p></div><Link to="/shop" className="home-text-link">Shop all editions <ArrowRight size={17} /></Link></div><div className="home-limited-grid">{limitedEditions.map((item, index) => <Link className="home-limited-card" to="/shop" key={item.id}><div className="home-limited-art"><img src={item.frontImage} alt={`${item.name}, front view`} loading="lazy" /><span className="home-limited-edition">LIMITED EDITION · 0{index + 1}</span><span className="home-limited-back"><img src={item.backImage} alt={`${item.name}, back view`} loading="lazy" /></span></div><div className="home-limited-info"><div><h3>{item.name}</h3><p>{item.description || 'A Crownstroke limited edition collectible.'}</p></div><strong>KES {Number(item.price).toLocaleString()}</strong></div></Link>)}</div></div></section>}
 
         <section className="home-promise-section"><div className="home-shell home-promise-grid"><div><p className="home-kicker">MADE WITH CARE</p><h2>Good ideas,<br /><em>beautifully printed.</em></h2></div><p className="home-promise-intro">A simple way to make your own products and find art made by independent designers.</p><div className="home-promise-item"><span><WandSparkles size={19} /></span><div><b>Personal by design</b><p>Your artwork and words, on products you’ll reach for.</p></div></div><div className="home-promise-item"><span><PackageCheck size={19} /></span><div><b>Printed to order</b><p>We make each piece after you place your order.</p></div></div><div className="home-promise-item"><span><Palette size={19} /></span><div><b>Independent artists</b><p>Discover original work from the people who made it.</p></div></div><div className="home-promise-item"><span><Upload size={19} /></span><div><b>Your art belongs here</b><p>Upload a design and share it with the community.</p></div></div></div></section>
 

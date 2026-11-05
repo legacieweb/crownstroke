@@ -143,6 +143,21 @@
 }
 @media (prefers-reduced-motion: reduce) { .home-page *, .home-page *::before, .home-page *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
 
+.home-limited-section { padding: 100px 0 110px; background: rgba(5,8,12,.24); }
+.home-limited-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: clamp(12px,2vw,24px); }
+.home-limited-card { min-width: 0; color: #fff; text-decoration: none; }
+.home-limited-art { position: relative; aspect-ratio: .82; overflow: hidden; border: 1px solid rgba(255,255,255,.24); background: linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.025)); }
+.home-limited-art > img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
+.home-limited-card:hover .home-limited-art > img { transform: scale(1.04); }
+.home-limited-edition { position: absolute; top: 12px; left: 12px; padding: 7px 9px; color: #11170a; background: #d8f05b; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
+.home-limited-back { position: absolute; right: 12px; bottom: 12px; width: 27%; aspect-ratio: .78; overflow: hidden; border: 2px solid rgba(255,255,255,.85); box-shadow: 0 8px 20px rgba(0,0,0,.4); }
+.home-limited-back img { width: 100%; height: 100%; object-fit: cover; }
+.home-limited-info { display: flex; justify-content: space-between; gap: 10px; padding: 14px 1px; border-bottom: 1px solid rgba(255,255,255,.22); }
+.home-limited-info h3 { margin: 0; font-size: 14px; font-weight: 800; }
+.home-limited-info p { margin: 5px 0 0; color: rgba(255,255,255,.65); font-size: 11px; line-height: 1.45; }
+.home-limited-info strong { flex: 0 0 auto; color: #d8f05b; font-size: 11px; }
+@media (max-width: 680px) { .home-limited-section { padding: 68px 0 76px; }.home-limited-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 12px; }.home-limited-info { flex-direction: column; } }
+
 /* The home page shares the site video as its continuous backdrop. */
 .site-bg-overlay-home {
   background: linear-gradient(180deg, rgba(4, 8, 14, .38), rgba(4, 8, 14, .24) 38%, rgba(4, 8, 14, .48));

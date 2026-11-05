@@ -80,7 +80,7 @@ const Shop: React.FC = () => {
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const [featured, designerRows, shopRows] = await Promise.all([
+        const [featured, designerRows, shopRows, limitedResponse] = await Promise.all([
           db.select({
             id: designerDesigns.id,
             name: designerDesigns.name,
@@ -93,6 +93,7 @@ const Shop: React.FC = () => {
           }).from(designerDesigns),
           db.select({ id: designers.id, name: designers.name, email: designers.email }).from(designers),
           db.select({ id: shops.id, name: shops.name, slug: shops.slug }).from(shops),
+          fetch('/api/limited-editions').then((response) => response.ok ? response.json() : []).catch(() => []),
         ]);
 
         const designersById = new Map(designerRows.map((designer) => [String(designer.id).toLowerCase(), designer]));
@@ -126,7 +127,13 @@ const Shop: React.FC = () => {
           };
         });
 
-        setProducts([...blankProducts, ...dbProducts]);
+        const limitedProducts: Product[] = limitedResponse.map((row: any) => ({
+          id: String(row.id), name: row.name, description: row.description || 'A Crownstroke limited edition collectible.',
+          price: row.price, image: row.front_image ?? row.frontImage, category: 'art-design', isCustomizable: false,
+          images: { front: row.front_image ?? row.frontImage, back: row.back_image ?? row.backImage },
+          previewOrder: ['front', 'back'],
+        }));
+        setProducts([...blankProducts, ...limitedProducts, ...dbProducts]);
       } catch (err) {
         console.error('Failed to fetch shop products:', err);
         setProducts(blankProducts);

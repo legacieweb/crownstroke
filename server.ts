@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 type UserPlan = 'free' | 'pro' | 'business';
-type PlanClaims = { userId: string; plan: UserPlan; expiresAt: number };
+type PlanClaims = { userId: string; plan: UserPlan; expiresAt: number; role?: 'admin' };
 
 const PLAN_BODY_LIMITS: Record<UserPlan, string> = {
   free: '300mb',
@@ -28,7 +28,7 @@ function normalizePlan(value: unknown): UserPlan {
   return plan === 'pro' || plan === 'business' ? plan : 'free';
 }
 
-function createPlanToken(userId: string, plan: UserPlan): string {
+function createPlanToken(userId: string, plan: UserPlan, role?: 'admin'): string {
   if (!PLAN_TOKEN_SECRET) {
     throw new Error('APP_AUTH_SECRET or IYONIC_DB_API_KEY must be configured to issue plan tokens');
   }
@@ -36,6 +36,7 @@ function createPlanToken(userId: string, plan: UserPlan): string {
   const payload = Buffer.from(JSON.stringify({
     userId,
     plan,
+    ...(role ? { role } : {}),
     expiresAt: Date.now() + 12 * 60 * 60 * 1000,
   } satisfies PlanClaims)).toString('base64url');
   const signature = createHmac('sha256', PLAN_TOKEN_SECRET).update(payload).digest('base64url');
@@ -77,6 +78,11 @@ app.use((req, res, next) => {
   }
 
   const isDatabaseProxy = req.path === '/api/db' && req.method === 'POST';
+  const isLimitedProductApi = req.path.startsWith('/api/admin/limited-editions');
+  if (isLimitedProductApi) {
+    express.json({ limit: '25mb' })(req, res, next);
+    return;
+  }
   if (isDatabaseProxy) {
     const authorization = req.header('Authorization');
     const claims = authorization?.startsWith('Bearer ')
@@ -127,6 +133,22 @@ app.post('/api/auth/plan-token', async (req, res) => {
     });
   } catch (error) {
     iyonicDBErrorHandler(error, res);
+  }
+});
+
+app.post('/api/auth/admin-session', (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const configuredEmail = process.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com';
+  const configuredPassword = process.env.VITE_ADMIN_PASSWORD || 'AdminPass2026!';
+  if (!email || !password || email !== configuredEmail || password !== configuredPassword) {
+    res.status(401).json({ error: 'Invalid admin credentials.' });
+    return;
+  }
+  try {
+    res.json({ planToken: createPlanToken('admin-id', 'business', 'admin') });
+  } catch {
+    res.status(503).json({ error: 'Admin sessions are temporarily unavailable.' });
   }
 });
 
@@ -623,6 +645,7 @@ const generatedInsertColumns: Record<string, Set<string>> = {
   designers: new Set(['id', 'created_at']),
   shops: new Set(['id', 'created_at']),
   designer_designs: new Set(['id', 'created_at']),
+  limited_edition_products: new Set(['id', 'created_at']),
   orders: new Set(['id', 'created_at']),
 };
 
@@ -640,6 +663,7 @@ const columnDefaults: Record<string, Record<string, any>> = {
     is_minimalist: 'false',
     is_flash_sale: 'false',
   },
+  limited_edition_products: { description: '', extra_images: [] },
   orders: {
     status: 'pending',
     payment_status: 'pending',
@@ -1168,6 +1192,66 @@ app.delete('/api/iyonicdb/documents/:collection/:documentId', async (req, res) =
   } catch (err) {
     iyonicDBErrorHandler(err, res);
   }
+});
+
+async function authorizeAdmin(req: express.Request, res: express.Response): Promise<boolean> {
+  const authorization = req.header('Authorization');
+  const claims = authorization?.startsWith('Bearer ') ? readPlanToken(authorization.slice(7)) : null;
+  if (!claims) {
+    res.status(401).json({ error: 'Sign in again to manage limited editions.' });
+    return false;
+  }
+  if (claims.role === 'admin' && claims.userId === 'admin-id') return true;
+  try {
+    const users = await iyonicDB.query('SELECT role FROM users WHERE id = $1 LIMIT 1', [claims.userId]);
+    if (String(users[0]?.role || '').toLowerCase() !== 'admin') {
+      res.status(403).json({ error: 'Admin access is required.' });
+      return false;
+    }
+    return true;
+  } catch (err) {
+    iyonicDBErrorHandler(err, res);
+    return false;
+  }
+}
+
+app.get('/api/admin/limited-editions', async (req, res) => {
+  if (!await authorizeAdmin(req, res)) return;
+  try {
+    const rows = await iyonicDB.listRows('limited_edition_products', { limit: 100 });
+    res.json(rows);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
+app.get('/api/limited-editions', async (_req, res) => {
+  try {
+    const rows = await iyonicDB.listRows('limited_edition_products', { limit: 100 });
+    res.json(rows);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
+app.post('/api/admin/limited-editions', async (req, res) => {
+  if (!await authorizeAdmin(req, res)) return;
+  const { name, description = '', price, front_image, back_image, extra_images = [] } = req.body || {};
+  if (typeof name !== 'string' || !name.trim() || !Number.isFinite(Number(price)) || Number(price) <= 0 || typeof front_image !== 'string' || typeof back_image !== 'string' || !Array.isArray(extra_images)) {
+    res.status(400).json({ error: 'Provide a product name, positive price, front and back images, and an extra image list.' });
+    return;
+  }
+  try {
+    const row = await iyonicDB.insertRow('limited_edition_products', {
+      name: name.trim(), description: String(description).slice(0, 500), price: Number(price),
+      front_image, back_image, extra_images,
+    });
+    res.status(201).json(row);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
+app.delete('/api/admin/limited-editions/:id', async (req, res) => {
+  if (!await authorizeAdmin(req, res)) return;
+  try {
+    await iyonicDB.deleteRow('limited_edition_products', req.params.id);
+    res.sendStatus(204);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
 });
 
 app.post('/api/db', async (req, res) => {

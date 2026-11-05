@@ -81,33 +81,51 @@ const ProductDetail: React.FC = () => {
             const designer = designerRows[0];
             const shop = shopRows[0];
             const designerName = designer?.name || 'an independent designer';
-            const savedDesign = (d.designData || {}) as { activeSide?: 'front' | 'back'; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
+            const savedDesign = (d.designData || {}) as { activeSide?: 'front' | 'back'; color?: string; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
             const hasSideArtwork = (side: 'front' | 'back') => Boolean(savedDesign[side]?.objects?.length);
             const productMockups = PRODUCT_DATA[d.productId] || {};
-            const blankMockups = productMockups['#ffffff'] || productMockups[Object.keys(productMockups)[0]] || {};
+            const savedColor = savedDesign.color && productMockups[savedDesign.color] ? savedDesign.color : '#ffffff';
+            const blankMockups = productMockups[savedColor] || productMockups[Object.keys(productMockups)[0]] || {};
             const frontPreview = hasSideArtwork('front')
               ? savedDesign.previews?.front || (savedDesign.activeSide === 'front' ? d.preview : undefined) || blankMockups.front || d.preview
               : blankMockups.front || d.preview;
             const backPreview = hasSideArtwork('back')
               ? savedDesign.previews?.back || (savedDesign.activeSide === 'back' ? d.preview : undefined) || blankMockups.back || d.preview
               : blankMockups.back || d.preview;
+            const frontHasArt = hasSideArtwork('front');
+            const backHasArt = hasSideArtwork('back');
+            const initialSide: 'front' | 'back' = frontHasArt && !backHasArt ? 'back' : backHasArt && !frontHasArt ? 'front' : savedDesign.activeSide || 'front';
+            const initialPreview = initialSide === 'front' ? frontPreview : backPreview;
 
             foundProduct = {
               id: d.id,
               name: d.name,
               description: 'An original design by ' + designerName + ', printed on demand' + (shop?.name ? ' and sold through ' + shop.name : '') + '.',
               price: d.price ?? 0,
-              image: d.preview,
+              image: initialPreview,
               category: d.productId as Product['category'],
               isCustomizable: false,
               images: { front: frontPreview, back: backPreview },
-              previewOrder: hasSideArtwork('back') && !hasSideArtwork('front') ? ['back', 'front'] : ['front', 'back'],
+              colors: productMockups[savedColor] ? [savedColor] : undefined,
+              previewOrder: initialSide === 'back' ? ['back', 'front'] : ['front', 'back'],
               designerEmail: designer?.email,
               designerId: d.designerId,
               designerName: designer?.name || undefined,
               shopName: shop?.name || undefined,
               shopSlug: shop?.slug || undefined,
             };
+          } else {
+            const response = await fetch('/api/limited-editions');
+            const limitedRows = response.ok ? await response.json() : [];
+            const limited = limitedRows.find((row: any) => String(row.id) === productId);
+            if (limited) {
+              foundProduct = {
+                id: String(limited.id), name: limited.name,
+                description: limited.description || 'A Crownstroke limited edition collectible.',
+                price: limited.price, image: limited.front_image ?? limited.frontImage, category: 'art-design', isCustomizable: false,
+                images: { front: limited.front_image ?? limited.frontImage, back: limited.back_image ?? limited.backImage },
+              };
+            }
           }
         }
 

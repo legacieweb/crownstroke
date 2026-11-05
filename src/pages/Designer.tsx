@@ -858,6 +858,7 @@ const Designer: React.FC = () => {
         ...sideDesigns,
         previews: { front: frontPreview, back: backPreview },
         activeSide,
+        color: activeColor,
       };
       
       const designPayload = {
@@ -897,7 +898,7 @@ const Designer: React.FC = () => {
   const saveAsDraft = () => {
     if (!fabricCanvas) return;
     const currentJSON = fabricCanvas.toJSON();
-    const updatedData = { ...designData, [activeSide]: currentJSON, activeSide };
+    const updatedData = { ...designData, [activeSide]: currentJSON, activeSide, color: activeColor };
     
     const draft = {
       id: Date.now().toString(),
@@ -992,6 +993,7 @@ const Designer: React.FC = () => {
       ...sideDesigns,
       previews: { front: frontPreview, back: backPreview },
       activeSide,
+      color: activeColor,
     };
     const mainPreview = (activeSide === 'front' ? frontPreview : backPreview) || frontPreview || backPreview || mirrorPreview;
 

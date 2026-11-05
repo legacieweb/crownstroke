@@ -124,21 +124,52 @@ interface LimitedProduct {
   createdAt: string;
 }
 
-const LIMITED_PRODUCTS_KEY = 'crownstroke_limited_products';
 
-const readLimitedProducts = (): LimitedProduct[] => {
-  try {
-    const value = localStorage.getItem(LIMITED_PRODUCTS_KEY);
-    return value ? JSON.parse(value) : [];
-  } catch { return []; }
+const imageAsDataUrl = async (file: File): Promise<string> => {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 960 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Could not process image.');
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  let blob: Blob | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const quality = [0.58, 0.48, 0.4, 0.34, 0.3][attempt];
+    blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
+    if (!blob) throw new Error('Could not compress image.');
+    if (blob.size <= 140 * 1024) break;
+    canvas.width = Math.max(1, Math.round(canvas.width * 0.82));
+    canvas.height = Math.max(1, Math.round(canvas.height * 0.82));
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  }
+  bitmap.close();
+  if (!blob || blob.size > 140 * 1024) throw new Error('This image could not be reduced enough. Try a simpler or smaller image.');
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Could not read optimized image.'));
+    reader.readAsDataURL(blob as Blob);
+  });
 };
 
-const imageAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(String(reader.result));
-  reader.onerror = () => reject(new Error('Could not read image.'));
-  reader.readAsDataURL(file);
-});
+const limitedEditionsRequest = async (path: string, init: RequestInit = {}) => {
+  const session = JSON.parse(localStorage.getItem('pod_user') || 'null');
+  const response = await fetch(path, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(session?.planToken ? { Authorization: `Bearer ${session.planToken}` } : {}),
+      ...init.headers,
+    },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${response.status})`);
+  }
+  return response.status === 204 ? null : response.json();
+};
 
 const normalizeUuid = (v: any): string => {
   if (v == null) return '';
@@ -183,14 +214,27 @@ const LimitedEditionsPanel: React.FC = () => {
   const [back, setBack] = useState('');
   const [extras, setExtras] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [processingImages, setProcessingImages] = useState(0);
   const [error, setError] = useState('');
 
-  useEffect(() => setProducts(readLimitedProducts()), []);
+  const refreshProducts = async () => {
+    try {
+      const rows = await limitedEditionsRequest('/api/admin/limited-editions');
+      setProducts(rows.map((row: any) => ({ id: String(row.id), name: row.name, description: row.description || '', price: Number(row.price), front: row.front_image ?? row.frontImage, back: row.back_image ?? row.backImage, extras: row.extra_images ?? row.extraImages ?? [], createdAt: String(row.created_at ?? row.createdAt ?? '') })));
+    } catch (err) { setError(err instanceof Error ? err.message : 'Could not load limited editions from IyonicDB.'); }
+  };
+  useEffect(() => { void refreshProducts(); }, []);
 
-  const loadOne = async (file?: File) => file ? imageAsDataUrl(file) : '';
+  const loadOne = async (file?: File) => {
+    if (!file) return '';
+    setProcessingImages((count) => count + 1);
+    try { return await imageAsDataUrl(file); }
+    finally { setProcessingImages((count) => Math.max(0, count - 1)); }
+  };
   const saveProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const name = String(form.get('name') || '').trim();
     const price = Number(form.get('price'));
     if (!name || !front || !back || !Number.isFinite(price) || price <= 0) {
@@ -198,22 +242,20 @@ const LimitedEditionsPanel: React.FC = () => {
     }
     setSaving(true); setError('');
     try {
-      const next = [{ id: crypto.randomUUID(), name, description: String(form.get('description') || '').trim(), price, front, back, extras, createdAt: new Date().toISOString() }, ...products];
-      localStorage.setItem(LIMITED_PRODUCTS_KEY, JSON.stringify(next));
-      setProducts(next); setFront(''); setBack(''); setExtras([]); event.currentTarget.reset();
-    } catch {
-      setError('Images exceed this browser’s local storage capacity. Use smaller image files and try again.');
+      await limitedEditionsRequest('/api/admin/limited-editions', { method: 'POST', body: JSON.stringify({ name, description: String(form.get('description') || '').trim(), price, front_image: front, back_image: back, extra_images: extras }) });
+      await refreshProducts(); setFront(''); setBack(''); setExtras([]); formElement.reset();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save this edition to IyonicDB. Please try again.');
     } finally { setSaving(false); }
   };
   const removeProduct = (id: string) => {
-    const next = products.filter((product) => product.id !== id);
-    localStorage.setItem(LIMITED_PRODUCTS_KEY, JSON.stringify(next)); setProducts(next);
+    void limitedEditionsRequest(`/api/admin/limited-editions/${encodeURIComponent(id)}`, { method: 'DELETE' }).then(refreshProducts).catch((err) => setError(err instanceof Error ? err.message : 'Could not remove this edition from IyonicDB.'));
   };
   const imageField = (label: string, image: string, onImage: (value: string) => void, required = false) => (
     <label className="group relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-white/20 bg-white/[.025] text-center transition hover:border-lime-200/50 hover:bg-white/[.05]">
-      {image ? <img src={image} alt={`${label} preview`} className="absolute inset-0 h-full w-full object-cover" /> : <><ImagePlus className="mb-3 h-7 w-7 text-lime-200" /><span className="text-xs font-bold text-white">{label}</span><span className="mt-1 text-[10px] text-white/40">PNG, JPG or WEBP</span></>}
+      {image ? <img src={image} alt={`${label} preview`} className="absolute inset-0 h-full w-full object-cover" /> : <><ImagePlus className="mb-3 h-7 w-7 text-lime-200" /><span className="text-xs font-bold text-white">{label}</span><span className="mt-1 text-[10px] text-white/40">PNG, JPG or WEBP · optimized on upload</span></>}
       {image && <span className="absolute bottom-2 left-2 rounded-lg bg-black/70 px-2 py-1 text-[10px] font-bold text-white">Replace {label}</span>}
-      <input type="file" accept="image/*" required={required && !image} className="sr-only" onChange={async (e) => onImage(await loadOne(e.target.files?.[0]))} />
+      <input type="file" accept="image/*" required={required && !image} className="sr-only" onChange={async (e) => { const input = e.currentTarget; try { onImage(await loadOne(input.files?.[0])); } catch { setError('Could not process that image. Please choose another file.'); } }} />
     </label>
   );
 
@@ -226,7 +268,7 @@ const LimitedEditionsPanel: React.FC = () => {
       <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">
         <div className="mb-4 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-lime-200/10 text-lime-200"><Upload className="h-4 w-4" /></span><div><h3 className="text-sm font-black text-white">Product imagery</h3><p className="text-[11px] text-white/45">Front and back are required. Add detail shots as needed.</p></div></div>
         <div className="grid gap-3 sm:grid-cols-2">{imageField('Front image', front, setFront, true)}{imageField('Back image', back, setBack, true)}</div>
-        <label className="mt-4 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.03] px-4 text-xs font-bold text-white/70 transition hover:border-white/20 hover:text-white"><Plus className="h-4 w-4" /> Add extra images ({extras.length})<input type="file" accept="image/*" multiple className="sr-only" onChange={async (e) => { const files = Array.from(e.target.files || []); const loaded = await Promise.all(files.map(loadOne)); setExtras((current) => [...current, ...loaded]); e.currentTarget.value = ''; }} /></label>
+        <label className="mt-4 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.03] px-4 text-xs font-bold text-white/70 transition hover:border-white/20 hover:text-white"><Plus className="h-4 w-4" /> Add extra images ({extras.length}/3)<input type="file" accept="image/*" multiple disabled={extras.length >= 3} className="sr-only" onChange={async (e) => { const input = e.currentTarget; const files = Array.from(input.files || []).slice(0, 3 - extras.length); try { const loaded = await Promise.all(files.map(loadOne)); setExtras((current) => [...current, ...loaded].slice(0, 3)); } catch { setError('Could not process one of those images. Try a simpler image.'); } input.value = ''; }} /></label>
         {!!extras.length && <div className="mt-3 flex flex-wrap gap-2">{extras.map((src, i) => <button type="button" key={`${src.slice(-20)}-${i}`} onClick={() => setExtras((current) => current.filter((_, index) => index !== i))} title="Remove image" className="relative h-16 w-16 overflow-hidden rounded-xl border border-white/15"><img src={src} alt={`Extra product view ${i + 1}`} className="h-full w-full object-cover" /><span className="absolute inset-0 grid place-items-center bg-black/50 text-xs font-bold opacity-0 hover:opacity-100">Remove</span></button>)}</div>}
       </div>
       <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">
@@ -235,7 +277,7 @@ const LimitedEditionsPanel: React.FC = () => {
         <label className="mb-4 block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Price · KES<div className="relative mt-2"><Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lime-200" /><input name="price" type="number" min="1" step="1" required placeholder="4,500" className="h-12 w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-3 text-lg font-black text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></div></label>
         <label className="block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Story <span className="font-medium normal-case tracking-normal text-white/30">· optional</span><textarea name="description" rows={4} maxLength={500} placeholder="What makes this edition special?" className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-black/20 p-3 text-sm font-medium normal-case leading-6 tracking-normal text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></label>
         {error && <p role="alert" className="mt-4 text-xs font-semibold leading-5 text-rose-200">{error}</p>}
-        <button disabled={saving} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime-200 px-4 text-xs font-black uppercase tracking-wider text-slate-950 transition hover:bg-lime-100 disabled:opacity-60"><Sparkles className="h-4 w-4" />{saving ? 'Saving drop…' : 'Save limited edition'}</button>
+        <button disabled={saving || processingImages > 0} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime-200 px-4 text-xs font-black uppercase tracking-wider text-slate-950 transition hover:bg-lime-100 disabled:opacity-60"><Sparkles className="h-4 w-4" />{processingImages ? `Optimizing ${processingImages} image${processingImages === 1 ? '' : 's'}…` : saving ? 'Saving drop…' : 'Save limited edition'}</button>
         <p className="mt-3 text-center text-[10px] leading-4 text-white/35">Saved in this browser for now.</p>
       </div>
     </form>

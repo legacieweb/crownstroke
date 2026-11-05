@@ -55,6 +55,17 @@ export const siteSettings = pgTable('site_settings', {
   bgVideoUrl: text('bg_video_url'),
 });
 
+export const limitedEditionProducts = pgTable('limited_edition_products', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  price: doublePrecision('price').notNull(),
+  frontImage: text('front_image').notNull(),
+  backImage: text('back_image').notNull(),
+  extraImages: jsonb('extra_images').notNull().default([]),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const orders = pgTable('orders', {
   id: uuid('id').defaultRandom().primaryKey(),
   customerName: text('customer_name').notNull(),
