@@ -20,7 +20,12 @@ import {
   Store,
   Trash2,
   Users,
-  X
+  X,
+  Upload,
+  Plus,
+  ImagePlus,
+  Sparkles,
+  Tag
 } from 'lucide-react';
 import Preloader from '../components/ui/Preloader';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -100,12 +105,40 @@ const flagFields = [
 const designFlagFields = new Set(flagFields.map((field) => field.key));
 
 const tabs = [
+  { id: 'limited', label: 'Limited editions', icon: Sparkles },
   { id: 'designs', label: 'Designs', icon: Palette },
   { id: 'orders', label: 'Orders', icon: Package },
   { id: 'designers', label: 'Designers', icon: Store }
 ] as const;
 
 type AdminTab = typeof tabs[number]['id'];
+
+interface LimitedProduct {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  front: string;
+  back: string;
+  extras: string[];
+  createdAt: string;
+}
+
+const LIMITED_PRODUCTS_KEY = 'crownstroke_limited_products';
+
+const readLimitedProducts = (): LimitedProduct[] => {
+  try {
+    const value = localStorage.getItem(LIMITED_PRODUCTS_KEY);
+    return value ? JSON.parse(value) : [];
+  } catch { return []; }
+};
+
+const imageAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result));
+  reader.onerror = () => reject(new Error('Could not read image.'));
+  reader.readAsDataURL(file);
+});
 
 const normalizeUuid = (v: any): string => {
   if (v == null) return '';
@@ -143,6 +176,74 @@ const normalizeItems = (items: unknown): OrderItem[] => {
 };
 
 const money = (value: number | undefined) => `KES ${(value ?? 0).toLocaleString()}`;
+
+const LimitedEditionsPanel: React.FC = () => {
+  const [products, setProducts] = useState<LimitedProduct[]>([]);
+  const [front, setFront] = useState('');
+  const [back, setBack] = useState('');
+  const [extras, setExtras] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => setProducts(readLimitedProducts()), []);
+
+  const loadOne = async (file?: File) => file ? imageAsDataUrl(file) : '';
+  const saveProduct = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get('name') || '').trim();
+    const price = Number(form.get('price'));
+    if (!name || !front || !back || !Number.isFinite(price) || price <= 0) {
+      setError('Add a name, price, and both front and back images to continue.'); return;
+    }
+    setSaving(true); setError('');
+    try {
+      const next = [{ id: crypto.randomUUID(), name, description: String(form.get('description') || '').trim(), price, front, back, extras, createdAt: new Date().toISOString() }, ...products];
+      localStorage.setItem(LIMITED_PRODUCTS_KEY, JSON.stringify(next));
+      setProducts(next); setFront(''); setBack(''); setExtras([]); event.currentTarget.reset();
+    } catch {
+      setError('Images exceed this browser’s local storage capacity. Use smaller image files and try again.');
+    } finally { setSaving(false); }
+  };
+  const removeProduct = (id: string) => {
+    const next = products.filter((product) => product.id !== id);
+    localStorage.setItem(LIMITED_PRODUCTS_KEY, JSON.stringify(next)); setProducts(next);
+  };
+  const imageField = (label: string, image: string, onImage: (value: string) => void, required = false) => (
+    <label className="group relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-white/20 bg-white/[.025] text-center transition hover:border-lime-200/50 hover:bg-white/[.05]">
+      {image ? <img src={image} alt={`${label} preview`} className="absolute inset-0 h-full w-full object-cover" /> : <><ImagePlus className="mb-3 h-7 w-7 text-lime-200" /><span className="text-xs font-bold text-white">{label}</span><span className="mt-1 text-[10px] text-white/40">PNG, JPG or WEBP</span></>}
+      {image && <span className="absolute bottom-2 left-2 rounded-lg bg-black/70 px-2 py-1 text-[10px] font-bold text-white">Replace {label}</span>}
+      <input type="file" accept="image/*" required={required && !image} className="sr-only" onChange={async (e) => onImage(await loadOne(e.target.files?.[0]))} />
+    </label>
+  );
+
+  return <section className="p-4 sm:p-7">
+    <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div><p className="text-[10px] font-extrabold uppercase tracking-[.2em] text-lime-200">The Crownstroke vault</p><h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Limited edition products</h2><p className="mt-2 max-w-xl text-sm leading-6 text-white/55">Build a collectible drop with a complete view of every detail, from both sides to the finishing shots.</p></div>
+      <span className="inline-flex w-fit items-center gap-2 rounded-full border border-lime-200/20 bg-lime-200/[.08] px-3 py-2 text-[10px] font-extrabold uppercase tracking-wider text-lime-100"><Sparkles className="h-3.5 w-3.5" /> {products.length} in the vault</span>
+    </div>
+    <form onSubmit={saveProduct} className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">
+        <div className="mb-4 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-lime-200/10 text-lime-200"><Upload className="h-4 w-4" /></span><div><h3 className="text-sm font-black text-white">Product imagery</h3><p className="text-[11px] text-white/45">Front and back are required. Add detail shots as needed.</p></div></div>
+        <div className="grid gap-3 sm:grid-cols-2">{imageField('Front image', front, setFront, true)}{imageField('Back image', back, setBack, true)}</div>
+        <label className="mt-4 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.03] px-4 text-xs font-bold text-white/70 transition hover:border-white/20 hover:text-white"><Plus className="h-4 w-4" /> Add extra images ({extras.length})<input type="file" accept="image/*" multiple className="sr-only" onChange={async (e) => { const files = Array.from(e.target.files || []); const loaded = await Promise.all(files.map(loadOne)); setExtras((current) => [...current, ...loaded]); e.currentTarget.value = ''; }} /></label>
+        {!!extras.length && <div className="mt-3 flex flex-wrap gap-2">{extras.map((src, i) => <button type="button" key={`${src.slice(-20)}-${i}`} onClick={() => setExtras((current) => current.filter((_, index) => index !== i))} title="Remove image" className="relative h-16 w-16 overflow-hidden rounded-xl border border-white/15"><img src={src} alt={`Extra product view ${i + 1}`} className="h-full w-full object-cover" /><span className="absolute inset-0 grid place-items-center bg-black/50 text-xs font-bold opacity-0 hover:opacity-100">Remove</span></button>)}</div>}
+      </div>
+      <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">
+        <div className="mb-5"><h3 className="text-sm font-black text-white">Drop details</h3><p className="mt-1 text-[11px] text-white/45">Give this piece a name and a price.</p></div>
+        <label className="mb-4 block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Product name<input name="name" required maxLength={100} placeholder="e.g. After Hours — No. 01" className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm font-semibold normal-case tracking-normal text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></label>
+        <label className="mb-4 block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Price · KES<div className="relative mt-2"><Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lime-200" /><input name="price" type="number" min="1" step="1" required placeholder="4,500" className="h-12 w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-3 text-lg font-black text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></div></label>
+        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Story <span className="font-medium normal-case tracking-normal text-white/30">· optional</span><textarea name="description" rows={4} maxLength={500} placeholder="What makes this edition special?" className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-black/20 p-3 text-sm font-medium normal-case leading-6 tracking-normal text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></label>
+        {error && <p role="alert" className="mt-4 text-xs font-semibold leading-5 text-rose-200">{error}</p>}
+        <button disabled={saving} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime-200 px-4 text-xs font-black uppercase tracking-wider text-slate-950 transition hover:bg-lime-100 disabled:opacity-60"><Sparkles className="h-4 w-4" />{saving ? 'Saving drop…' : 'Save limited edition'}</button>
+        <p className="mt-3 text-center text-[10px] leading-4 text-white/35">Saved in this browser for now.</p>
+      </div>
+    </form>
+    <div className="mt-9"><div className="mb-4 flex items-end justify-between"><div><h3 className="text-lg font-black text-white">Your editions</h3><p className="mt-1 text-xs text-white/45">Recently added pieces, ready to review.</p></div></div>
+      {products.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 px-5 py-9 text-center text-sm text-white/45">Your vault is waiting for its first drop.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="grid h-44 grid-cols-2 gap-px bg-white/10"><img src={product.front} alt={`${product.name}, front`} className="h-full w-full object-cover" /><img src={product.back} alt={`${product.name}, back`} className="h-full w-full object-cover" /></div><div className="p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="font-black text-white">{product.name}</h4><p className="mt-1 text-xs text-lime-200">{money(product.price)}</p></div><button type="button" onClick={() => removeProduct(product.id)} aria-label={`Remove ${product.name}`} className="rounded-lg p-2 text-white/45 hover:bg-rose-400/10 hover:text-rose-200"><Trash2 className="h-4 w-4" /></button></div>{!!product.extras.length && <p className="mt-3 text-[10px] text-white/40">+ {product.extras.length} extra {product.extras.length === 1 ? 'view' : 'views'}</p>}</div></article>)}</div>}
+    </div>
+  </section>;
+};
 
 const AdminDashboard: React.FC = () => {
   const { user, logout, isLoading: isAuthLoading } = useAuth();
@@ -454,6 +555,11 @@ const AdminDashboard: React.FC = () => {
 
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/70 shadow-[0_20px_70px_rgba(0,0,0,.22)] backdrop-blur-2xl">
             <AnimatePresence mode="wait">
+              {activeTab === 'limited' && (
+                <motion.div key="limited" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <LimitedEditionsPanel />
+                </motion.div>
+              )}
               {activeTab === 'designs' && (
                 <motion.section key="designs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 sm:p-6">
                   <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
