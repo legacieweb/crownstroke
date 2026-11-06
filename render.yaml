@@ -18,7 +18,7 @@ services:
         sync: false
       # Base URL for email links (defaults to https://crownstroke.iyonicorp.com)
       - key: SITE_URL
-        value: https://crownstroke.onrender.com
+        value: https://crownstroke.iyonicorp.com
       # Leave VITE_API_URL empty — server serves frontend + API on same origin
       - key: VITE_API_URL
         value: ""

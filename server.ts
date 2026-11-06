@@ -1569,7 +1569,16 @@ const frontendDistDir = fs.existsSync(path.join(__dirname, 'dist'))
   ? path.join(__dirname, 'dist')
   : path.join(__dirname, '..', 'dist');
 
-app.use(express.static(frontendDistDir));
+app.use(express.static(frontendDistDir, {
+  setHeaders(res, filePath) {
+    // Vite fingerprints generated assets, so they can be cached across visits.
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 
 app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(frontendDistDir, 'index.html'));
