@@ -106,9 +106,14 @@ const ShopPage: React.FC = () => {
   const buildShopCartItem = (design: any) => {
     const savedDesign = design.designData || {};
     const previews = savedDesign.previews || {};
+    const mockups = PRODUCT_DATA[design.productId] || {};
+    const garmentColor = savedDesign.color && mockups[savedDesign.color]
+      ? savedDesign.color
+      : mockups['#ffffff'] ? '#ffffff' : Object.keys(mockups)[0];
+    const blankMockups = mockups[garmentColor] || {};
     const frontPreview = previews.front || null;
     const backPreview = previews.back || null;
-    const isDoubleSided = Boolean(frontPreview && backPreview);
+    const isDoubleSided = Boolean(design.designData?.front?.objects?.length && design.designData?.back?.objects?.length);
     const previewImage = frontPreview || backPreview || design.preview;
     const product = {
       id: design.id,
@@ -118,6 +123,11 @@ const ShopPage: React.FC = () => {
       image: previewImage,
       category: design.productId as any,
       isCustomizable: false,
+      images: {
+        front: design.designData?.front?.objects?.length ? frontPreview || design.preview : blankMockups.front || frontPreview || design.preview,
+        back: design.designData?.back?.objects?.length ? backPreview || design.preview : blankMockups.back || backPreview || design.preview,
+      },
+      garmentColor,
       designerId: design.designerId,
       designerEmail: design.designerEmail,
       designId: design.id
@@ -126,10 +136,13 @@ const ShopPage: React.FC = () => {
       id: design.id,
       designerId: design.designerId,
       productId: design.productId,
-      elements: savedDesign,
+      elements: { ...savedDesign, color: garmentColor },
       previewImage,
       isDoubleSided,
-      previews: { front: frontPreview || previewImage, back: backPreview },
+      previews: {
+        front: design.designData?.front?.objects?.length ? frontPreview || previewImage : blankMockups.front || frontPreview || previewImage,
+        back: design.designData?.back?.objects?.length ? backPreview || previewImage : blankMockups.back || backPreview || previewImage,
+      },
     };
     return { product, customDesign };
   };
@@ -140,7 +153,7 @@ const ShopPage: React.FC = () => {
       return;
     }
     const { product, customDesign } = buildShopCartItem(design);
-    addToCart(product as any, 1, 'M', '#ffffff', customDesign as any);
+    addToCart(product as any, 1, 'M', garmentColor || '#ffffff', customDesign as any);
     navigate('/checkout');
   };
 
@@ -256,7 +269,10 @@ const ShopPage: React.FC = () => {
                      const availablePreviews = design.designData?.previews || {};
                      const sideArtwork = (side: 'front' | 'back') => Boolean(design.designData?.[side]?.objects?.length);
                      const mockups = PRODUCT_DATA[design.productId] || {};
-                     const blankMockups = mockups['#ffffff'] || mockups[Object.keys(mockups)[0]] || {};
+                     const garmentColor = design.designData?.color && mockups[design.designData.color]
+                       ? design.designData.color
+                       : mockups['#ffffff'] ? '#ffffff' : Object.keys(mockups)[0];
+                     const blankMockups = mockups[garmentColor] || {};
                      const hasFrontAndBack = Boolean(availablePreviews.front || availablePreviews.back || blankMockups.front || blankMockups.back);
                      const selectedPreviewSide = previewSides[design.id] || (sideArtwork('back') && !sideArtwork('front') ? 'back' : 'front');
                      const cardPreview = sideArtwork(selectedPreviewSide)

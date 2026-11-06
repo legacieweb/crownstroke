@@ -102,9 +102,12 @@ const Shop: React.FC = () => {
         const dbProducts: Product[] = featured.map((f) => {
           const designer = designersById.get(String(f.designerId).toLowerCase());
           const shop = shopsById.get(String(f.shopId).toLowerCase());
-          const designData = (f.designData || {}) as { activeSide?: 'front' | 'back'; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
+          const designData = (f.designData || {}) as { activeSide?: 'front' | 'back'; color?: string; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
           const productMockups = PRODUCT_DATA[f.productId] || {};
-          const blankMockups = productMockups['#ffffff'] || productMockups[Object.keys(productMockups)[0]] || {};
+          const garmentColor = designData.color && productMockups[designData.color]
+            ? designData.color
+            : Object.keys(productMockups)[0];
+          const blankMockups = productMockups[garmentColor] || {};
           const sideImage = (side: 'front' | 'back') => designData[side]?.objects?.length
             ? designData.previews?.[side] || (designData.activeSide === side ? f.preview : blankMockups[side]) || f.preview
             : blankMockups[side] || f.preview;
@@ -118,6 +121,7 @@ const Shop: React.FC = () => {
             category: f.productId as Product['category'],
             isCustomizable: false,
             images: { front: sideImage('front'), back: sideImage('back') },
+            garmentColor,
             previewOrder: designData.back?.objects?.length && !designData.front?.objects?.length ? ['back', 'front'] : ['front', 'back'],
             designerEmail: designer?.email,
             designerId: f.designerId,

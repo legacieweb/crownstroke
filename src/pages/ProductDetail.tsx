@@ -85,7 +85,9 @@ const ProductDetail: React.FC = () => {
             const savedDesign = (d.designData || {}) as { activeSide?: 'front' | 'back'; color?: string; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
             const hasSideArtwork = (side: 'front' | 'back') => Boolean(savedDesign[side]?.objects?.length);
             const productMockups = PRODUCT_DATA[d.productId] || {};
-            const savedColor = savedDesign.color && productMockups[savedDesign.color] ? savedDesign.color : '#ffffff';
+            const savedColor = savedDesign.color && productMockups[savedDesign.color]
+              ? savedDesign.color
+              : productMockups['#ffffff'] ? '#ffffff' : Object.keys(productMockups)[0];
             const blankMockups = productMockups[savedColor] || productMockups[Object.keys(productMockups)[0]] || {};
             const frontPreview = hasSideArtwork('front')
               ? savedDesign.previews?.front || (savedDesign.activeSide === 'front' ? d.preview : undefined) || blankMockups.front || d.preview
