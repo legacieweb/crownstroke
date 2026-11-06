@@ -145,7 +145,7 @@ const imageAsDataUrl = async (file: File): Promise<string> => {
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   }
   bitmap.close();
-  if (!blob || blob.size > 140 * 1024) throw new Error('This image could not be reduced enough. Try a simpler or smaller image.');
+  if (!blob) throw new Error('Could not compress image.');
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
@@ -164,11 +164,17 @@ const limitedEditionsRequest = async (path: string, init: RequestInit = {}) => {
       ...init.headers,
     },
   });
+  if (response.status === 204) return null;
+  const responseText = await response.text();
+  let body: any = {};
+  try { body = responseText ? JSON.parse(responseText) : {}; } catch { /* Show a clear deployment/API error below. */ }
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
+    if (response.status === 404) throw new Error('The limited-edition API is not available on this server yet. Deploy the latest server update, then retry.');
     throw new Error(body.error || `Request failed (${response.status})`);
   }
-  return response.status === 204 ? null : response.json();
+  if (!responseText) throw new Error('The server returned an empty response. Please retry.');
+  if (!body || typeof body !== 'object') throw new Error('The server returned an invalid response. Please retry.');
+  return body;
 };
 
 const normalizeUuid = (v: any): string => {
@@ -268,7 +274,7 @@ const LimitedEditionsPanel: React.FC = () => {
       <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">
         <div className="mb-4 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-lime-200/10 text-lime-200"><Upload className="h-4 w-4" /></span><div><h3 className="text-sm font-black text-white">Product imagery</h3><p className="text-[11px] text-white/45">Front and back are required. Add detail shots as needed.</p></div></div>
         <div className="grid gap-3 sm:grid-cols-2">{imageField('Front image', front, setFront, true)}{imageField('Back image', back, setBack, true)}</div>
-        <label className="mt-4 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.03] px-4 text-xs font-bold text-white/70 transition hover:border-white/20 hover:text-white"><Plus className="h-4 w-4" /> Add extra images ({extras.length}/3)<input type="file" accept="image/*" multiple disabled={extras.length >= 3} className="sr-only" onChange={async (e) => { const input = e.currentTarget; const files = Array.from(input.files || []).slice(0, 3 - extras.length); try { const loaded = await Promise.all(files.map(loadOne)); setExtras((current) => [...current, ...loaded].slice(0, 3)); } catch { setError('Could not process one of those images. Try a simpler image.'); } input.value = ''; }} /></label>
+        <label className="mt-4 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.03] px-4 text-xs font-bold text-white/70 transition hover:border-white/20 hover:text-white"><Plus className="h-4 w-4" /> Add extra images ({extras.length})<input type="file" accept="image/*" multiple className="sr-only" onChange={async (e) => { const input = e.currentTarget; const files = Array.from(input.files || []); try { const loaded = await Promise.all(files.map(loadOne)); setExtras((current) => [...current, ...loaded]); } catch { setError('Could not process one of those images.'); } input.value = ''; }} /></label>
         {!!extras.length && <div className="mt-3 flex flex-wrap gap-2">{extras.map((src, i) => <button type="button" key={`${src.slice(-20)}-${i}`} onClick={() => setExtras((current) => current.filter((_, index) => index !== i))} title="Remove image" className="relative h-16 w-16 overflow-hidden rounded-xl border border-white/15"><img src={src} alt={`Extra product view ${i + 1}`} className="h-full w-full object-cover" /><span className="absolute inset-0 grid place-items-center bg-black/50 text-xs font-bold opacity-0 hover:opacity-100">Remove</span></button>)}</div>}
       </div>
       <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">

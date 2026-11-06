@@ -80,7 +80,14 @@ app.use((req, res, next) => {
   const isDatabaseProxy = req.path === '/api/db' && req.method === 'POST';
   const isLimitedProductApi = req.path.startsWith('/api/admin/limited-editions');
   if (isLimitedProductApi) {
-    express.json({ limit: '25mb' })(req, res, next);
+    const authorization = req.header('Authorization');
+    const claims = authorization?.startsWith('Bearer ')
+      ? readPlanToken(authorization.slice('Bearer '.length))
+      : null;
+    const maxPayload = claims?.role === 'admin'
+      ? PLAN_BODY_LIMITS.business
+      : PLAN_BODY_LIMITS[claims?.plan ?? 'free'];
+    express.json({ limit: maxPayload })(req, res, next);
     return;
   }
   if (isDatabaseProxy) {
