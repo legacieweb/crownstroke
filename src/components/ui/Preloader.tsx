@@ -22,6 +22,7 @@ const Preloader: React.FC<PreloaderProps> = ({ isLoading }) => {
       initial={{ opacity: 1 }}
       animate={{ opacity: isLoading ? 1 : 0 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
+      data-preloader="true"
       className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-black"
       role="status"
       aria-label="Loading Crownstroke"

@@ -682,7 +682,7 @@
 /* Shared cinematic page surfaces: the fixed video remains visible below every route. */
 body { background-color: #080c13; }
 .site-main { min-width: 0; background: transparent; color: #f8fafc; }
-.site-main > :first-child { background-color: transparent !important; }
+.site-main > :first-child:not([data-preloader="true"]) { background-color: transparent !important; }
 .site-main :is(h1,h2,h3,h4) { text-shadow: 0 2px 14px rgba(0,0,0,.42); }
 .site-main [class*="text-white"], .site-main [class*="text-gray-"], .site-main [class*="text-slate-200"], .site-main [class*="text-slate-300"], .site-main [class*="text-zinc-"] { text-shadow: 0 1px 7px rgba(0,0,0,.42); }
 .site-glass-panel { color: #f8fafc !important; background: rgba(7,14,27,.72) !important; border-color: rgba(255,255,255,.18) !important; box-shadow: 0 24px 70px rgba(0,0,0,.28); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
