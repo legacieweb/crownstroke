@@ -4,11 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
 import Layout, { BackendStatusContext } from '../components/layout/Layout';
 import Button from '../components/ui/Button';
+import Preloader from '../components/ui/Preloader';
 import { useCart } from '../store/CartContext';
 import { db } from '../db';
 import { designerDesigns, designers, shops } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { PRODUCT_DATA } from '../data/seed';
+import { apiUrl } from '../services/apiUrl';
 import {
   Share2,
   Palette,
@@ -19,6 +21,7 @@ import {
   LayoutGrid,
   ShoppingBag,
   Eye,
+  Mail,
 } from 'lucide-react';
 
 const ShopPage: React.FC = () => {
@@ -36,10 +39,18 @@ const ShopPage: React.FC = () => {
   const [previewSides, setPreviewSides] = useState<Record<string, 'front' | 'back'>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [shareStatus, setShareStatus] = useState('');
+  const [newsletterName, setNewsletterName] = useState('');
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterStatus, setNewsletterStatus] = useState('');
+  const [isNewsletterSubmitting, setIsNewsletterSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchShopDesigns = async () => {
-      if (!shopName) return;
+      if (!shopName) {
+        setShopNotFound(true);
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setShopNotFound(false);
       try {
@@ -178,8 +189,33 @@ const ShopPage: React.FC = () => {
     } catch { /* The share sheet can be dismissed without copying. */ }
   };
 
+  const handleNewsletterSignup = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsNewsletterSubmitting(true);
+    setNewsletterStatus('');
+    try {
+      const response = await fetch(apiUrl('/api/newsletter-signup'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newsletterName, email: newsletterEmail, website: '' }),
+      });
+      const responseText = await response.text();
+      let result: any = {};
+      try { result = responseText ? JSON.parse(responseText) : {}; } catch { /* Handle server and proxy errors without JSON parse failures. */ }
+      if (!response.ok) throw new Error(result.error || 'We could not complete your signup. Please try again.');
+      setNewsletterStatus(result.message || 'You’re subscribed. Check your inbox for a note from us.');
+      setNewsletterName('');
+      setNewsletterEmail('');
+    } catch (error) {
+      setNewsletterStatus(error instanceof Error ? error.message : 'Signup failed. Please try again.');
+    } finally {
+      setIsNewsletterSubmitting(false);
+    }
+  };
+
   return (
     <Layout>
+      <Preloader key={shopName || 'artist-shop'} isLoading={isLoading} />
       <div className="relative z-10 min-h-screen pb-20 selection:bg-lime-300/30">
         <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
           <header className="relative isolate overflow-hidden rounded-[2rem] border border-white/15 bg-[#111411] shadow-[0_32px_100px_rgba(0,0,0,.3)] sm:rounded-[2.5rem]">
@@ -267,7 +303,7 @@ const ShopPage: React.FC = () => {
                          }
                        }}
                      >
-                       <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/10 bg-[#e9e7df] transition duration-300 group-hover:border-lime-200/45 group-hover:shadow-[0_22px_60px_rgba(0,0,0,.32)] sm:rounded-3xl">
+                       <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/10 bg-transparent transition duration-300 group-hover:border-lime-200/45 group-hover:bg-white/[.025] group-hover:shadow-[0_22px_60px_rgba(0,0,0,.32)] sm:rounded-3xl">
                          <img src={cardPreview} className="h-full w-full object-contain p-5 transition-transform duration-500 group-hover:scale-[1.035] sm:p-7" alt={`${design.name}, ${selectedPreviewSide} view`} />
                          <div className="absolute left-3 top-3 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-[9px] font-black uppercase tracking-[.12em] text-slate-700">{design.productId.replace(/-/g, ' ')}</div>
                          <div className="absolute right-3 top-3 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-[9px] font-bold text-slate-600">{garmentColor === '#000000' ? 'Black' : garmentColor === '#ffffff' ? 'White' : garmentColor}</div>
@@ -287,10 +323,18 @@ const ShopPage: React.FC = () => {
               </div>
             )}
 
-            <div className="mt-16 flex flex-col items-start justify-between gap-5 rounded-3xl border border-white/10 bg-gradient-to-r from-lime-200/[.1] to-white/[.025] p-6 sm:mt-20 sm:flex-row sm:items-center sm:p-8">
-              <div><p className="text-[9px] font-black uppercase tracking-[.18em] text-lime-200">Keep exploring</p><h2 className="mt-2 text-2xl font-black tracking-tight text-white">More original work, made by independent artists.</h2><p className="mt-2 text-sm text-white/55">Browse the full Crownstroke marketplace or create something of your own.</p></div>
-              <div className="flex shrink-0 flex-wrap gap-2"><Link to="/shop" className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-4 text-xs font-black text-slate-950 transition hover:bg-lime-100">Browse marketplace <ArrowRight className="h-4 w-4" /></Link><Link to="/designer" className="inline-flex h-11 items-center rounded-xl border border-white/20 px-4 text-xs font-bold text-white transition hover:bg-white/10">Open studio</Link></div>
-            </div>
+            <section aria-labelledby="studio-notes-title" className="relative mt-16 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#161b17] via-[#101411] to-[#0b0e0c] p-6 shadow-2xl sm:mt-20 sm:p-10 lg:p-12">
+              <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 h-80 w-80 rounded-full bg-lime-300/[.08] blur-3xl" />
+              <div className="relative grid gap-9 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:gap-14">
+                <div><span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-lime-200/20 bg-lime-200/[.08] text-lime-100"><Mail className="h-5 w-5" /></span><p className="mt-5 text-[9px] font-black uppercase tracking-[.22em] text-lime-200">A note from the studio</p><h2 id="studio-notes-title" className="mt-2 text-3xl font-black tracking-[-.045em] text-white sm:text-4xl">Studio notes.</h2><p className="mt-3 max-w-md text-sm leading-6 text-white/60">We’re preparing occasional updates on new products and creative ideas. Sign up to get the next note in your inbox.</p><p className="mt-4 text-[10px] text-white/35">Thoughtful updates, sent occasionally. Unsubscribe at any time.</p></div>
+                <form onSubmit={handleNewsletterSignup} className="relative space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
+                  <label className="sr-only" htmlFor="studio-notes-name">Name (optional)</label><input id="studio-notes-name" value={newsletterName} onChange={(event) => setNewsletterName(event.target.value)} maxLength={100} autoComplete="name" placeholder="Your name (optional)" className="h-12 w-full rounded-xl border border-white/10 bg-white/[.04] px-4 text-sm text-white outline-none placeholder:text-white/35 focus:border-lime-200/50" />
+                  <div className="flex flex-col gap-2 sm:flex-row"><label className="sr-only" htmlFor="studio-notes-email">Email address</label><input id="studio-notes-email" type="email" value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} required maxLength={254} autoComplete="email" placeholder="Email address" className="h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[.04] px-4 text-sm text-white outline-none placeholder:text-white/35 focus:border-lime-200/50" /><Button type="submit" disabled={isNewsletterSubmitting} className="h-12 shrink-0 gap-2 rounded-xl px-5 text-xs font-black text-slate-950 disabled:opacity-60">{isNewsletterSubmitting ? 'Signing you up…' : 'Sign me up'} <ArrowRight className="h-4 w-4" /></Button></div>
+                  <label aria-hidden="true" className="hidden">Leave this field empty<input tabIndex={-1} name="website" autoComplete="off" /></label>
+                  {newsletterStatus && <p role="status" className={clsx('text-xs leading-5', newsletterStatus.toLowerCase().includes('could not') || newsletterStatus.toLowerCase().includes('failed') ? 'text-rose-200' : 'text-emerald-200')}>{newsletterStatus}</p>}
+                </form>
+              </div>
+            </section>
         </div>
       </div>
     </Layout>

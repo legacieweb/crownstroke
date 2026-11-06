@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../store/AuthContext';
 import { db } from '../db';
-import { designerDesigns, designers, orders } from '../db/schema';
+import { designerDesigns, designers, orders, shops } from '../db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { 
   Palette, 
@@ -19,7 +19,10 @@ import {
   LogOut,
   RefreshCcw,
   AlertTriangle,
-  X
+  X,
+  Upload,
+  Copy,
+  Check
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Preloader from '../components/ui/Preloader';
@@ -94,7 +97,10 @@ const DesignerDashboard: React.FC = () => {
   const [dashboardNotice, setDashboardNotice] = useState('');
   const [retryCount, setRetryCount] = useState(0);
   const [heroImage, setHeroImage] = useState<string | null>(null);
-  const [isUploading, setIsProcessing] = useState(false);
+  const [shopSlug, setShopSlug] = useState((user?.shopName || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+  const [isUploading, setIsUploading] = useState(false);
+  const [shopSettingsMessage, setShopSettingsMessage] = useState('');
+  const [isShopUrlCopied, setIsShopUrlCopied] = useState(false);
   const [showTerminateModal, setShowTerminateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [designToDelete, setDesignToDelete] = useState<any | null>(null);
@@ -118,6 +124,17 @@ const DesignerDashboard: React.FC = () => {
     }
   };
 
+  const copyShopUrl = async () => {
+    if (!shopSlug) return;
+    try {
+      await navigator.clipboard.writeText(`https://crownstroke.iyonicorp.com/shop/${shopSlug}`);
+      setIsShopUrlCopied(true);
+      window.setTimeout(() => setIsShopUrlCopied(false), 1800);
+    } catch {
+      setShopSettingsMessage('Could not copy the shop URL. Select and copy it directly.');
+    }
+  };
+
   const terminateAccount = async () => {
     if (!user) return;
     try {
@@ -131,28 +148,39 @@ const DesignerDashboard: React.FC = () => {
   };
 
   const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    setIsProcessing(true);
-    const reader = new FileReader();
-    reader.onload = async (f) => {
-      const base64 = f.target?.result as string;
-      try {
-        await db.update(designers)
-          .set({ heroImage: base64 })
-          .where(eq(designers.userId, user.id));
-        
-        setHeroImage(base64);
-        alert('Hero image updated successfully!');
-      } catch (err) {
-        console.error('Failed to update hero image:', err);
-        alert('Failed to update hero image.');
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-    reader.readAsDataURL(file);
+    setIsUploading(true);
+    setShopSettingsMessage('');
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not prepare this image.');
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Could not optimize this image.')), 'image/webp', 0.82));
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Could not read this image.'));
+        reader.readAsDataURL(blob);
+      });
+      await db.update(designers).set({ heroImage: base64 }).where(eq(designers.userId, user.id));
+      setHeroImage(base64);
+      setShopSettingsMessage('Shop hero image saved.');
+    } catch (err) {
+      console.error('Failed to update shop hero image:', err instanceof Error ? err.name : 'Unknown error');
+      setShopSettingsMessage(err instanceof Error ? err.message : 'Could not save the shop hero image. Please try again.');
+    } finally {
+      setIsUploading(false);
+      input.value = '';
+    }
   };
 
   useEffect(() => {
@@ -179,6 +207,12 @@ const DesignerDashboard: React.FC = () => {
         }
 
         setHeroImage(profile.heroImage);
+        try {
+          const [shop] = await db.select({ slug: shops.slug }).from(shops).where(eq(shops.designerId, profile.id)).limit(1);
+          if (active && shop?.slug) setShopSlug(shop.slug);
+        } catch (err) {
+          console.warn('Could not resolve the designer shop slug.', err instanceof Error ? err.name : 'Unknown error');
+        }
         setIsLoading(false);
 
         // Paint the profile shell before requesting the image previews for the catalog.
@@ -253,12 +287,8 @@ const DesignerDashboard: React.FC = () => {
                 <div className="flex flex-col items-center mb-10 pb-10 border-b border-white/5">
                   <div className="relative mb-6">
                     <div className="creator-avatar w-20 h-20 rounded-[1.6rem] flex items-center justify-center text-white shadow-2xl shadow-primary-600/20">
-                      <Palette className={clsx('w-9 h-9', isUploading && 'animate-spin')} />
+                      {heroImage ? <img src={heroImage} alt="Shop hero" className="h-full w-full rounded-[1.6rem] object-cover" /> : <Palette className="w-9 h-9" />}
                     </div>
-                    <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-white/20 rounded-xl flex items-center justify-center cursor-pointer transition-all">
-                      <Plus className="w-5 h-5 text-white" />
-                      <input type="file" className="hidden" onChange={handleHeroUpload} accept="image/*" disabled={isUploading} />
-                    </label>
                   </div>
                   <h2 className="text-lg font-black text-white mb-2 tracking-tight text-center">Creator studio</h2>
                   <p className="max-w-full truncate text-primary-300 font-bold uppercase tracking-[0.2em] text-[9px] text-center">{user?.name}</p>
@@ -314,7 +344,7 @@ const DesignerDashboard: React.FC = () => {
                 <div className="relative z-10">
                 <div className="flex shrink-0 flex-wrap gap-2">
                   <Link to="/designer" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary-400 px-4 text-[9px] font-black uppercase tracking-[.12em] text-slate-950 transition hover:bg-primary-300"><Plus className="h-4 w-4" /> New design</Link>
-                  {user?.shopName && <Link to={`/shop/${user.shopName.toLowerCase().replace(/\s+/g, '-')}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/[.05] px-4 text-[9px] font-bold uppercase tracking-[.12em] text-white/75 transition hover:bg-white/10 hover:text-white">View shop <ArrowUpRight className="h-4 w-4" /></Link>}
+                  {shopSlug && <Link to={`/shop/${shopSlug}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/[.05] px-4 text-[9px] font-bold uppercase tracking-[.12em] text-white/75 transition hover:bg-white/10 hover:text-white">View shop <ArrowUpRight className="h-4 w-4" /></Link>}
                 </div>
                 </div>
               </header>
@@ -470,45 +500,41 @@ const DesignerDashboard: React.FC = () => {
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="creator-shop-panel bg-slate-950/45 backdrop-blur-3xl rounded-[1.75rem] p-5 sm:p-8 shadow-2xl border border-white/10"
+                    className="creator-shop-panel space-y-6 bg-slate-950/45 backdrop-blur-3xl rounded-[1.75rem] p-5 sm:p-8 shadow-2xl border border-white/10"
                   >
-                    <div className="flex items-center justify-between mb-12">
-                       <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">Shop Configuration</h3>
-{user?.shopName ? (
-                        <Link to={`/shop/${user.shopName.toLowerCase().replace(/\s+/g, '-')}`}>
-                          <Button variant="outline" className="rounded-xl px-8 py-4 font-black uppercase tracking-widest text-[10px] gap-2">
-                            <ExternalLink className="w-4 h-4" /> View Live Shop
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Button variant="outline" className="rounded-xl px-8 py-4 font-black uppercase tracking-widest text-[10px] gap-2" disabled>
-                          <ExternalLink className="w-4 h-4" /> Shop Not Configured
-                        </Button>
-                      )}
+                    <div className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
+                      <div><p className="text-[9px] font-black uppercase tracking-[.2em] text-primary-300">Your storefront</p><h3 className="mt-2 text-3xl font-black tracking-tight text-white">Shop settings</h3><p className="mt-2 max-w-xl text-sm leading-6 text-white/50">Set the image shoppers see first and share the correct link to your collection.</p></div>
+                      {shopSlug ? <Link to={`/shop/${shopSlug}`}><Button variant="premium" className="rounded-xl px-5 py-3 font-black uppercase tracking-widest text-[9px] gap-2"><ExternalLink className="h-4 w-4" /> View live shop</Button></Link> : <Button variant="outline" disabled className="rounded-xl px-5 py-3 text-[9px]">Shop not configured</Button>}
                     </div>
 
-                    <div className="space-y-8">
-                       <div className="bg-black/40 border border-white/5 p-10 rounded-[2.5rem] space-y-6">
-                          <div>
-                             <h5 className="text-[10px] font-black uppercase text-white/40 tracking-widest mb-2 italic">Global Vector</h5>
-                             <p className="text-lg font-bold text-white">crownstroke.com/shop/<span className="text-primary-400">{user?.shopName ? user.shopName.toLowerCase().replace(/\s+/g, '-') : 'shop'}</span></p>
+                    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]">
+                      <section className="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                        <div className="border-b border-white/[.07] px-5 py-4"><h4 className="text-sm font-black text-white">Shop hero image</h4><p className="mt-1 text-xs text-white/45">This image appears at the top of your artist shop.</p></div>
+                        <div className="p-4 sm:p-5">
+                          <div className="relative mb-4 flex min-h-52 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[.035]">
+                            {heroImage ? <img src={heroImage} alt="Current shop hero" className="absolute inset-0 h-full w-full object-cover" /> : <div className="max-w-xs px-6 text-center"><Palette className="mx-auto h-8 w-8 text-white/25" /><p className="mt-3 text-xs font-semibold text-white/55">Add a wide image to introduce your shop.</p></div>}
+                            {isUploading && <div className="absolute inset-0 grid place-items-center bg-black/65 backdrop-blur-sm"><span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/40 px-4 py-2 text-xs font-bold text-white"><RefreshCcw className="h-4 w-4 animate-spin" /> Optimizing and saving…</span></div>}
                           </div>
-                          <div className="h-px bg-white/5" />
-                          <div className="flex items-center justify-between">
-                             <div>
-                               <h5 className="text-[10px] font-black uppercase text-white/40 tracking-widest mb-2 italic">Visibility Protocol</h5>
-                               <p className="text-xs text-green-400 font-bold uppercase tracking-tight">Active & Synchronized</p>
-                             </div>
-                             <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] animate-pulse" />
+                          <div className="flex flex-wrap items-center gap-3">
+                            <label className={clsx('inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary-400 px-4 text-xs font-black text-slate-950 transition hover:bg-primary-300', isUploading && 'pointer-events-none opacity-60')}>
+                              <Upload className="h-4 w-4" /> {heroImage ? 'Replace hero image' : 'Upload hero image'}
+                              <input type="file" className="sr-only" onChange={handleHeroUpload} accept="image/*" disabled={isUploading} />
+                            </label>
+                            {heroImage && <button type="button" onClick={async () => { setIsUploading(true); setShopSettingsMessage(''); try { await db.update(designers).set({ heroImage: null }).where(eq(designers.userId, user!.id)); setHeroImage(null); setShopSettingsMessage('Shop hero image removed.'); } catch { setShopSettingsMessage('Could not remove the hero image. Please try again.'); } finally { setIsUploading(false); } }} disabled={isUploading} className="inline-flex min-h-11 items-center rounded-xl border border-white/10 px-4 text-xs font-bold text-white/65 transition hover:bg-white/[.06] hover:text-white disabled:opacity-50">Remove image</button>}
+                            <span className="text-[10px] text-white/35">Images are optimized before saving.</span>
                           </div>
-                       </div>
+                          {shopSettingsMessage && <p role="status" className={clsx('mt-4 text-xs font-semibold', shopSettingsMessage.includes('Could not') || shopSettingsMessage.includes('could not') ? 'text-rose-200' : 'text-emerald-200')}>{shopSettingsMessage}</p>}
+                        </div>
+                      </section>
 
-                       <div className="bg-primary-500/10 border border-primary-500/20 rounded-[2.5rem] p-10">
-                          <h5 className="text-[10px] font-black uppercase text-primary-400 tracking-[0.2em] mb-4 italic">Designer Protocol Tip</h5>
-                          <p className="text-sm text-white/80 font-medium leading-relaxed">
-                            Elite designers who update their hero backgrounds every 30 days see a <span className="text-white font-black">40% increase</span> in user engagement. Maintain your aesthetic.
-                          </p>
-                       </div>
+                      <section className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
+                        <div className="mb-5"><p className="text-[9px] font-black uppercase tracking-[.18em] text-white/40">Public shop address</p><h4 className="mt-2 text-lg font-black text-white">Share your work</h4><p className="mt-2 text-xs leading-5 text-white/45">This opens the live storefront for your shop.</p></div>
+                        <div className="rounded-xl border border-white/10 bg-black/30 p-4"><p className="break-all text-sm font-bold leading-6 text-white sm:text-base">https://crownstroke.iyonicorp.com/shop/<span className="text-primary-300">{shopSlug || 'your-shop'}</span></p></div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button type="button" onClick={copyShopUrl} disabled={!shopSlug} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-xs font-bold text-white/80 transition hover:bg-white/[.06] disabled:opacity-40">{isShopUrlCopied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}{isShopUrlCopied ? 'Copied' : 'Copy link'}</button>
+                          {shopSlug && <a href={`/shop/${encodeURIComponent(shopSlug)}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-xs font-bold text-white/80 transition hover:bg-white/[.06]" target="_blank" rel="noreferrer">Open shop <ArrowUpRight className="h-4 w-4" /></a>}
+                        </div>
+                      </section>
                     </div>
                   </motion.div>
                 )}

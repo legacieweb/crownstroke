@@ -306,7 +306,9 @@ type EmailTemplate =
   | 'admin_order_notification'
   | 'designer_order_notification'
   | 'password_reset'
-  | 'account_deleted';
+  | 'account_deleted'
+  | 'newsletter_confirmation'
+  | 'newsletter_admin_notification';
 
 type EmailContent = {
   eyebrow: string;
@@ -534,6 +536,24 @@ const buildEmailContent = (template: EmailTemplate, subject: string, data: any):
         title: 'Your account has been deleted',
         intro: `Hi ${data?.name || 'there'}, your Crownstroke account has been permanently deleted as requested.`,
         note: 'You can create a new account anytime with the same email address.',
+      };
+    case 'newsletter_confirmation':
+      return {
+        eyebrow: 'Studio notes',
+        title: `You’re on the list${data?.name ? `, ${data.name}` : ''}`,
+        intro: 'Thanks for signing up for Crownstroke Studio Notes. We’ll send occasional updates about new products, creative ideas, and independent work worth discovering.',
+        cta: { label: 'Explore Crownstroke', href: process.env.SITE_URL || 'https://crownstroke.iyonicorp.com' },
+        note: 'You can opt out of future studio notes at any time by replying to this email.',
+      };
+    case 'newsletter_admin_notification':
+      return {
+        eyebrow: 'New subscriber',
+        title: 'A reader joined Studio Notes',
+        intro: 'A visitor subscribed to occasional Crownstroke product and creative updates.',
+        details: [
+          { label: 'Name', value: data?.name || 'Not provided' },
+          { label: 'Email', value: data?.email || 'Not provided' },
+        ],
       };
     default:
       return {
@@ -1295,6 +1315,47 @@ app.delete('/api/admin/limited-editions/:id', async (req, res) => {
     await iyonicDB.deleteRow('limited_edition_products', req.params.id);
     res.sendStatus(204);
   } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
+app.post('/api/newsletter-signup', async (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 100) : '';
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  // Quietly accept bot submissions without storing an address or sending mail.
+  if (typeof req.body?.website === 'string' && req.body.website.trim()) {
+    res.json({ success: true, message: 'You’re subscribed. Check your inbox for a note from us.' });
+    return;
+  }
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ error: 'Enter a valid email address.' });
+    return;
+  }
+
+  try {
+    const matches = await iyonicDB.query(
+      'SELECT email FROM newsletter_subscribers WHERE email = $1 LIMIT 1',
+      [email]
+    );
+    const alreadySubscribed = matches.length > 0;
+    if (!alreadySubscribed) {
+      await iyonicDB.insertRow('newsletter_subscribers', { email, name: name || null });
+    }
+
+    const subscriberData = { name, email };
+    const adminEmail = (process.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com').trim();
+    const emails = [
+      sendEmailThroughMailer(email, 'Welcome to Crownstroke Studio Notes', 'newsletter_confirmation', subscriberData),
+    ];
+    if (!alreadySubscribed && adminEmail) {
+      emails.push(sendEmailThroughMailer(adminEmail, 'New Crownstroke Studio Notes subscriber', 'newsletter_admin_notification', subscriberData));
+    }
+    await Promise.all(emails);
+    res.json({ success: true, message: alreadySubscribed
+      ? 'You’re already on the list. We’ve sent you a fresh confirmation.'
+      : 'You’re subscribed. Check your inbox for a note from us.' });
+  } catch (error) {
+    console.error('Newsletter signup error:', error);
+    res.status(500).json({ error: 'We could not complete your signup. Please try again.' });
+  }
 });
 
 app.post('/api/db', async (req, res) => {

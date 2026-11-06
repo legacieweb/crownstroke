@@ -66,6 +66,12 @@ export const limitedEditionProducts = pgTable('limited_edition_products', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const newsletterSubscribers = pgTable('newsletter_subscribers', {
+  email: text('email').primaryKey(),
+  name: text('name'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const orders = pgTable('orders', {
   id: uuid('id').defaultRandom().primaryKey(),
   customerName: text('customer_name').notNull(),

@@ -228,6 +228,7 @@ const LimitedEditionsPanel: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [processingImages, setProcessingImages] = useState(0);
   const [error, setError] = useState('');
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
 
   const refreshProducts = async () => {
     try {
@@ -274,10 +275,17 @@ const LimitedEditionsPanel: React.FC = () => {
     setProductDescription(product.description); setFront(product.front); setBack(product.back); setExtras(product.extras || []);
     setError(''); document.getElementById('limited-edition-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-  const removeProduct = (id: string) => {
+  const removeProduct = async (id: string) => {
     const product = products.find((item) => item.id === id);
     if (!window.confirm(`Delete “${product?.name || 'this edition'}” permanently?`)) return;
-    void limitedEditionsRequest(`/api/admin/limited-editions/${encodeURIComponent(id)}`, { method: 'DELETE' }).then(refreshProducts).catch((err) => setError(err instanceof Error ? err.message : 'Could not remove this edition from IyonicDB.'));
+    setDeletingProductId(id); setError('');
+    try {
+      await limitedEditionsRequest(`/api/admin/limited-editions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      setProducts((current) => current.filter((item) => item.id !== id));
+      if (editingProduct?.id === id) resetEditor();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove this edition from IyonicDB.');
+    } finally { setDeletingProductId(null); }
   };
   const imageField = (label: string, image: string, onImage: (value: string) => void, required = false) => (
     <label className="group relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-white/20 bg-white/[.025] text-center transition hover:border-lime-200/50 hover:bg-white/[.05]">
@@ -310,8 +318,8 @@ const LimitedEditionsPanel: React.FC = () => {
         <p className="mt-3 text-center text-[10px] leading-4 text-white/35">Saved to the shared Crownstroke catalog.</p>
       </div>
     </form>
-    <div className="mt-9"><div className="mb-4 flex items-end justify-between"><div><h3 className="text-lg font-black text-white">Your editions</h3><p className="mt-1 text-xs text-white/45">Recently added pieces, ready to review.</p></div></div>
-      {products.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 px-5 py-9 text-center text-sm text-white/45">Your vault is waiting for its first drop.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="grid h-44 grid-cols-2 gap-px bg-white/10"><img src={product.front} alt={`${product.name}, front`} className="h-full w-full object-cover" /><img src={product.back} alt={`${product.name}, back`} className="h-full w-full object-cover" /></div><div className="p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="font-black text-white">{product.name}</h4><p className="mt-1 text-xs text-lime-200">{money(product.price)}</p></div><div className="flex items-center gap-1"><button type="button" onClick={() => editProduct(product)} aria-label={`Edit ${product.name}`} className="rounded-lg p-2 text-white/50 transition hover:bg-lime-200/10 hover:text-lime-100"><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => removeProduct(product.id)} aria-label={`Delete ${product.name}`} className="rounded-lg p-2 text-white/45 transition hover:bg-rose-400/10 hover:text-rose-200"><Trash2 className="h-4 w-4" /></button></div></div>{!!product.extras.length && <p className="mt-3 text-[10px] text-white/40">+ {product.extras.length} extra {product.extras.length === 1 ? 'view' : 'views'}</p>}</div></article>)}</div>}
+    <div className="mt-9"><div className="mb-4 flex items-end justify-between"><div><h3 className="text-lg font-black text-white">Your editions</h3><p className="mt-1 text-xs text-white/45">Recently added pieces, ready to review and manage.</p></div><span className="text-[10px] font-bold uppercase tracking-wider text-white/35">Select a piece to update it</span></div>
+      {products.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 px-5 py-9 text-center text-sm text-white/45">Your vault is waiting for its first drop.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="grid h-44 grid-cols-2 gap-px bg-white/10"><img src={product.front} alt={`${product.name}, front`} className="h-full w-full object-cover" /><img src={product.back} alt={`${product.name}, back`} className="h-full w-full object-cover" /></div><div className="p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="font-black text-white">{product.name}</h4><p className="mt-1 text-xs text-lime-200">{money(product.price)}</p></div></div>{!!product.extras.length && <p className="mt-3 text-[10px] text-white/40">+ {product.extras.length} extra {product.extras.length === 1 ? 'view' : 'views'}</p>}<div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={() => editProduct(product)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] text-[10px] font-extrabold uppercase tracking-wider text-white/75 transition hover:border-lime-200/30 hover:bg-lime-200/10 hover:text-lime-100"><Pencil className="h-3.5 w-3.5" /> Edit edition</button><button type="button" disabled={deletingProductId === product.id} onClick={() => void removeProduct(product.id)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 text-[10px] font-extrabold uppercase tracking-wider text-white/50 transition hover:border-rose-300/20 hover:bg-rose-300/[.06] hover:text-rose-200 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" />{deletingProductId === product.id ? 'Deleting…' : 'Delete'}</button></div></div></article>)}</div>}
     </div>
   </section>;
 };
