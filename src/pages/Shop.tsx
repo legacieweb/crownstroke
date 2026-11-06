@@ -10,6 +10,7 @@ import { CheckCircle2, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal,
 import { db } from '../db';
 import { designerDesigns, designers, shops } from '../db/schema';
 import { PRODUCT_DATA } from '../data/seed';
+import { apiUrl } from '../services/apiUrl';
 
 
 type SortMode = 'featured' | 'price-low' | 'price-high' | 'name';
@@ -93,7 +94,7 @@ const Shop: React.FC = () => {
           }).from(designerDesigns),
           db.select({ id: designers.id, name: designers.name, email: designers.email }).from(designers),
           db.select({ id: shops.id, name: shops.name, slug: shops.slug }).from(shops),
-          fetch('/api/limited-editions').then((response) => response.ok ? response.json() : []).catch(() => []),
+          fetch(apiUrl('/api/limited-editions')).then((response) => response.ok ? response.json() : []).catch(() => []),
         ]);
 
         const designersById = new Map(designerRows.map((designer) => [String(designer.id).toLowerCase(), designer]));

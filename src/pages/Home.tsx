@@ -9,6 +9,7 @@ import { PRODUCT_DATA } from '../data/seed';
 import { db } from '../db';
 import { designerDesigns, designers, shops } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import { apiUrl } from '../services/apiUrl';
 
 const products = [
   { name: 'T-shirts', detail: 'Your next favourite tee', image: PRODUCT_DATA['t-shirt']['#ffffff'].front, query: 't-shirt' },
@@ -31,7 +32,7 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/limited-editions').then((response) => response.ok ? response.json() : []).then((rows: any[]) => {
+    fetch(apiUrl('/api/limited-editions')).then((response) => response.ok ? response.json() : []).then((rows: any[]) => {
       if (active) setLimitedEditions(rows.slice(0, 4).map((row) => ({ ...row, id: String(row.id), frontImage: row.front_image ?? row.frontImage, backImage: row.back_image ?? row.backImage, extraImages: row.extra_images ?? row.extraImages ?? [] })));
     }).catch(() => { if (active) setLimitedEditions([]); });
     db.select({

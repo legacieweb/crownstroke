@@ -12,6 +12,7 @@ import { db } from '../db';
 import { designerDesigns, designers, shops } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { PRODUCT_DATA } from '../data/seed';
+import { apiUrl } from '../services/apiUrl';
 
 const ProductDetail: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -115,7 +116,7 @@ const ProductDetail: React.FC = () => {
               shopSlug: shop?.slug || undefined,
             };
           } else {
-            const response = await fetch('/api/limited-editions');
+            const response = await fetch(apiUrl('/api/limited-editions'));
             const limitedRows = response.ok ? await response.json() : [];
             const limited = limitedRows.find((row: any) => String(row.id) === productId);
             if (limited) {

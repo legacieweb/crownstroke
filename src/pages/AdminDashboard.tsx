@@ -30,6 +30,7 @@ import {
 import Preloader from '../components/ui/Preloader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
+import { apiUrl } from '../services/apiUrl';
 
 interface Design {
   id: string;
@@ -156,7 +157,7 @@ const imageAsDataUrl = async (file: File): Promise<string> => {
 
 const limitedEditionsRequest = async (path: string, init: RequestInit = {}) => {
   const session = JSON.parse(localStorage.getItem('pod_user') || 'null');
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     ...init,
     headers: {
       'Content-Type': 'application/json',
