@@ -12,6 +12,8 @@ export interface Product {
     front?: string;
     back?: string;
   };
+  extraImages?: string[];
+  garmentColor?: string;
   previewOrder?: ('front' | 'back')[];
   designerId?: string;
   designerEmail?: string;

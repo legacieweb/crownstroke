@@ -1253,6 +1253,42 @@ app.post('/api/admin/limited-editions', async (req, res) => {
   } catch (err) { iyonicDBErrorHandler(err, res); }
 });
 
+app.put('/api/admin/limited-editions/:id', async (req, res) => {
+  if (!await authorizeAdmin(req, res)) return;
+  const body = req.body || {};
+  const row: Record<string, unknown> = {};
+  if (body.name !== undefined) {
+    if (typeof body.name !== 'string' || !body.name.trim()) {
+      res.status(400).json({ error: 'Product name cannot be empty.' }); return;
+    }
+    row.name = body.name.trim();
+  }
+  if (body.description !== undefined) row.description = String(body.description).slice(0, 500);
+  if (body.price !== undefined) {
+    if (!Number.isFinite(Number(body.price)) || Number(body.price) <= 0) {
+      res.status(400).json({ error: 'Price must be greater than zero.' }); return;
+    }
+    row.price = Number(body.price);
+  }
+  if (body.front_image !== undefined) {
+    if (typeof body.front_image !== 'string' || !body.front_image) { res.status(400).json({ error: 'Front image is invalid.' }); return; }
+    row.front_image = body.front_image;
+  }
+  if (body.back_image !== undefined) {
+    if (typeof body.back_image !== 'string' || !body.back_image) { res.status(400).json({ error: 'Back image is invalid.' }); return; }
+    row.back_image = body.back_image;
+  }
+  if (body.extra_images !== undefined) {
+    if (!Array.isArray(body.extra_images)) { res.status(400).json({ error: 'Extra images must be a list.' }); return; }
+    row.extra_images = body.extra_images;
+  }
+  if (Object.keys(row).length === 0) { res.status(400).json({ error: 'Provide at least one product field to update.' }); return; }
+  try {
+    const updated = await iyonicDB.updateRow('limited_edition_products', req.params.id, row);
+    res.json(updated);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
 app.delete('/api/admin/limited-editions/:id', async (req, res) => {
   if (!await authorizeAdmin(req, res)) return;
   try {

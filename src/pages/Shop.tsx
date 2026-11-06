@@ -132,6 +132,7 @@ const Shop: React.FC = () => {
           id: String(row.id), name: row.name, description: row.description || 'A Crownstroke limited edition collectible.',
           price: row.price, image: row.front_image ?? row.frontImage, category: 'art-design', isCustomizable: false,
           images: { front: row.front_image ?? row.frontImage, back: row.back_image ?? row.backImage },
+          extraImages: row.extra_images ?? row.extraImages ?? [],
           previewOrder: ['front', 'back'],
         }));
         setProducts([...blankProducts, ...limitedProducts, ...dbProducts]);

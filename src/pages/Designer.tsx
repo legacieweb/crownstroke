@@ -448,6 +448,9 @@ const Designer: React.FC = () => {
             const d = design[0];
             setActiveProduct(d.productId);
             const data = d.designData as any;
+            if (typeof data.color === 'string' && PRODUCT_DATA[d.productId]?.[data.color]) {
+              setActiveColor(data.color);
+            }
             const editSide = data.activeSide === 'back' ? 'back' : 'front';
             setActiveSide(editSide);
             designDataRef.current = data;

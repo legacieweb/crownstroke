@@ -25,7 +25,8 @@ import {
   Plus,
   ImagePlus,
   Sparkles,
-  Tag
+  Tag,
+  Pencil
 } from 'lucide-react';
 import Preloader from '../components/ui/Preloader';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -217,6 +218,10 @@ const money = (value: number | undefined) => `KES ${(value ?? 0).toLocaleString(
 
 const LimitedEditionsPanel: React.FC = () => {
   const [products, setProducts] = useState<LimitedProduct[]>([]);
+  const [editingProduct, setEditingProduct] = useState<LimitedProduct | null>(null);
+  const [productName, setProductName] = useState('');
+  const [productPrice, setProductPrice] = useState('');
+  const [productDescription, setProductDescription] = useState('');
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
   const [extras, setExtras] = useState<string[]>([]);
@@ -244,18 +249,34 @@ const LimitedEditionsPanel: React.FC = () => {
     const form = new FormData(formElement);
     const name = String(form.get('name') || '').trim();
     const price = Number(form.get('price'));
-    if (!name || !front || !back || !Number.isFinite(price) || price <= 0) {
+    if (!name || (!editingProduct && (!front || !back)) || !Number.isFinite(price) || price <= 0) {
       setError('Add a name, price, and both front and back images to continue.'); return;
     }
     setSaving(true); setError('');
     try {
-      await limitedEditionsRequest('/api/admin/limited-editions', { method: 'POST', body: JSON.stringify({ name, description: String(form.get('description') || '').trim(), price, front_image: front, back_image: back, extra_images: extras }) });
-      await refreshProducts(); setFront(''); setBack(''); setExtras([]); formElement.reset();
+      const payload = { name, description: String(form.get('description') || '').trim(), price, front_image: front, back_image: back, extra_images: extras };
+      if (editingProduct) {
+        await limitedEditionsRequest(`/api/admin/limited-editions/${encodeURIComponent(editingProduct.id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+      } else {
+        await limitedEditionsRequest('/api/admin/limited-editions', { method: 'POST', body: JSON.stringify(payload) });
+      }
+      await refreshProducts(); resetEditor(formElement);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save this edition to IyonicDB. Please try again.');
     } finally { setSaving(false); }
   };
+  const resetEditor = (form?: HTMLFormElement) => {
+    setEditingProduct(null); setProductName(''); setProductPrice(''); setProductDescription('');
+    setFront(''); setBack(''); setExtras([]); form?.reset();
+  };
+  const editProduct = (product: LimitedProduct) => {
+    setEditingProduct(product); setProductName(product.name); setProductPrice(String(product.price));
+    setProductDescription(product.description); setFront(product.front); setBack(product.back); setExtras(product.extras || []);
+    setError(''); document.getElementById('limited-edition-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const removeProduct = (id: string) => {
+    const product = products.find((item) => item.id === id);
+    if (!window.confirm(`Delete “${product?.name || 'this edition'}” permanently?`)) return;
     void limitedEditionsRequest(`/api/admin/limited-editions/${encodeURIComponent(id)}`, { method: 'DELETE' }).then(refreshProducts).catch((err) => setError(err instanceof Error ? err.message : 'Could not remove this edition from IyonicDB.'));
   };
   const imageField = (label: string, image: string, onImage: (value: string) => void, required = false) => (
@@ -271,7 +292,7 @@ const LimitedEditionsPanel: React.FC = () => {
       <div><p className="text-[10px] font-extrabold uppercase tracking-[.2em] text-lime-200">The Crownstroke vault</p><h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Limited edition products</h2><p className="mt-2 max-w-xl text-sm leading-6 text-white/55">Build a collectible drop with a complete view of every detail, from both sides to the finishing shots.</p></div>
       <span className="inline-flex w-fit items-center gap-2 rounded-full border border-lime-200/20 bg-lime-200/[.08] px-3 py-2 text-[10px] font-extrabold uppercase tracking-wider text-lime-100"><Sparkles className="h-3.5 w-3.5" /> {products.length} in the vault</span>
     </div>
-    <form onSubmit={saveProduct} className="grid gap-6 xl:grid-cols-[1fr_340px]">
+    <form id="limited-edition-editor" onSubmit={saveProduct} className="grid scroll-mt-24 gap-6 xl:grid-cols-[1fr_340px]">
       <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">
         <div className="mb-4 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-lime-200/10 text-lime-200"><Upload className="h-4 w-4" /></span><div><h3 className="text-sm font-black text-white">Product imagery</h3><p className="text-[11px] text-white/45">Front and back are required. Add detail shots as needed.</p></div></div>
         <div className="grid gap-3 sm:grid-cols-2">{imageField('Front image', front, setFront, true)}{imageField('Back image', back, setBack, true)}</div>
@@ -280,16 +301,17 @@ const LimitedEditionsPanel: React.FC = () => {
       </div>
       <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">
         <div className="mb-5"><h3 className="text-sm font-black text-white">Drop details</h3><p className="mt-1 text-[11px] text-white/45">Give this piece a name and a price.</p></div>
-        <label className="mb-4 block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Product name<input name="name" required maxLength={100} placeholder="e.g. After Hours — No. 01" className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm font-semibold normal-case tracking-normal text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></label>
-        <label className="mb-4 block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Price · KES<div className="relative mt-2"><Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lime-200" /><input name="price" type="number" min="1" step="1" required placeholder="4,500" className="h-12 w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-3 text-lg font-black text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></div></label>
-        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Story <span className="font-medium normal-case tracking-normal text-white/30">· optional</span><textarea name="description" rows={4} maxLength={500} placeholder="What makes this edition special?" className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-black/20 p-3 text-sm font-medium normal-case leading-6 tracking-normal text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></label>
+        <label className="mb-4 block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Product name<input name="name" value={productName} onChange={(e) => setProductName(e.target.value)} required maxLength={100} placeholder="e.g. After Hours — No. 01" className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm font-semibold normal-case tracking-normal text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></label>
+        <label className="mb-4 block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Price · KES<div className="relative mt-2"><Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lime-200" /><input name="price" value={productPrice} onChange={(e) => setProductPrice(e.target.value)} type="number" min="1" step="1" required placeholder="4,500" className="h-12 w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-3 text-lg font-black text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></div></label>
+        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Story <span className="font-medium normal-case tracking-normal text-white/30">· optional</span><textarea name="description" value={productDescription} onChange={(e) => setProductDescription(e.target.value)} rows={4} maxLength={500} placeholder="What makes this edition special?" className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-black/20 p-3 text-sm font-medium normal-case leading-6 tracking-normal text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></label>
         {error && <p role="alert" className="mt-4 text-xs font-semibold leading-5 text-rose-200">{error}</p>}
-        <button disabled={saving || processingImages > 0} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime-200 px-4 text-xs font-black uppercase tracking-wider text-slate-950 transition hover:bg-lime-100 disabled:opacity-60"><Sparkles className="h-4 w-4" />{processingImages ? `Optimizing ${processingImages} image${processingImages === 1 ? '' : 's'}…` : saving ? 'Saving drop…' : 'Save limited edition'}</button>
-        <p className="mt-3 text-center text-[10px] leading-4 text-white/35">Saved in this browser for now.</p>
+        <button disabled={saving || processingImages > 0} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime-200 px-4 text-xs font-black uppercase tracking-wider text-slate-950 transition hover:bg-lime-100 disabled:opacity-60"><Sparkles className="h-4 w-4" />{processingImages ? `Optimizing ${processingImages} image${processingImages === 1 ? '' : 's'}…` : saving ? 'Saving drop…' : editingProduct ? 'Update edition' : 'Save limited edition'}</button>
+        {editingProduct && <button type="button" onClick={() => resetEditor()} className="mt-2 min-h-10 w-full rounded-xl border border-white/10 text-xs font-bold text-white/60 transition hover:bg-white/[.05] hover:text-white">Cancel editing</button>}
+        <p className="mt-3 text-center text-[10px] leading-4 text-white/35">Saved to the shared Crownstroke catalog.</p>
       </div>
     </form>
     <div className="mt-9"><div className="mb-4 flex items-end justify-between"><div><h3 className="text-lg font-black text-white">Your editions</h3><p className="mt-1 text-xs text-white/45">Recently added pieces, ready to review.</p></div></div>
-      {products.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 px-5 py-9 text-center text-sm text-white/45">Your vault is waiting for its first drop.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="grid h-44 grid-cols-2 gap-px bg-white/10"><img src={product.front} alt={`${product.name}, front`} className="h-full w-full object-cover" /><img src={product.back} alt={`${product.name}, back`} className="h-full w-full object-cover" /></div><div className="p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="font-black text-white">{product.name}</h4><p className="mt-1 text-xs text-lime-200">{money(product.price)}</p></div><button type="button" onClick={() => removeProduct(product.id)} aria-label={`Remove ${product.name}`} className="rounded-lg p-2 text-white/45 hover:bg-rose-400/10 hover:text-rose-200"><Trash2 className="h-4 w-4" /></button></div>{!!product.extras.length && <p className="mt-3 text-[10px] text-white/40">+ {product.extras.length} extra {product.extras.length === 1 ? 'view' : 'views'}</p>}</div></article>)}</div>}
+      {products.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 px-5 py-9 text-center text-sm text-white/45">Your vault is waiting for its first drop.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="grid h-44 grid-cols-2 gap-px bg-white/10"><img src={product.front} alt={`${product.name}, front`} className="h-full w-full object-cover" /><img src={product.back} alt={`${product.name}, back`} className="h-full w-full object-cover" /></div><div className="p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="font-black text-white">{product.name}</h4><p className="mt-1 text-xs text-lime-200">{money(product.price)}</p></div><div className="flex items-center gap-1"><button type="button" onClick={() => editProduct(product)} aria-label={`Edit ${product.name}`} className="rounded-lg p-2 text-white/50 transition hover:bg-lime-200/10 hover:text-lime-100"><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => removeProduct(product.id)} aria-label={`Delete ${product.name}`} className="rounded-lg p-2 text-white/45 transition hover:bg-rose-400/10 hover:text-rose-200"><Trash2 className="h-4 w-4" /></button></div></div>{!!product.extras.length && <p className="mt-3 text-[10px] text-white/40">+ {product.extras.length} extra {product.extras.length === 1 ? 'view' : 'views'}</p>}</div></article>)}</div>}
     </div>
   </section>;
 };
