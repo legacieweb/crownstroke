@@ -18,6 +18,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const location = useLocation();
   const isShopRoute = location.pathname === '/shop' || location.pathname.startsWith('/shop/');
+  const isArtistShopRoute = location.pathname.startsWith('/shop/') && location.pathname !== '/shop';
   const isDesignerRoute = location.pathname === '/designer' || location.pathname.startsWith('/designer');
   const isDesignerDashboardRoute = location.pathname === '/designer-dashboard';
   const isCartOrCheckout = location.pathname === '/cart' || location.pathname === '/checkout';
@@ -76,9 +77,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <main className="site-main flex-grow relative z-10 w-full">
           {children}
         </main>
-        {!isShopRoute && !isDesignerRoute && (
+        {(!isShopRoute || isArtistShopRoute) && !isDesignerRoute && (
           <div className="relative z-10 border-t border-white/10">
-            <Footer />
+            <Footer showNewsletterSignup={!isArtistShopRoute} />
           </div>
         )}
       </div>

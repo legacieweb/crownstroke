@@ -17,8 +17,6 @@ import {
   ArrowRight,
   Search,
   Sparkles,
-  Layers3,
-  LayoutGrid,
   ShoppingBag,
   Eye,
   Mail,
@@ -180,7 +178,6 @@ const ShopPage: React.FC = () => {
   });
 
   const categories = ['all', ...new Set(designs.map(d => d.productId))];
-  const doubleSidedCount = designs.filter((design) => design.designData?.front?.objects?.length && design.designData?.back?.objects?.length).length;
   const shareShop = async () => {
     const url = window.location.href;
     try {
@@ -221,25 +218,25 @@ const ShopPage: React.FC = () => {
       <Preloader key={shopName || 'artist-shop'} isLoading={isLoading} />
       <div className="relative z-10 min-h-screen pb-20 selection:bg-lime-300/30">
         <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
-          <header className="relative isolate overflow-hidden rounded-[2rem] border border-white/15 bg-[#111411] shadow-[0_32px_100px_rgba(0,0,0,.3)] sm:rounded-[2.5rem]">
-            {heroImage && <><img src={heroImage} alt="" aria-hidden="true" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-30" /><div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0a0d0a] via-[#0a0d0a]/90 to-[#0a0d0a]/35" /></>}
-            <div className="grid min-h-[330px] items-end gap-8 p-6 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center lg:p-14">
-              <div className="max-w-3xl">
-                <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-lime-200/25 bg-lime-200/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[.2em] text-lime-100"><Sparkles className="h-3.5 w-3.5" /> Independent creator shop</p>
-                <h1 className="max-w-3xl text-5xl font-black leading-[.9] tracking-[-.065em] text-white sm:text-7xl lg:text-8xl">{shopTitle}</h1>
-                <p className="mt-5 flex items-center gap-2 text-sm font-medium text-white/65"><span className="grid h-8 w-8 place-items-center overflow-hidden rounded-full border border-white/15 bg-white/10">{heroImage ? <img src={heroImage} alt="" className="h-full w-full object-cover" /> : <Palette className="h-4 w-4" />}</span> Curated by <strong className="text-white">{creatorName}</strong></p>
-                <p className="mt-5 max-w-xl text-sm leading-6 text-white/55">Original designs, created independently and printed with care. Find a piece that feels like yours.</p>
+          <header className="relative isolate overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#0b0e0b]/70 shadow-[0_28px_90px_rgba(0,0,0,.28)] sm:rounded-[2.25rem]">
+            <div className="grid lg:min-h-[440px] lg:grid-cols-[1.05fr_.95fr]">
+              <div className="order-2 flex flex-col justify-center p-6 sm:p-10 lg:order-1 lg:p-14">
+                <p className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-lime-200/25 bg-lime-200/[.08] px-3 py-1.5 text-[9px] font-black uppercase tracking-[.2em] text-lime-100"><Sparkles className="h-3.5 w-3.5" /> Independent creator shop</p>
+                <h1 className="max-w-3xl break-words text-4xl font-black leading-[.96] tracking-[-.06em] text-white sm:text-6xl lg:text-7xl">{shopTitle}</h1>
+                <p className="mt-5 text-sm font-medium text-white/70">Created by <strong className="text-white">{creatorName}</strong></p>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-white/60">Original designs, made with care. Find a piece that feels like yours.</p>
+                <div className="mt-7 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+                  <a href="#collection" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-lime-200 px-5 text-xs font-black text-slate-950 transition hover:bg-lime-100">Explore collection <ArrowRight className="h-4 w-4" /></a>
+                  <button type="button" onClick={shareShop} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[.04] px-5 text-xs font-extrabold text-white transition hover:bg-white/10"><Share2 className="h-4 w-4" /> {shareStatus || 'Share shop'}</button>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-                <button type="button" onClick={shareShop} className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/20 bg-white/[.06] px-5 text-xs font-extrabold text-white transition hover:bg-white/10"><Share2 className="h-4 w-4" /> {shareStatus || 'Share shop'}</button>
-                <a href="#collection" className="inline-flex h-12 items-center gap-2 rounded-xl bg-lime-200 px-5 text-xs font-black text-slate-950 transition hover:bg-lime-100">Explore collection <ArrowRight className="h-4 w-4" /></a>
+              <div className="relative order-1 h-56 overflow-hidden bg-gradient-to-br from-[#1b211a] to-[#090b09] sm:h-80 lg:order-2 lg:h-auto lg:min-h-[440px]">
+                {heroImage ? <img src={heroImage} alt={`${creatorName} artist shop cover`} className="absolute inset-0 h-full w-full object-cover object-center" /> : <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_center,rgba(190,242,100,.12),transparent_62%)]"><Palette className="h-16 w-16 text-lime-100/40" /></div>}
+                <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/10 lg:bg-gradient-to-r lg:from-[#0b0e0b]/35 lg:via-transparent lg:to-transparent" />
+                <span className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/45 px-3 py-2 text-[9px] font-bold uppercase tracking-[.16em] text-white/90 backdrop-blur sm:bottom-6 sm:left-6"><Sparkles className="h-3.5 w-3.5 text-lime-200" /> The artist’s world</span>
               </div>
             </div>
           </header>
-
-          <section aria-label="Shop facts" className="my-8 grid grid-cols-2 gap-3 sm:my-10 sm:grid-cols-3">
-            {[{ label: 'Original designs', value: designs.length, icon: Palette }, { label: 'Product types', value: Math.max(0, categories.length - 1), icon: LayoutGrid }, { label: 'Double-sided', value: doubleSidedCount, icon: Layers3 }].map((stat) => <div key={stat.label} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.035] p-4 sm:p-5"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.07] text-lime-200"><stat.icon className="h-4 w-4" /></span><div><p className="text-xl font-black tracking-tight text-white">{stat.value}</p><p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-[.13em] text-white/45">{stat.label}</p></div></div>)}
-          </section>
 
           <section id="collection" className="scroll-mt-24">
             <div className="mb-5 flex flex-col gap-5 sm:mb-7 sm:flex-row sm:items-end sm:justify-between">

@@ -36,7 +36,7 @@ const footerLinks = [
   },
 ];
 
-const Footer: React.FC = () => {
+const Footer: React.FC<{ showNewsletterSignup?: boolean }> = ({ showNewsletterSignup = true }) => {
   const currentYear = new Date().getFullYear();
   const [newsletterStatus, setNewsletterStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,12 +72,11 @@ const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="site-footer relative isolate overflow-hidden border-t border-white/10 bg-[#050605] text-white">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_12%_0%,rgba(132,204,22,.07),transparent_36%),linear-gradient(180deg,#050605,#080a08)]" />
+    <footer className="site-footer relative isolate overflow-hidden border-t border-white/10 bg-transparent text-white">
       <div aria-hidden="true" className="pointer-events-none absolute -right-28 top-10 -z-10 h-72 w-72 rounded-full border border-white/[.04]" />
 
-      <div className="mx-auto max-w-7xl px-5 pb-7 pt-14 sm:px-8 sm:pt-16 lg:px-10 lg:pt-20">
-        <div className="grid gap-12 lg:grid-cols-[minmax(260px,.9fr)_1.6fr] lg:gap-20">
+      <div className="mx-auto max-w-7xl px-4 pb-6 pt-10 sm:px-8 sm:pb-8 sm:pt-14 lg:px-10 lg:pt-16">
+        <div className="grid gap-9 lg:grid-cols-[minmax(260px,.9fr)_1.6fr] lg:gap-16">
           <section className="max-w-md">
             <Link to="/" aria-label="Crownstroke home" className="group inline-flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime-300">
               <span className="grid h-12 w-12 place-items-center border border-lime-300/25 bg-lime-300/[.08] text-lime-200 transition-colors group-hover:bg-lime-300/[.14]">
@@ -121,7 +120,7 @@ const Footer: React.FC = () => {
           </nav>
         </div>
 
-        <section aria-labelledby="footer-newsletter-title" className="mt-14 grid gap-6 border-y border-white/10 py-7 sm:mt-16 sm:grid-cols-[.85fr_1.15fr] sm:items-center sm:py-8">
+        {showNewsletterSignup && <section aria-labelledby="footer-newsletter-title" className="mt-10 grid gap-5 border-y border-white/10 py-6 sm:mt-12 sm:py-7 lg:grid-cols-[.85fr_1.15fr] lg:items-center lg:gap-8">
           <div className="flex items-start gap-4">
             <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center border border-white/10 bg-white/[.04] text-lime-200"><Mail className="h-4 w-4" /></span>
             <div>
@@ -130,18 +129,18 @@ const Footer: React.FC = () => {
               <p className="mt-1 max-w-lg text-xs leading-5 text-white/65">Occasional updates on new products, creative ideas, and independent work worth discovering.</p>
             </div>
           </div>
-          <form onSubmit={handleNewsletterSignup} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <form onSubmit={handleNewsletterSignup} className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
             <label className="sr-only" htmlFor="footer-newsletter-name">Name (optional)</label>
             <input id="footer-newsletter-name" name="name" maxLength={100} autoComplete="name" placeholder="Your name (optional)" className="h-11 min-w-0 border border-white/15 bg-white/[.04] px-3 text-xs text-white outline-none placeholder:text-white/40 focus:border-lime-200/50" />
             <label className="sr-only" htmlFor="footer-newsletter-email">Email address</label>
             <input id="footer-newsletter-email" name="email" type="email" required maxLength={254} autoComplete="email" placeholder="Email address" className="h-11 min-w-0 border border-white/15 bg-white/[.04] px-3 text-xs text-white outline-none placeholder:text-white/40 focus:border-lime-200/50" />
-            <button type="submit" disabled={isSubmitting} className="inline-flex h-11 items-center justify-center gap-2 bg-lime-300 px-4 text-xs font-extrabold text-slate-950 transition hover:bg-lime-200 disabled:cursor-wait disabled:opacity-60">
+            <button type="submit" disabled={isSubmitting} className="inline-flex h-11 items-center justify-center gap-2 bg-lime-300 px-4 text-xs font-extrabold text-slate-950 transition hover:bg-lime-200 disabled:cursor-wait disabled:opacity-60 sm:col-span-2 lg:col-span-1">
               {isSubmitting ? 'Joining…' : 'Sign me up'} <ArrowRight className="h-3.5 w-3.5" />
             </button>
             <label aria-hidden="true" className="hidden">Leave this field empty<input tabIndex={-1} name="website" autoComplete="off" /></label>
-            {newsletterStatus && <p role="status" className={`text-xs leading-5 sm:col-span-3 ${newsletterStatus.toLowerCase().includes('could not') || newsletterStatus.toLowerCase().includes('failed') || newsletterStatus.toLowerCase().includes('enter a valid') ? 'text-rose-200' : 'text-emerald-200'}`}>{newsletterStatus}</p>}
+            {newsletterStatus && <p role="status" className={`text-xs leading-5 sm:col-span-2 lg:col-span-3 ${newsletterStatus.toLowerCase().includes('could not') || newsletterStatus.toLowerCase().includes('failed') || newsletterStatus.toLowerCase().includes('enter a valid') ? 'text-rose-200' : 'text-emerald-200'}`}>{newsletterStatus}</p>}
           </form>
-        </section>
+        </section>}
 
         <div className="flex flex-col gap-5 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[10px] font-bold uppercase tracking-[.16em] text-white/75">© {currentYear} Crownstroke Studio</p>
