@@ -10,13 +10,12 @@ import { designerDesigns, designers, shops } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { PRODUCT_DATA } from '../data/seed';
 import {
-  Zap,
   Share2,
-  Filter,
   Palette,
-  Heart,
-  Star,
   ArrowRight,
+  Search,
+  Sparkles,
+  Layers3,
   LayoutGrid,
   ShoppingBag,
   Eye,
@@ -31,8 +30,12 @@ const ShopPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [shopNotFound, setShopNotFound] = useState(false);
   const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [creatorName, setCreatorName] = useState('Independent designer');
+  const [shopTitle, setShopTitle] = useState('Creator shop');
   const [activeCategory, setActiveCategory] = useState('all');
   const [previewSides, setPreviewSides] = useState<Record<string, 'front' | 'back'>>({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [shareStatus, setShareStatus] = useState('');
 
   useEffect(() => {
     const fetchShopDesigns = async () => {
@@ -67,7 +70,7 @@ const ShopPage: React.FC = () => {
           const s = resolvedShop[0];
           
           const [designer, shopDesigns] = await Promise.all([
-            db.select({ heroImage: designers.heroImage })
+            db.select({ heroImage: designers.heroImage, name: designers.name })
               .from(designers)
               .where(eq(designers.id, s.designerId))
               .limit(1),
@@ -87,6 +90,8 @@ const ShopPage: React.FC = () => {
           ]);
           
           setHeroImage(designer[0]?.heroImage || null);
+          setCreatorName(designer[0]?.name || 'Independent designer');
+          setShopTitle(s.name || shopName);
           setDesigns(shopDesigns);
         } else {
           setShopNotFound(true);
@@ -153,96 +158,59 @@ const ShopPage: React.FC = () => {
       return;
     }
     const { product, customDesign } = buildShopCartItem(design);
-    addToCart(product as any, 1, 'M', garmentColor || '#ffffff', customDesign as any);
+    addToCart(product as any, 1, 'M', product.garmentColor || '#ffffff', customDesign as any);
     navigate('/checkout');
   };
 
-  const filteredDesigns = activeCategory === 'all' 
-    ? designs 
-    : designs.filter(d => d.productId === activeCategory);
+  const filteredDesigns = designs.filter((design) => {
+    const categoryMatch = activeCategory === 'all' || design.productId === activeCategory;
+    const searchMatch = !searchTerm.trim() || `${design.name} ${design.productId}`.toLowerCase().includes(searchTerm.trim().toLowerCase());
+    return categoryMatch && searchMatch;
+  });
 
   const categories = ['all', ...new Set(designs.map(d => d.productId))];
+  const doubleSidedCount = designs.filter((design) => design.designData?.front?.objects?.length && design.designData?.back?.objects?.length).length;
+  const shareShop = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) await navigator.share({ title: `${shopTitle} · Crownstroke`, url });
+      else { await navigator.clipboard.writeText(url); setShareStatus('Link copied'); window.setTimeout(() => setShareStatus(''), 2200); }
+    } catch { /* The share sheet can be dismissed without copying. */ }
+  };
 
   return (
     <Layout>
-      <div className="fixed inset-0 z-0">
-        {heroImage ? (
-          <>
-            <img src={heroImage} className="w-full h-full object-cover opacity-40" alt="Hero" />
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
-          </>
-        ) : (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        )}
-      </div>
-
-<div className="relative z-10 min-h-screen pb-20 sm:pb-40 selection:bg-primary-500/30">
-         {/* Modern Hero */}
-         <div className="relative pt-20 sm:pt-32 pb-12 sm:pb-20 flex items-center justify-center overflow-hidden">
-            <div className="max-w-7xl mx-auto px-4 relative z-10 text-center">
-               <div
-                 className="flex flex-col items-center"
-               >
-                  <h1 className="text-4xl sm:text-6xl md:text-9xl font-black text-white uppercase italic tracking-tighter mb-4 leading-none">
-                     {shopName?.replace('-', ' ')}
-                  </h1>
-                  
-                  <p className="text-primary-400 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-[8px] sm:text-[10px] mb-8 sm:mb-10">Architecting Digital Fabric</p>
-                  
-                  <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4">
-                     <Button variant="premium" className="h-12 sm:h-14 rounded-xl sm:rounded-2xl px-6 sm:px-10 font-black uppercase tracking-widest text-[9px] sm:text-[10px] gap-2 sm:gap-3 shadow-xl sm:shadow-2xl shadow-primary-500/20">
-                        <Zap className="w-3 h-3 sm:w-4 sm:h-4" /> Sync With Creator
-                     </Button>
-                     <button className="h-12 sm:h-14 px-6 sm:px-8 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center text-white hover:bg-white/10 transition-all gap-2 sm:gap-3 font-black uppercase tracking-widest text-[9px] sm:text-[10px]">
-                        <Share2 className="w-3 h-3 sm:w-4 sm:h-4" /> Share
-                     </button>
-                  </div>
-               </div>
+      <div className="relative z-10 min-h-screen pb-20 selection:bg-lime-300/30">
+        <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
+          <header className="relative isolate overflow-hidden rounded-[2rem] border border-white/15 bg-[#111411] shadow-[0_32px_100px_rgba(0,0,0,.3)] sm:rounded-[2.5rem]">
+            {heroImage && <><img src={heroImage} alt="" aria-hidden="true" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-30" /><div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0a0d0a] via-[#0a0d0a]/90 to-[#0a0d0a]/35" /></>}
+            <div className="grid min-h-[330px] items-end gap-8 p-6 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center lg:p-14">
+              <div className="max-w-3xl">
+                <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-lime-200/25 bg-lime-200/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[.2em] text-lime-100"><Sparkles className="h-3.5 w-3.5" /> Independent creator shop</p>
+                <h1 className="max-w-3xl text-5xl font-black leading-[.9] tracking-[-.065em] text-white sm:text-7xl lg:text-8xl">{shopTitle}</h1>
+                <p className="mt-5 flex items-center gap-2 text-sm font-medium text-white/65"><span className="grid h-8 w-8 place-items-center overflow-hidden rounded-full border border-white/15 bg-white/10">{heroImage ? <img src={heroImage} alt="" className="h-full w-full object-cover" /> : <Palette className="h-4 w-4" />}</span> Curated by <strong className="text-white">{creatorName}</strong></p>
+                <p className="mt-5 max-w-xl text-sm leading-6 text-white/55">Original designs, created independently and printed with care. Find a piece that feels like yours.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+                <button type="button" onClick={shareShop} className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/20 bg-white/[.06] px-5 text-xs font-extrabold text-white transition hover:bg-white/10"><Share2 className="h-4 w-4" /> {shareStatus || 'Share shop'}</button>
+                <a href="#collection" className="inline-flex h-12 items-center gap-2 rounded-xl bg-lime-200 px-5 text-xs font-black text-slate-950 transition hover:bg-lime-100">Explore collection <ArrowRight className="h-4 w-4" /></a>
+              </div>
             </div>
-         </div>
+          </header>
 
-         <div className="max-w-7xl mx-auto px-3 sm:px-4">
-            {/* Minimalist Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8 mb-16 sm:mb-24 py-6 sm:py-12 border-y border-white/5">
-               {[
-                 { label: 'Artifacts', value: designs.length },
-                 { label: 'Global Pulse', value: '14.2k' },
-                 { label: 'Reputation', value: '99%' },
-                 { label: 'Network', value: '2.8k' },
-               ].map((stat, i) => (
-                 <div key={i} className="text-center px-2 sm:px-4">
-                    <div className="text-3xl sm:text-4xl font-black text-white tracking-tighter mb-1 italic">{stat.value}</div>
-                    <div className="text-[8px] sm:text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">{stat.label}</div>
-                 </div>
-               ))}
-            </div>
+          <section aria-label="Shop facts" className="my-8 grid grid-cols-2 gap-3 sm:my-10 sm:grid-cols-3">
+            {[{ label: 'Original designs', value: designs.length, icon: Palette }, { label: 'Product types', value: Math.max(0, categories.length - 1), icon: LayoutGrid }, { label: 'Double-sided', value: doubleSidedCount, icon: Layers3 }].map((stat) => <div key={stat.label} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.035] p-4 sm:p-5"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.07] text-lime-200"><stat.icon className="h-4 w-4" /></span><div><p className="text-xl font-black tracking-tight text-white">{stat.value}</p><p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-[.13em] text-white/45">{stat.label}</p></div></div>)}
+          </section>
 
-            {/* Filter System */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-8 mb-12 sm:mb-16 px-2 sm:px-4">
-               <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-3 md:pb-0 w-full md:w-auto no-scrollbar">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setActiveCategory(cat)}
-                      className={clsx(
-                        "px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border",
-                        activeCategory === cat 
-                         ? "bg-primary-600 border-primary-500 text-white shadow-lg shadow-primary-600/20" 
-                         : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10"
-                      )}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-               </div>
-               
-               <div className="flex items-center gap-4 sm:gap-6">
-                 <span className="text-[8px] sm:text-[10px] font-black text-white/20 uppercase tracking-[0.2em] sm:tracking-[0.3em]">Sorting Engine</span>
-                 <button className="flex items-center gap-1 sm:gap-2 text-[8px] sm:text-[10px] font-black text-primary-400 uppercase tracking-widest hover:text-white transition-colors">
-                    <Filter className="w-3 h-3 sm:w-4 sm:h-4" /> Optimize View
-                 </button>
-               </div>
+          <section id="collection" className="scroll-mt-24">
+            <div className="mb-5 flex flex-col gap-5 sm:mb-7 sm:flex-row sm:items-end sm:justify-between">
+              <div><p className="text-[9px] font-black uppercase tracking-[.2em] text-lime-200">The collection</p><h2 className="mt-2 text-3xl font-black tracking-[-.045em] text-white sm:text-4xl">Made by {creatorName.split(' ')[0]}.</h2><p className="mt-2 text-sm text-white/50">{filteredDesigns.length} {filteredDesigns.length === 1 ? 'piece' : 'pieces'} to explore</p></div>
+              <label className="relative block w-full sm:max-w-xs"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" /><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search this shop" className="h-11 w-full rounded-xl border border-white/15 bg-white/[.05] pl-10 pr-4 text-sm text-white outline-none placeholder:text-white/35 focus:border-lime-200/50" /></label>
             </div>
+            <div className="mb-7 flex gap-2 overflow-x-auto pb-2">
+              {categories.map((cat) => <button key={cat} onClick={() => setActiveCategory(cat)} className={clsx('shrink-0 rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-[.12em] transition', activeCategory === cat ? 'border-lime-200 bg-lime-200 text-slate-950' : 'border-white/15 bg-white/[.03] text-white/60 hover:border-white/30 hover:text-white')}>{cat === 'all' ? 'All pieces' : cat.replace(/-/g, ' ')}</button>)}
+            </div>
+          </section>
 
            {/* Collection Grid */}
 {isLoading ? (
@@ -259,11 +227,11 @@ const ShopPage: React.FC = () => {
             ) : filteredDesigns.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 sm:py-40 text-center border-2 border-dashed border-white/5 rounded-[2rem] sm:rounded-[4rem]">
                  <Palette className="w-12 h-12 sm:w-20 sm:h-20 text-white/5 mb-6 sm:mb-8" />
-                 <h3 className="text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tighter mb-3 sm:mb-4">No Assets Detected</h3>
-                 <p className="text-white/40 text-xs sm:text-sm font-bold max-w-sm mx-auto uppercase tracking-widest">This designer is currently in the ideation phase. Synchronize later for updates.</p>
+                 <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3 sm:mb-4">Nothing in this collection yet</h3>
+                 <p className="text-white/50 text-sm max-w-sm mx-auto">Try another product type or clear your search to see every design in this shop.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6 sm:gap-12">
+              <div className="grid grid-cols-1 gap-5 xs:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
                  <AnimatePresence mode="popLayout">
                    {filteredDesigns.map((design, i) => {
                      const availablePreviews = design.designData?.previews || {};
@@ -286,7 +254,7 @@ const ShopPage: React.FC = () => {
                        animate={{ opacity: 1, scale: 1 }}
                        exit={{ opacity: 0, scale: 0.9 }}
                        transition={{ duration: 0.5, delay: i * 0.05 }}
-                       className="product-motion group relative"
+                       className="product-motion group cursor-pointer"
                        role="link"
                        tabIndex={0}
                        aria-label={`View details for ${design.name}`}
@@ -298,99 +266,20 @@ const ShopPage: React.FC = () => {
                            navigate(`/product/${design.id}`);
                          }
                        }}
-                       style={{ cursor: 'pointer' }}
                      >
-                       <div className="relative aspect-[4/5] rounded-[2rem] sm:rounded-[3.5rem] overflow-hidden bg-white/5 border border-white/10 transition-all duration-700 group-hover:border-primary-500/50 group-hover:shadow-[0_40px_80px_rgba(0,0,0,0.5)]">
-                          {/* Product Image */}
-                          <img 
-                            src={cardPreview}
-                            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-                            alt={design.name} 
-                          />
-
-                          {hasFrontAndBack && (
-                            <div className="absolute top-4 right-4 z-20 inline-flex rounded-xl border border-white/15 bg-slate-950/75 p-1 shadow-xl backdrop-blur-md" role="group" aria-label={`${design.name} preview side`}>
-                              {(['front', 'back'] as const).map((side) => (
-                                <button
-                                  key={side}
-                                  type="button"
-                                  onClick={(event) => { event.stopPropagation(); setPreviewSides((current) => ({ ...current, [design.id]: side })); }}
-                                  aria-pressed={selectedPreviewSide === side}
-                                  className={clsx(
-                                    'min-h-11 rounded-lg px-3 text-[8px] font-black uppercase tracking-[.13em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300 sm:min-h-8',
-                                    selectedPreviewSide === side ? 'bg-lime-300 text-slate-950' : 'text-white/65 hover:bg-white/10 hover:text-white'
-                                  )}
-                                >
-                                  {side}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {/* Overlay Logic */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent opacity-60 group-hover:opacity-90 transition-opacity" />
-                          
-                          <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-10 translate-y-6 sm:translate-y-8 group-hover:translate-y-0 transition-transform duration-500">
-                             <div className="mb-4 sm:mb-6 opacity-0 group-hover:opacity-100 transition-all delay-100">
-                                <span className="px-2 sm:px-3 py-1 bg-primary-500 text-[7px] sm:text-[8px] font-black text-white uppercase tracking-widest rounded-full mb-2 sm:mb-3 inline-block">
-                                   Premium Quality
-                                </span>
-                                <h4 className="text-2xl sm:text-3xl font-black text-white tracking-tighter uppercase italic leading-tight">
-                                   {design.name}
-                                </h4>
-                             </div>
-                             
-                             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 scale-95 group-hover:scale-100 transition-transform duration-500">
-                                <div className="text-2xl sm:text-3xl font-black text-white italic drop-shadow-lg">KES {(design.price ?? 0).toLocaleString()}</div>
-                                <div className="flex items-center gap-2 w-full sm:w-auto">
-                                  <Button 
-                                    variant={isOnline ? "premium" : "outline"}
-                                    className={clsx(
-                                      "flex-1 sm:flex-initial h-12 sm:h-14 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] shadow-xl sm:shadow-2xl whitespace-nowrap",
-                                      isOnline ? "shadow-primary-500/20" : "border-white/10 text-white/40 cursor-not-allowed"
-                                    )}
-                                    onClick={(event) => { event.stopPropagation(); handleBuyNow(design); }}
-                                  >
-                                    <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                                    {isOnline ? "Buy Now" : "Shop Closed"}
-                                  </Button>
-                                  <Button 
-                                    variant={isOnline ? "outline" : "outline"}
-                                    className={clsx(
-                                      "flex-1 sm:flex-initial h-12 sm:h-14 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] shadow-xl sm:shadow-2xl whitespace-nowrap",
-                                      isOnline ? "" : "border-white/10 text-white/40 cursor-not-allowed"
-                                    )}
-                                    onClick={(event) => { event.stopPropagation(); navigate(`/product/${design.id}`); }}
-                                  >
-                                    <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /> View details
-                                  </Button>
-                                  <button className="w-12 h-12 sm:w-14 sm:h-14 bg-white/10 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0">
-                                    <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
-                                  </button>
-                                </div>
-                             </div>
-                          </div>
-
-                          {/* Side Indicator */}
-                          <div className="absolute top-4 sm:top-8 left-4 sm:left-8">
-                             <div className="bg-black/40 backdrop-blur-xl border border-white/10 px-2 sm:px-4 py-1 sm:py-2 rounded-xl sm:rounded-2xl flex items-center gap-1 sm:gap-2">
-                                <LayoutGrid className="w-3 h-3 text-primary-400" />
-                                <span className="text-[7px] sm:text-[8px] font-black text-white/60 uppercase tracking-widest">{design.productId}</span>
-                             </div>
-                          </div>
-
-                          {/* Action Badge */}
-                          {design.isFeatured === 'true' && (
-                            <div className="absolute top-4 sm:top-8 right-4 sm:right-8">
-                               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary-500 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-primary-500/40 rotate-12 group-hover:rotate-0 transition-transform duration-500">
-                                  <Star className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" />
-                               </div>
-                            </div>
-                          )}
+                       <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/10 bg-[#e9e7df] transition duration-300 group-hover:border-lime-200/45 group-hover:shadow-[0_22px_60px_rgba(0,0,0,.32)] sm:rounded-3xl">
+                         <img src={cardPreview} className="h-full w-full object-contain p-5 transition-transform duration-500 group-hover:scale-[1.035] sm:p-7" alt={`${design.name}, ${selectedPreviewSide} view`} />
+                         <div className="absolute left-3 top-3 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-[9px] font-black uppercase tracking-[.12em] text-slate-700">{design.productId.replace(/-/g, ' ')}</div>
+                         <div className="absolute right-3 top-3 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-[9px] font-bold text-slate-600">{garmentColor === '#000000' ? 'Black' : garmentColor === '#ffffff' ? 'White' : garmentColor}</div>
+                         {hasFrontAndBack && <div className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 rounded-full border border-black/10 bg-white/95 p-1 shadow-lg" role="group" aria-label={`${design.name} garment side`}>
+                           {(['front', 'back'] as const).map((side) => <button key={side} type="button" onClick={(event) => { event.stopPropagation(); setPreviewSides((current) => ({ ...current, [design.id]: side })); }} aria-pressed={selectedPreviewSide === side} className={clsx('min-h-9 rounded-full px-4 text-[9px] font-black uppercase tracking-widest transition', selectedPreviewSide === side ? 'bg-slate-950 text-white' : 'text-slate-500 hover:text-slate-950')}>{side}</button>)}
+                         </div>}
+                         <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/product/${design.id}`); }} className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center rounded-full bg-slate-950 text-white shadow-lg transition hover:bg-lime-200 hover:text-slate-950" aria-label={`View ${design.name}`}><Eye className="h-4 w-4" /></button>
                        </div>
-                       
-                       {/* Floating Decorative Elements */}
-                       <div className="absolute -bottom-2 -right-2 sm:-bottom-4 sm:-right-4 w-12 h-12 sm:w-24 sm:h-24 bg-primary-600/20 blur-2xl sm:blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                       <div className="px-1 pb-1 pt-4">
+                         <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-lime-200">{sideArtwork('front') && sideArtwork('back') ? 'Front + back print' : sideArtwork('front') ? 'Front print' : sideArtwork('back') ? 'Back print' : 'Artist original'}</p><h3 className="mt-1 truncate text-base font-black text-white sm:text-lg">{design.name}</h3></div><p className="shrink-0 text-sm font-black text-white">KES {(design.price ?? 0).toLocaleString()}</p></div>
+                         <div className="mt-4 flex gap-2"><Button variant={isOnline ? 'premium' : 'outline'} className={clsx('h-11 flex-1 rounded-xl text-[10px] font-black uppercase tracking-wider', !isOnline && 'cursor-not-allowed opacity-60')} onClick={(event) => { event.stopPropagation(); handleBuyNow(design); }}><ShoppingBag className="mr-2 h-4 w-4" />{isOnline ? 'Buy now' : 'Shop closed'}</Button><Button variant="outline" className="h-11 rounded-xl border-white/15 px-4 text-[10px] font-black uppercase tracking-wider text-white" onClick={(event) => { event.stopPropagation(); navigate(`/product/${design.id}`); }}>Details</Button></div>
+                       </div>
                      </motion.div>
                      );
                    })}
@@ -398,27 +287,9 @@ const ShopPage: React.FC = () => {
               </div>
             )}
 
-{/* Newsletter / Contact Section */}
-            <div className="mt-20 sm:mt-40 bg-white/5 border border-white/10 rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-16 md:p-32 relative overflow-hidden text-center">
-               <div className="absolute top-0 right-0 w-[200px] h-[200px] sm:w-[300px] sm:h-[300px] md:w-[400px] md:h-[400px] bg-primary-600/10 blur-[50px] sm:blur-[80px] md:blur-[100px] rounded-full -mr-10 -mt-10 sm:-mr-20 sm:-mt-20 md:-mr-40 md:-mt-40" />
-               <div className="relative z-10 max-w-2xl mx-auto">
-                  <h2 className="text-3xl sm:text-5xl md:text-7xl font-black text-white uppercase italic tracking-tighter mb-6 sm:mb-8 leading-none">
-                     Never Miss a <span className="text-primary-500">Drop</span>
-                  </h2>
-                  <p className="text-white/40 font-bold uppercase tracking-widest text-[10px] sm:text-xs mb-8 sm:mb-12 max-w-md mx-auto leading-loose">
-                     Join the internal network to receive telemetry on new collection deployments and limited release artifacts.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                     <input 
-                       type="email" 
-                       placeholder="ENTER_COMM_CHANNEL_@EMAIL.COM" 
-                       className="flex-grow bg-black/40 border border-white/10 rounded-xl sm:rounded-2xl px-4 sm:px-8 py-3 sm:py-5 text-white placeholder:text-white/20 focus:ring-2 focus:ring-primary-500 outline-none font-bold italic text-[10px] sm:text-sm"
-                     />
-                     <Button variant="premium" className="h-12 sm:h-[68px] px-6 sm:px-12 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-xs gap-2 sm:gap-3">
-                        Initialize <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
-                     </Button>
-                  </div>
-               </div>
+            <div className="mt-16 flex flex-col items-start justify-between gap-5 rounded-3xl border border-white/10 bg-gradient-to-r from-lime-200/[.1] to-white/[.025] p-6 sm:mt-20 sm:flex-row sm:items-center sm:p-8">
+              <div><p className="text-[9px] font-black uppercase tracking-[.18em] text-lime-200">Keep exploring</p><h2 className="mt-2 text-2xl font-black tracking-tight text-white">More original work, made by independent artists.</h2><p className="mt-2 text-sm text-white/55">Browse the full Crownstroke marketplace or create something of your own.</p></div>
+              <div className="flex shrink-0 flex-wrap gap-2"><Link to="/shop" className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-4 text-xs font-black text-slate-950 transition hover:bg-lime-100">Browse marketplace <ArrowRight className="h-4 w-4" /></Link><Link to="/designer" className="inline-flex h-11 items-center rounded-xl border border-white/20 px-4 text-xs font-bold text-white transition hover:bg-white/10">Open studio</Link></div>
             </div>
         </div>
       </div>
