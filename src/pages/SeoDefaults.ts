@@ -1,9 +1,8 @@
 export const CROWNSTROKE_BASE = {
   url: 'https://crownstroke.iyonicorp.com',
-  title: 'Crownstroke | Elite Custom Design Tools Kenya',
+  title: 'Crownstroke | Design Custom Apparel & Shop Kenyan Creators',
   description:
-    'Crownstroke Kenya — Elite custom design tools and premium designer marketplace. Create, deploy, and shop custom t-shirts, hoodies, mugs & art in Kenya. Best design platform Nairobi.',
-  keywords: 'custom design Kenya, t-shirt printing Nairobi, custom hoodies Kenya, designer marketplace Kenya, Crownstroke Kenya, custom mugs Nairobi, art prints Kenya',
+    'Design custom T-shirts, hoodies, mugs and art prints online, or shop limited editions and original work from independent Kenyan designers.',
   ogImage: 'https://i.imgur.com/1PBylbz.png'
 };
 

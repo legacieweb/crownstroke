@@ -22,11 +22,10 @@ const Preloader: React.FC<PreloaderProps> = ({ isLoading }) => {
       initial={{ opacity: 1 }}
       animate={{ opacity: isLoading ? 1 : 0 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-[#070b12]"
+      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-black"
       role="status"
       aria-label="Loading Crownstroke"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(14,165,233,.16),transparent_48%)]" />
       <div className="relative flex flex-col items-center px-6">
         <motion.div
           animate={{ rotate: 360 }}

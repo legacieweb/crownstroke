@@ -8,7 +8,7 @@ const Pricing: React.FC = () => {
     title: 'Product & Design Pricing | Crownstroke',
     description:
       'Transparent pricing for custom products, ready-made drops, and design services on Crownstroke.',
-    canonicalUrl: `${CROWNSTROKE_BASE.url}/pricing`,
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/#/pricing`,
     ogImage: CROWNSTROKE_BASE.ogImage,
     robots: 'index,follow'
   });

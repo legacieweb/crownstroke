@@ -62,7 +62,7 @@ const Shop: React.FC = () => {
 
     description:
       'Discover original products listed by independent designers in their own Crownstroke shops.',
-    canonicalUrl: `${CROWNSTROKE_BASE.url}/shop`,
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/#/shop`,
     ogImage: CROWNSTROKE_BASE.ogImage,
     robots: 'index,follow'
   });

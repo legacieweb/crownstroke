@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Layout from '../components/layout/Layout';
@@ -27,12 +27,33 @@ const ProductDetail: React.FC = () => {
   const [selectedSize, setSelectedSize] = useState<string>('M');
   const [quantity, setQuantity] = useState(1);
 
+  const productStructuredData = useMemo(() => {
+    if (!product || !productId) return undefined;
+    const productUrl = `${CROWNSTROKE_BASE.url}/#/product/${encodeURIComponent(productId)}`;
+    const image = typeof product.image === 'string' && /^https?:\/\//i.test(product.image) ? product.image : undefined;
+    return {
+      '@type': 'Product',
+      name: product.name,
+      description: product.description,
+      sku: String(product.id),
+      ...(image ? { image: [image] } : {}),
+      brand: { '@type': 'Brand', name: 'Crownstroke' },
+      offers: {
+        '@type': 'Offer',
+        url: productUrl,
+        priceCurrency: 'KES',
+        price: Number(product.price).toFixed(2),
+      },
+    };
+  }, [product, productId]);
+
   useSeo({
     title: product ? `${product.name} | Crownstroke` : 'Product details | Crownstroke',
-    description: product?.description || 'Shop customizable blank products and original work from independent designers.',
-    canonicalUrl: `${CROWNSTROKE_BASE.url}/product`,
+    description: product?.description || 'Explore custom apparel, art prints and original designs from independent Kenyan creators.',
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/#/product/${encodeURIComponent(productId || '')}`,
     ogImage: product?.image || CROWNSTROKE_BASE.ogImage,
-    robots: 'index,follow'
+    robots: 'index,follow',
+    structuredData: productStructuredData,
   });
 
   useEffect(() => {

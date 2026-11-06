@@ -167,7 +167,7 @@ const Designer: React.FC = () => {
     title: 'Design Studio | Crownstroke',
     description:
       'Create premium designs in the Crownstroke studio. Customize products, preview in real time, deploy to your shop, and shop designer drops.',
-    canonicalUrl: `${CROWNSTROKE_BASE.url}/designer`,
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/#/designer`,
     ogImage: CROWNSTROKE_BASE.ogImage,
     robots: 'index,follow'
   });

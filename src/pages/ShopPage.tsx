@@ -191,13 +191,15 @@ const ShopPage: React.FC = () => {
 
   const handleNewsletterSignup = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     setIsNewsletterSubmitting(true);
     setNewsletterStatus('');
     try {
       const response = await fetch(apiUrl('/api/newsletter-signup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newsletterName, email: newsletterEmail, website: '' }),
+        body: JSON.stringify({ name: newsletterName, email: newsletterEmail, website: String(formData.get('website') || '') }),
       });
       const responseText = await response.text();
       let result: any = {};
@@ -206,6 +208,7 @@ const ShopPage: React.FC = () => {
       setNewsletterStatus(result.message || 'You’re subscribed. Check your inbox for a note from us.');
       setNewsletterName('');
       setNewsletterEmail('');
+      form.reset();
     } catch (error) {
       setNewsletterStatus(error instanceof Error ? error.message : 'Signup failed. Please try again.');
     } finally {
@@ -326,7 +329,7 @@ const ShopPage: React.FC = () => {
             <section aria-labelledby="studio-notes-title" className="relative mt-16 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#161b17] via-[#101411] to-[#0b0e0c] p-6 shadow-2xl sm:mt-20 sm:p-10 lg:p-12">
               <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 h-80 w-80 rounded-full bg-lime-300/[.08] blur-3xl" />
               <div className="relative grid gap-9 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:gap-14">
-                <div><span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-lime-200/20 bg-lime-200/[.08] text-lime-100"><Mail className="h-5 w-5" /></span><p className="mt-5 text-[9px] font-black uppercase tracking-[.22em] text-lime-200">A note from the studio</p><h2 id="studio-notes-title" className="mt-2 text-3xl font-black tracking-[-.045em] text-white sm:text-4xl">Studio notes.</h2><p className="mt-3 max-w-md text-sm leading-6 text-white/60">We’re preparing occasional updates on new products and creative ideas. Sign up to get the next note in your inbox.</p><p className="mt-4 text-[10px] text-white/35">Thoughtful updates, sent occasionally. Unsubscribe at any time.</p></div>
+                <div><span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-lime-200/20 bg-lime-200/[.08] text-lime-100"><Mail className="h-5 w-5" /></span><p className="mt-5 text-[9px] font-black uppercase tracking-[.22em] text-lime-200">A note from the studio</p><h2 id="studio-notes-title" className="mt-2 text-3xl font-black tracking-[-.045em] text-white sm:text-4xl">Studio notes.</h2><p className="mt-3 max-w-md text-sm leading-6 text-white/60">Get occasional updates on new products and creative ideas, delivered straight to your inbox.</p><p className="mt-4 text-[10px] text-white/35">Thoughtful updates, sent occasionally.</p></div>
                 <form onSubmit={handleNewsletterSignup} className="relative space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
                   <label className="sr-only" htmlFor="studio-notes-name">Name (optional)</label><input id="studio-notes-name" value={newsletterName} onChange={(event) => setNewsletterName(event.target.value)} maxLength={100} autoComplete="name" placeholder="Your name (optional)" className="h-12 w-full rounded-xl border border-white/10 bg-white/[.04] px-4 text-sm text-white outline-none placeholder:text-white/35 focus:border-lime-200/50" />
                   <div className="flex flex-col gap-2 sm:flex-row"><label className="sr-only" htmlFor="studio-notes-email">Email address</label><input id="studio-notes-email" type="email" value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} required maxLength={254} autoComplete="email" placeholder="Email address" className="h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[.04] px-4 text-sm text-white outline-none placeholder:text-white/35 focus:border-lime-200/50" /><Button type="submit" disabled={isNewsletterSubmitting} className="h-12 shrink-0 gap-2 rounded-xl px-5 text-xs font-black text-slate-950 disabled:opacity-60">{isNewsletterSubmitting ? 'Signing you up…' : 'Sign me up'} <ArrowRight className="h-4 w-4" /></Button></div>

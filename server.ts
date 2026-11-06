@@ -1331,17 +1331,28 @@ app.post('/api/newsletter-signup', async (req, res) => {
   }
 
   try {
-    const matches = await iyonicDB.query(
+    let matches = await iyonicDB.query(
       'SELECT email FROM newsletter_subscribers WHERE email = $1 LIMIT 1',
       [email]
     );
-    const alreadySubscribed = matches.length > 0;
+    let alreadySubscribed = matches.length > 0;
     if (!alreadySubscribed) {
-      await iyonicDB.insertRow('newsletter_subscribers', { email, name: name || null });
+      try {
+        await iyonicDB.insertRow('newsletter_subscribers', { email, name: name || null });
+      } catch (insertError) {
+        // If another request subscribed the same address at the same time,
+        // treat the unique-email conflict as an existing subscription.
+        matches = await iyonicDB.query(
+          'SELECT email FROM newsletter_subscribers WHERE email = $1 LIMIT 1',
+          [email]
+        );
+        if (!matches.length) throw insertError;
+        alreadySubscribed = true;
+      }
     }
 
     const subscriberData = { name, email };
-    const adminEmail = (process.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com').trim();
+    const adminEmail = (process.env.NEWSLETTER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com').trim();
     const emails = [
       sendEmailThroughMailer(email, 'Welcome to Crownstroke Studio Notes', 'newsletter_confirmation', subscriberData),
     ];
@@ -1398,19 +1409,40 @@ app.post('/api/db', async (req, res) => {
 
       case 'update': {
         const parsed = parseUpdate(query);
-        if (!parsed || parsed.whereParamIdx === null) {
+        if (!parsed || parsed.whereParamIdx === null || !parsed.whereColumn) {
           throw new Error('Unable to parse UPDATE query for IyonicDB routing');
         }
         if (parsed.table.toLowerCase() === 'users' && parsed.setColumns.some(({ name }) => name.toLowerCase() === 'plan')) {
           throw new Error('User plans must be changed in the IyonicDB admin console');
         }
+        if (!/^[a-z_][a-z0-9_]*$/i.test(parsed.table)) {
+          throw new Error('Invalid table name in UPDATE query');
+        }
         const row: Record<string, any> = {};
         parsed.setColumns.forEach(({ name, paramIdx }) => {
           row[name] = params[paramIdx - 1];
         });
-        const rowId = params[parsed.whereParamIdx - 1];
-        const updateResult = await iyonicDB.updateRow(parsed.table, String(rowId), row);
-        result = normalizeResult(updateResult);
+        const whereValue = params[parsed.whereParamIdx - 1];
+        if (parsed.whereColumn.toLowerCase() === 'id') {
+          const updateResult = await iyonicDB.updateRow(parsed.table, String(whereValue), row);
+          result = normalizeResult(updateResult);
+        } else {
+          // The table-row API updates by its generated row ID, while Drizzle
+          // updates can target any column (for example designers.user_id).
+          // Resolve the matching row IDs first, then apply the patch to each.
+          const allRows = await iyonicDB.query(`SELECT * FROM ${parsed.table}`, []);
+          const snakeToCamel = (value: string) => value.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+          const matchingRows = allRows.filter((candidate) => {
+            const actual = candidate[parsed.whereColumn!] ?? candidate[snakeToCamel(parsed.whereColumn!)];
+            return actual != null && String(actual) === String(whereValue);
+          });
+          const updatedRows = [];
+          for (const matchingRow of matchingRows) {
+            if (matchingRow.id == null) continue;
+            updatedRows.push(await iyonicDB.updateRow(parsed.table, String(matchingRow.id), row));
+          }
+          result = normalizeResult(updatedRows);
+        }
         break;
       }
 

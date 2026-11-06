@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowRight, ArrowUpRight, Mail, Palette } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { apiUrl } from '../../services/apiUrl';
 
 const footerLinks = [
   {
@@ -37,10 +38,42 @@ const footerLinks = [
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
+  const [newsletterStatus, setNewsletterStatus] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleNewsletterSignup = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setNewsletterStatus('');
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    try {
+      const response = await fetch(apiUrl('/api/newsletter-signup'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(fields.get('name') || ''),
+          email: String(fields.get('email') || ''),
+          website: String(fields.get('website') || ''),
+        }),
+      });
+      const text = await response.text();
+      let result: { message?: string; error?: string } = {};
+      try { result = text ? JSON.parse(text) : {}; } catch { /* Keep proxy/server errors readable. */ }
+      if (!response.ok) throw new Error(result.error || 'We could not sign you up just now. Please try again.');
+      setNewsletterStatus(result.message || 'You’re subscribed. Check your inbox for a confirmation.');
+      form.reset();
+    } catch (error) {
+      setNewsletterStatus(error instanceof Error ? error.message : 'Signup failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <footer className="site-footer relative isolate overflow-hidden border-t border-white/20 bg-transparent text-white">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_12%_0%,rgba(132,204,22,.08),transparent_36%),linear-gradient(180deg,rgba(7,12,20,.2),rgba(5,8,14,.38))]" />
+    <footer className="site-footer relative isolate overflow-hidden border-t border-white/10 bg-[#050605] text-white">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_12%_0%,rgba(132,204,22,.07),transparent_36%),linear-gradient(180deg,#050605,#080a08)]" />
       <div aria-hidden="true" className="pointer-events-none absolute -right-28 top-10 -z-10 h-72 w-72 rounded-full border border-white/[.04]" />
 
       <div className="mx-auto max-w-7xl px-5 pb-7 pt-14 sm:px-8 sm:pt-16 lg:px-10 lg:pt-20">
@@ -88,17 +121,26 @@ const Footer: React.FC = () => {
           </nav>
         </div>
 
-        <section aria-labelledby="footer-newsletter-title" className="mt-14 grid gap-6 border-y border-white/10 py-7 sm:mt-16 sm:grid-cols-[1fr_auto] sm:items-center sm:py-8">
+        <section aria-labelledby="footer-newsletter-title" className="mt-14 grid gap-6 border-y border-white/10 py-7 sm:mt-16 sm:grid-cols-[.85fr_1.15fr] sm:items-center sm:py-8">
           <div className="flex items-start gap-4">
             <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center border border-white/10 bg-white/[.04] text-lime-200"><Mail className="h-4 w-4" /></span>
             <div>
-              <h2 id="footer-newsletter-title" className="text-sm font-bold text-white">Studio notes, coming soon</h2>
-              <p className="mt-1 max-w-lg text-xs leading-5 text-white/80">We’re preparing occasional updates on new products and creative ideas. Newsletter signup will be available here soon.</p>
+              <p className="text-[9px] font-extrabold uppercase tracking-[.2em] text-lime-200">A note from the studio</p>
+              <h2 id="footer-newsletter-title" className="mt-1 text-lg font-black tracking-tight text-white">Studio notes</h2>
+              <p className="mt-1 max-w-lg text-xs leading-5 text-white/65">Occasional updates on new products, creative ideas, and independent work worth discovering.</p>
             </div>
           </div>
-          <span className="inline-flex w-fit items-center gap-2 border border-white/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[.12em] text-white/50" aria-label="Newsletter signup status: coming soon">
-            <Mail className="h-3.5 w-3.5 text-white/45" /> Signup coming soon
-          </span>
+          <form onSubmit={handleNewsletterSignup} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <label className="sr-only" htmlFor="footer-newsletter-name">Name (optional)</label>
+            <input id="footer-newsletter-name" name="name" maxLength={100} autoComplete="name" placeholder="Your name (optional)" className="h-11 min-w-0 border border-white/15 bg-white/[.04] px-3 text-xs text-white outline-none placeholder:text-white/40 focus:border-lime-200/50" />
+            <label className="sr-only" htmlFor="footer-newsletter-email">Email address</label>
+            <input id="footer-newsletter-email" name="email" type="email" required maxLength={254} autoComplete="email" placeholder="Email address" className="h-11 min-w-0 border border-white/15 bg-white/[.04] px-3 text-xs text-white outline-none placeholder:text-white/40 focus:border-lime-200/50" />
+            <button type="submit" disabled={isSubmitting} className="inline-flex h-11 items-center justify-center gap-2 bg-lime-300 px-4 text-xs font-extrabold text-slate-950 transition hover:bg-lime-200 disabled:cursor-wait disabled:opacity-60">
+              {isSubmitting ? 'Joining…' : 'Sign me up'} <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+            <label aria-hidden="true" className="hidden">Leave this field empty<input tabIndex={-1} name="website" autoComplete="off" /></label>
+            {newsletterStatus && <p role="status" className={`text-xs leading-5 sm:col-span-3 ${newsletterStatus.toLowerCase().includes('could not') || newsletterStatus.toLowerCase().includes('failed') || newsletterStatus.toLowerCase().includes('enter a valid') ? 'text-rose-200' : 'text-emerald-200'}`}>{newsletterStatus}</p>}
+          </form>
         </section>
 
         <div className="flex flex-col gap-5 pt-6 sm:flex-row sm:items-center sm:justify-between">

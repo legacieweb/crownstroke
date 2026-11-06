@@ -17,7 +17,7 @@ const WaysToMake: React.FC = () => {
   useSeo({
     title: 'Ways to Make | Crownstroke',
     description: 'Choose a blank product to customize, create a one-off design, or discover work from independent artists.',
-    canonicalUrl: `${CROWNSTROKE_BASE.url}/ways-to-make`,
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/#/ways-to-make`,
     ogImage: CROWNSTROKE_BASE.ogImage,
     robots: 'index,follow',
   });
