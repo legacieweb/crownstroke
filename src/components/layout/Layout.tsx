@@ -12,13 +12,17 @@ interface LayoutProps {
 // Add a simple context or just pass it down if needed, but for now we'll use a standard approach
 export const BackendStatusContext = React.createContext<{ isOnline: boolean }>({ isOnline: true });
 
-let siteBackgroundCache: { image: string | null; fetchedAt: number } | null = null;
-let siteBackgroundRequest: Promise<string | null> | null = null;
+type SiteBackgroundType = 'image' | 'video';
+let siteBackgroundCache: { media: string | null; type: SiteBackgroundType | null; fetchedAt: number } | null = null;
+let siteBackgroundRequest: Promise<{ media: string | null; type: SiteBackgroundType | null }> | null = null;
 const SITE_BACKGROUND_CACHE_MS = 60_000;
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isBackendOnline, setIsBackendOnline] = useState(true);
-  const [backgroundImage, setBackgroundImage] = useState<string | null>(() => siteBackgroundCache?.image ?? null);
+  const [background, setBackground] = useState(() => ({
+    media: siteBackgroundCache?.media ?? null,
+    type: siteBackgroundCache?.type ?? null,
+  }));
   const location = useLocation();
   const isShopRoute = location.pathname === '/shop' || location.pathname.startsWith('/shop/');
   const isArtistShopRoute = location.pathname.startsWith('/shop/') && location.pathname !== '/shop';
@@ -50,32 +54,35 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     let active = true;
     const loadBackground = async () => {
       if (siteBackgroundCache && Date.now() - siteBackgroundCache.fetchedAt < SITE_BACKGROUND_CACHE_MS) {
-        setBackgroundImage(siteBackgroundCache.image);
+        setBackground({ media: siteBackgroundCache.media, type: siteBackgroundCache.type });
         return;
       }
       if (!siteBackgroundRequest) {
         siteBackgroundRequest = (async () => {
           try {
             const response = await fetch(apiUrl('/api/site-background'));
-            if (!response.ok) return null;
+            if (!response.ok) return { media: null, type: null };
             const result = await response.json();
-            return typeof result.image === 'string' ? result.image : null;
-          } catch { return null; }
+            const media = typeof result.media === 'string' ? result.media : null;
+            const type = result.type === 'image' || result.type === 'video' ? result.type : null;
+            return { media, type };
+          } catch { return { media: null, type: null }; }
         })();
       }
       try {
-        const image = await siteBackgroundRequest;
-        siteBackgroundCache = { image, fetchedAt: Date.now() };
-        if (active) setBackgroundImage(image);
+        const loaded = await siteBackgroundRequest;
+        siteBackgroundCache = { ...loaded, fetchedAt: Date.now() };
+        if (active) setBackground(loaded);
       } finally {
         siteBackgroundRequest = null;
       }
     };
     const handleBackgroundUpdate = (event: Event) => {
-      const image = (event as CustomEvent<{ image?: unknown }>).detail?.image;
-      const nextImage = typeof image === 'string' ? image : null;
-      siteBackgroundCache = { image: nextImage, fetchedAt: Date.now() };
-      setBackgroundImage(nextImage);
+      const detail = (event as CustomEvent<{ media?: unknown; type?: unknown }>).detail;
+      const media = typeof detail?.media === 'string' ? detail.media : null;
+      const type = detail?.type === 'image' || detail?.type === 'video' ? detail.type : null;
+      siteBackgroundCache = { media, type, fetchedAt: Date.now() };
+      setBackground({ media, type });
     };
     loadBackground();
     window.addEventListener('site-background-updated', handleBackgroundUpdate);
@@ -107,11 +114,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
         )}
        
-        {/* A CSS-only color wash keeps the shared backdrop fast and image-free. */}
+        {/* Use the shared database background when available; retain paint washes as the fallback. */}
         <PaintBackground
           className="fixed inset-0 z-0 overflow-hidden bg-[#111318]"
           overlayClassName={`site-bg-overlay ${location.pathname === '/' ? 'site-bg-overlay-home' : ''}`}
-          image={backgroundImage}
+          media={background.media}
+          mediaType={background.type}
         />
 
 {(!isDesignerRoute || isDesignerDashboardRoute) && <Navbar />}

@@ -123,6 +123,7 @@
 }
 .site-bg-overlay { background: linear-gradient(180deg, rgba(5,7,12,.25), rgba(5,7,12,.12) 48%, rgba(5,7,12,.35)); }
 .site-bg-image { opacity: .3; filter: saturate(.88); transition: opacity .35s ease; }
+.site-bg-video { opacity: .24; filter: saturate(.9) brightness(.82); }
 .site-bg-overlay-home { background: radial-gradient(ellipse at 70% 20%, rgba(25,73,219,.025), transparent 46%), linear-gradient(180deg, rgba(245,241,232,.07), rgba(245,241,232,.1)); }
 .home-shell { width: min(1240px, calc(100% - 48px)); margin-inline: auto; }
 .home-hero { min-height: min(760px, calc(100svh - 108px)); position: relative; display: flex; align-items: center; padding: 56px 0 80px; background: radial-gradient(ellipse at 72% 42%, rgba(226,218,196,.14), transparent 42%), rgba(245,241,232,.12); }

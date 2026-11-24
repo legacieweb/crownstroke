@@ -157,7 +157,16 @@ const imageAsDataUrl = async (file: File, maxDimension = 960, maxBytes = 140 * 1
   });
 };
 
-const siteBackgroundRequest = async (method: 'GET' | 'PUT', image?: string | null) => {
+const fileAsDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result));
+  reader.onerror = () => reject(new Error('Could not read that video file.'));
+  reader.readAsDataURL(file);
+});
+
+type BackgroundType = 'image' | 'video';
+
+const siteBackgroundRequest = async (method: 'GET' | 'PUT', media?: string | null, type?: BackgroundType | null) => {
   const session = JSON.parse(localStorage.getItem('pod_user') || 'null');
   const endpoint = method === 'GET' ? '/api/site-background' : '/api/admin/site-background';
   const response = await fetch(apiUrl(endpoint), {
@@ -166,18 +175,20 @@ const siteBackgroundRequest = async (method: 'GET' | 'PUT', image?: string | nul
       'Content-Type': 'application/json',
       ...(session?.planToken ? { Authorization: `Bearer ${session.planToken}` } : {}),
     },
-    ...(method === 'PUT' ? { body: JSON.stringify({ image }) } : {}),
+    ...(method === 'PUT' ? { body: JSON.stringify({ media, type }) } : {}),
   });
   const text = await response.text();
   let result: any = {};
   try { result = text ? JSON.parse(text) : {}; } catch { /* Keep the server message readable below. */ }
   if (!response.ok) throw new Error(result.error || `Could not update the site background (${response.status}).`);
-  return result as { image: string | null };
+  return result as { media: string | null; type: BackgroundType | null };
 };
 
 const SiteAppearancePanel: React.FC = () => {
-  const [savedImage, setSavedImage] = useState<string | null>(null);
-  const [draftImage, setDraftImage] = useState<string | null>(null);
+  const [savedMedia, setSavedMedia] = useState<string | null>(null);
+  const [draftMedia, setDraftMedia] = useState<string | null>(null);
+  const [savedType, setSavedType] = useState<BackgroundType | null>(null);
+  const [draftType, setDraftType] = useState<BackgroundType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -186,29 +197,36 @@ const SiteAppearancePanel: React.FC = () => {
   useEffect(() => {
     let active = true;
     siteBackgroundRequest('GET')
-      .then(({ image }) => { if (active) { setSavedImage(image); setDraftImage(image); } })
+      .then(({ media, type }) => { if (active) { setSavedMedia(media); setDraftMedia(media); setSavedType(type); setDraftType(type); } })
       .catch((err) => { if (active) setError(err instanceof Error ? err.message : 'Could not load the current background.'); })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, []);
 
-  const chooseImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const chooseMedia = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
     setError(''); setMessage('');
-    if (!file.type.startsWith('image/')) { setError('Choose an image file to use as the site background.'); return; }
-    try { setDraftImage(await imageAsDataUrl(file, 1920, 600 * 1024)); }
+    if (file.type.startsWith('video/')) {
+      if (!['video/mp4', 'video/webm'].includes(file.type)) { setError('Choose an MP4 or WebM video.'); return; }
+      if (file.size > 8 * 1024 * 1024) { setError('Background videos must be 8 MB or smaller.'); return; }
+      try { setDraftMedia(await fileAsDataUrl(file)); setDraftType('video'); }
+      catch (err) { setError(err instanceof Error ? err.message : 'Could not prepare that video.'); }
+      return;
+    }
+    if (!file.type.startsWith('image/')) { setError('Choose an image or MP4/WebM video for the site background.'); return; }
+    try { setDraftMedia(await imageAsDataUrl(file, 1920, 600 * 1024)); setDraftType('image'); }
     catch (err) { setError(err instanceof Error ? err.message : 'Could not prepare that image.'); }
   };
 
-  const saveImage = async (image: string | null) => {
+  const saveMedia = async (media: string | null, type: BackgroundType | null) => {
     setIsSaving(true); setError(''); setMessage('');
     try {
-      const result = await siteBackgroundRequest('PUT', image);
-      setSavedImage(result.image); setDraftImage(result.image);
-      window.dispatchEvent(new CustomEvent('site-background-updated', { detail: { image: result.image } }));
-      setMessage(result.image ? 'Background saved and applied across the site.' : 'Custom background removed from the site.');
+      const result = await siteBackgroundRequest('PUT', media, type);
+      setSavedMedia(result.media); setDraftMedia(result.media); setSavedType(result.type); setDraftType(result.type);
+      window.dispatchEvent(new CustomEvent('site-background-updated', { detail: { media: result.media, type: result.type } }));
+      setMessage(result.media ? 'Background saved and applied across the site.' : 'Custom background removed from the site.');
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not save the site background.'); }
     finally { setIsSaving(false); }
   };
@@ -218,28 +236,28 @@ const SiteAppearancePanel: React.FC = () => {
       <div className="mb-5">
         <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-lime-200">Site appearance</p>
         <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">Platform background</h2>
-        <p className="mt-1 text-sm text-white/50">Choose one optimized image to appear behind every page on Crownstroke.</p>
+        <p className="mt-1 text-sm text-white/50">Choose an image or a short looping video to appear behind every page on Crownstroke.</p>
       </div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,.6fr)]">
         <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 sm:min-h-[340px]">
-          {draftImage ? <img src={draftImage} alt="Preview of the platform background" className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_30%_20%,rgba(132,204,22,.16),transparent_45%),linear-gradient(135deg,#111827,#080c13)]"><div className="text-center"><ImagePlus className="mx-auto mb-3 h-9 w-9 text-lime-200" /><p className="text-sm font-bold text-white">{isLoading ? 'Loading current background…' : 'No custom background yet'}</p><p className="mt-1 text-xs text-white/45">The animated studio color wash will show here.</p></div></div>}
+          {draftMedia ? draftType === 'video' ? <video key={draftMedia} src={draftMedia} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" aria-label="Preview of the platform background video" /> : <img src={draftMedia} alt="Preview of the platform background" className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_30%_20%,rgba(132,204,22,.16),transparent_45%),linear-gradient(135deg,#111827,#080c13)]"><div className="text-center"><ImagePlus className="mx-auto mb-3 h-9 w-9 text-lime-200" /><p className="text-sm font-bold text-white">{isLoading ? 'Loading current background…' : 'No custom background yet'}</p><p className="mt-1 text-xs text-white/45">The animated studio color wash will show here.</p></div></div>}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/45 via-transparent to-slate-950/10" />
           <span className="absolute bottom-3 left-3 rounded-full border border-white/15 bg-black/50 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[.18em] text-white/75 backdrop-blur">Live site preview</span>
         </div>
         <div className="flex flex-col justify-center rounded-2xl border border-white/10 bg-white/[.025] p-4 sm:p-5">
           <h3 className="text-sm font-black text-white">Upload a background</h3>
-          <p className="mt-2 text-xs leading-5 text-white/50">Wide images work best. We resize and compress your image before storing it in the site settings database.</p>
+          <p className="mt-2 text-xs leading-5 text-white/50">Wide images or short, muted looping clips work best. Images are optimized automatically; MP4 and WebM videos can be up to 8 MB.</p>
           <label className="mt-5 inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-lime-200/25 bg-lime-200/10 px-4 text-xs font-extrabold uppercase tracking-wider text-lime-100 transition hover:bg-lime-200/15">
-            <Upload className="h-4 w-4" /> {draftImage ? 'Choose another image' : 'Choose an image'}
-            <input type="file" accept="image/*" className="sr-only" onChange={chooseImage} disabled={isSaving} />
+            <Upload className="h-4 w-4" /> {draftMedia ? 'Choose another background' : 'Choose image or video'}
+            <input type="file" accept="image/*,video/mp4,video/webm" className="sr-only" onChange={chooseMedia} disabled={isSaving} />
           </label>
-          <button type="button" onClick={() => void saveImage(draftImage)} disabled={isSaving || isLoading || draftImage === savedImage} className="mt-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-lime-200 px-4 text-xs font-black uppercase tracking-wider text-slate-950 transition hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-45">
+          <button type="button" onClick={() => void saveMedia(draftMedia, draftType)} disabled={isSaving || isLoading || (draftMedia === savedMedia && draftType === savedType)} className="mt-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-lime-200 px-4 text-xs font-black uppercase tracking-wider text-slate-950 transition hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-45">
             {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {isSaving ? 'Saving…' : 'Save and apply'}
           </button>
-          {savedImage && <button type="button" onClick={() => void saveImage(null)} disabled={isSaving} className="mt-2 inline-flex min-h-11 items-center justify-center rounded-xl border border-white/10 px-4 text-xs font-bold text-white/60 transition hover:bg-white/[.05] hover:text-white disabled:opacity-45">Remove current background</button>}
+          {savedMedia && <button type="button" onClick={() => void saveMedia(null, null)} disabled={isSaving} className="mt-2 inline-flex min-h-11 items-center justify-center rounded-xl border border-white/10 px-4 text-xs font-bold text-white/60 transition hover:bg-white/[.05] hover:text-white disabled:opacity-45">Remove current background</button>}
           {error && <p role="alert" className="mt-4 text-xs leading-5 text-rose-200">{error}</p>}
           {message && <p role="status" className="mt-4 text-xs leading-5 text-emerald-200">{message}</p>}
-          <p className="mt-4 text-[10px] leading-4 text-white/35">JPEG, PNG, or WebP · image is compressed before it is saved.</p>
+          <p className="mt-4 text-[10px] leading-4 text-white/35">JPEG, PNG, WebP, MP4, or WebM · optimized media is saved in site settings.</p>
         </div>
       </div>
     </motion.section>

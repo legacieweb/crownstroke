@@ -87,6 +87,15 @@ app.use((req, res, next) => {
 
   const isDatabaseProxy = req.path === '/api/db' && req.method === 'POST';
   const isLimitedProductApi = req.path.startsWith('/api/admin/limited-editions');
+  const isBackgroundUpload = req.path === '/api/admin/site-background' && req.method === 'PUT';
+  if (isBackgroundUpload) {
+    const authorization = req.header('Authorization');
+    const claims = authorization?.startsWith('Bearer ')
+      ? readPlanToken(authorization.slice('Bearer '.length))
+      : null;
+    express.json({ limit: claims?.role === 'admin' ? '12mb' : '1mb' })(req, res, next);
+    return;
+  }
   if (isLimitedProductApi) {
     const authorization = req.header('Authorization');
     const claims = authorization?.startsWith('Bearer ')
@@ -168,13 +177,14 @@ app.post('/api/auth/refresh-session', async (req, res) => {
   }
 
   try {
-    const [account] = await iyonicDB.query('SELECT id, plan FROM users WHERE id = $1 LIMIT 1', [claims.userId]);
+    const [account] = await iyonicDB.query('SELECT id, plan, role FROM users WHERE id = $1 LIMIT 1', [claims.userId]);
     if (!account?.id) {
       res.status(401).json({ error: 'Account could not be found. Please sign in again.' });
       return;
     }
     const plan = normalizePlan(account.plan);
-    res.json({ planToken: createPlanToken(String(account.id), plan), plan });
+    const role = String(account.role || '').toLowerCase() === 'admin' ? 'admin' : undefined;
+    res.json({ planToken: createPlanToken(String(account.id), plan, role), plan });
   } catch (error) {
     iyonicDBErrorHandler(error, res);
   }
@@ -252,7 +262,8 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const plan = normalizePlan(account.plan);
-    const planToken = createPlanToken(userId, plan);
+    const role = String(account.role || '').toLowerCase() === 'admin' ? 'admin' : undefined;
+    const planToken = createPlanToken(userId, plan, role);
     res.json({
       id: userId,
       email: String(account.email || email),
@@ -1297,16 +1308,22 @@ async function authorizeAdmin(req: express.Request, res: express.Response): Prom
   }
 }
 
-const isBackgroundImageData = (value: unknown): value is string =>
-  typeof value === 'string' && value.length <= 900_000 && /^data:image\/(?:webp|png|jpe?g);base64,/i.test(value);
+type BackgroundMediaType = 'image' | 'video';
+const getBackgroundMediaType = (value: unknown): BackgroundMediaType | null => {
+  if (typeof value !== 'string') return null;
+  if (value.length <= 900_000 && /^data:image\/(?:webp|png|jpe?g);base64,/i.test(value)) return 'image';
+  if (value.length <= 12_000_000 && /^data:video\/(?:mp4|webm);base64,/i.test(value)) return 'video';
+  return null;
+};
 
 app.get('/api/site-background', async (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   try {
     const rows = await iyonicDB.listRows('site_settings', { limit: 100 });
     const setting = rows.find((row: any) => String(row.id) === 'global') || rows[0];
-    const image = setting?.bg_video_url ?? setting?.bgVideoUrl ?? null;
-    res.json({ image: isBackgroundImageData(image) ? image : null });
+    const media = setting?.bg_video_url ?? setting?.bgVideoUrl ?? null;
+    const type = getBackgroundMediaType(media);
+    res.json({ media: type ? media : null, type });
   } catch (err) {
     iyonicDBErrorHandler(err, res);
   }
@@ -1314,20 +1331,21 @@ app.get('/api/site-background', async (_req, res) => {
 
 app.put('/api/admin/site-background', async (req, res) => {
   if (!await authorizeAdmin(req, res)) return;
-  const image = req.body?.image;
-  if (image !== null && !isBackgroundImageData(image)) {
-    res.status(400).json({ error: 'Upload a supported image under the optimized size limit.' });
+  const media = Object.prototype.hasOwnProperty.call(req.body || {}, 'media') ? req.body.media : req.body?.image;
+  const type = media === null ? null : getBackgroundMediaType(media);
+  if (media !== null && !type) {
+    res.status(400).json({ error: 'Upload an optimized image or an MP4/WebM video under the size limit.' });
     return;
   }
   try {
     const rows = await iyonicDB.listRows('site_settings', { limit: 100 });
     const setting = rows.find((row: any) => String(row.id) === 'global') || rows[0];
     if (setting?.id !== undefined && setting?.id !== null) {
-      await iyonicDB.updateRow('site_settings', String(setting.id), { bg_video_url: image });
+      await iyonicDB.updateRow('site_settings', String(setting.id), { bg_video_url: media });
     } else {
-      await iyonicDB.insertRow('site_settings', { id: 'global', bg_video_url: image });
+      await iyonicDB.insertRow('site_settings', { id: 'global', bg_video_url: media });
     }
-    res.json({ image });
+    res.json({ media, type });
   } catch (err) {
     iyonicDBErrorHandler(err, res);
   }
