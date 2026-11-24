@@ -10,6 +10,7 @@ import { CheckCircle2, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal,
 import { db } from '../db';
 import { designerDesigns, designers, shops } from '../db/schema';
 import { PRODUCT_DATA } from '../data/seed';
+import { apiUrl } from '../services/apiUrl';
 
 
 type SortMode = 'featured' | 'price-low' | 'price-high' | 'name';
@@ -61,7 +62,7 @@ const Shop: React.FC = () => {
 
     description:
       'Discover original products listed by independent designers in their own Crownstroke shops.',
-    canonicalUrl: `${CROWNSTROKE_BASE.url}/shop`,
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/#/shop`,
     ogImage: CROWNSTROKE_BASE.ogImage,
     robots: 'index,follow'
   });
@@ -80,7 +81,7 @@ const Shop: React.FC = () => {
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const [featured, designerRows, shopRows] = await Promise.all([
+        const [featured, designerRows, shopRows, limitedResponse] = await Promise.all([
           db.select({
             id: designerDesigns.id,
             name: designerDesigns.name,
@@ -93,6 +94,7 @@ const Shop: React.FC = () => {
           }).from(designerDesigns),
           db.select({ id: designers.id, name: designers.name, email: designers.email }).from(designers),
           db.select({ id: shops.id, name: shops.name, slug: shops.slug }).from(shops),
+          fetch(apiUrl('/api/limited-editions')).then((response) => response.ok ? response.json() : []).catch(() => []),
         ]);
 
         const designersById = new Map(designerRows.map((designer) => [String(designer.id).toLowerCase(), designer]));
@@ -100,9 +102,12 @@ const Shop: React.FC = () => {
         const dbProducts: Product[] = featured.map((f) => {
           const designer = designersById.get(String(f.designerId).toLowerCase());
           const shop = shopsById.get(String(f.shopId).toLowerCase());
-          const designData = (f.designData || {}) as { activeSide?: 'front' | 'back'; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
+          const designData = (f.designData || {}) as { activeSide?: 'front' | 'back'; color?: string; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
           const productMockups = PRODUCT_DATA[f.productId] || {};
-          const blankMockups = productMockups['#ffffff'] || productMockups[Object.keys(productMockups)[0]] || {};
+          const garmentColor = designData.color && productMockups[designData.color]
+            ? designData.color
+            : Object.keys(productMockups)[0];
+          const blankMockups = productMockups[garmentColor] || {};
           const sideImage = (side: 'front' | 'back') => designData[side]?.objects?.length
             ? designData.previews?.[side] || (designData.activeSide === side ? f.preview : blankMockups[side]) || f.preview
             : blankMockups[side] || f.preview;
@@ -116,6 +121,7 @@ const Shop: React.FC = () => {
             category: f.productId as Product['category'],
             isCustomizable: false,
             images: { front: sideImage('front'), back: sideImage('back') },
+            garmentColor,
             previewOrder: designData.back?.objects?.length && !designData.front?.objects?.length ? ['back', 'front'] : ['front', 'back'],
             designerEmail: designer?.email,
             designerId: f.designerId,
@@ -126,7 +132,14 @@ const Shop: React.FC = () => {
           };
         });
 
-        setProducts([...blankProducts, ...dbProducts]);
+        const limitedProducts: Product[] = limitedResponse.map((row: any) => ({
+          id: String(row.id), name: row.name, description: row.description || 'A Crownstroke limited edition collectible.',
+          price: row.price, image: row.front_image ?? row.frontImage, category: 'art-design', isCustomizable: false,
+          images: { front: row.front_image ?? row.frontImage, back: row.back_image ?? row.backImage },
+          extraImages: row.extra_images ?? row.extraImages ?? [],
+          previewOrder: ['front', 'back'],
+        }));
+        setProducts([...blankProducts, ...limitedProducts, ...dbProducts]);
       } catch (err) {
         console.error('Failed to fetch shop products:', err);
         setProducts(blankProducts);

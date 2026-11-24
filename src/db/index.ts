@@ -65,9 +65,10 @@ const proxy = async (sql: string, params: any[], method: 'all' | 'execute') => {
 
   try {
     let authorization = '';
+    let session: any = null;
     if (typeof localStorage !== 'undefined') {
       try {
-        const session = JSON.parse(localStorage.getItem('pod_user') || 'null');
+        session = JSON.parse(localStorage.getItem('pod_user') || 'null');
         if (typeof session?.planToken === 'string') {
           authorization = `Bearer ${session.planToken}`;
         }
@@ -76,14 +77,30 @@ const proxy = async (sql: string, params: any[], method: 'all' | 'execute') => {
       }
     }
 
-    const response = await fetch(url, {
+    const makeRequest = (auth: string) => fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(authorization ? { Authorization: authorization } : {}),
+        ...(auth ? { Authorization: auth } : {}),
       },
       body: JSON.stringify({ query: sql, params: serializedParams, isValues: method === 'all' }),
     });
+
+    let response = await makeRequest(authorization);
+    if (response.status === 401 && authorization && session?.planToken) {
+      const refreshResponse = await fetch(`${API_URL}/api/auth/refresh-session`, {
+        method: 'POST',
+        headers: { Authorization: authorization },
+      });
+      const refreshed = await refreshResponse.json().catch(() => ({}));
+      if (refreshResponse.ok && typeof refreshed.planToken === 'string') {
+        const updatedSession = { ...session, planToken: refreshed.planToken };
+        if (refreshed.plan) updatedSession.plan = refreshed.plan;
+        localStorage.setItem('pod_user', JSON.stringify(updatedSession));
+        authorization = `Bearer ${refreshed.planToken}`;
+        response = await makeRequest(authorization);
+      }
+    }
 
     const responseText = await response.text();
     console.log(`[DB Proxy] Response status: ${response.status}`, responseText.substring(0, 500));

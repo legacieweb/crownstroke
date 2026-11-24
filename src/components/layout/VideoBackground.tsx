@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import backgroundVideo from '../../../video.mp4';
+import backgroundPoster from '../../../video-background-preview.png';
 
 export const DEFAULT_BG_VIDEO_URL = backgroundVideo;
 
@@ -51,6 +52,7 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
         muted
         playsInline
         preload="none"
+        poster={backgroundPoster}
         onCanPlay={() => { void videoRef.current?.play().catch(() => {}); }}
         onError={handleVideoError}
         className={videoClassName}

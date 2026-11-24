@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Layout from '../components/layout/Layout';
 import { useSeo } from '../hooks/useSeo';
 import { CROWNSTROKE_BASE } from './SeoDefaults';
 import Button from '../components/ui/Button';
-import { ShoppingCart, Palette, ChevronLeft, Minus, Plus, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
+import { ShoppingCart, Palette, ChevronLeft, ChevronRight, Minus, Plus, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
 import { useCart } from '../store/CartContext';
 import { Product } from '../types';
 import { db } from '../db';
 import { designerDesigns, designers, shops } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { PRODUCT_DATA } from '../data/seed';
+import { apiUrl } from '../services/apiUrl';
 
 const ProductDetail: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -26,12 +27,33 @@ const ProductDetail: React.FC = () => {
   const [selectedSize, setSelectedSize] = useState<string>('M');
   const [quantity, setQuantity] = useState(1);
 
+  const productStructuredData = useMemo(() => {
+    if (!product || !productId) return undefined;
+    const productUrl = `${CROWNSTROKE_BASE.url}/#/product/${encodeURIComponent(productId)}`;
+    const image = typeof product.image === 'string' && /^https?:\/\//i.test(product.image) ? product.image : undefined;
+    return {
+      '@type': 'Product',
+      name: product.name,
+      description: product.description,
+      sku: String(product.id),
+      ...(image ? { image: [image] } : {}),
+      brand: { '@type': 'Brand', name: 'Crownstroke' },
+      offers: {
+        '@type': 'Offer',
+        url: productUrl,
+        priceCurrency: 'KES',
+        price: Number(product.price).toFixed(2),
+      },
+    };
+  }, [product, productId]);
+
   useSeo({
     title: product ? `${product.name} | Crownstroke` : 'Product details | Crownstroke',
-    description: product?.description || 'Shop customizable blank products and original work from independent designers.',
-    canonicalUrl: `${CROWNSTROKE_BASE.url}/product`,
+    description: product?.description || 'Explore custom apparel, art prints and original designs from independent Kenyan creators.',
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/#/product/${encodeURIComponent(productId || '')}`,
     ogImage: product?.image || CROWNSTROKE_BASE.ogImage,
-    robots: 'index,follow'
+    robots: 'index,follow',
+    structuredData: productStructuredData,
   });
 
   useEffect(() => {
@@ -81,33 +103,59 @@ const ProductDetail: React.FC = () => {
             const designer = designerRows[0];
             const shop = shopRows[0];
             const designerName = designer?.name || 'an independent designer';
-            const savedDesign = (d.designData || {}) as { activeSide?: 'front' | 'back'; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
+            const savedDesign = (d.designData || {}) as { activeSide?: 'front' | 'back'; color?: string; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
             const hasSideArtwork = (side: 'front' | 'back') => Boolean(savedDesign[side]?.objects?.length);
             const productMockups = PRODUCT_DATA[d.productId] || {};
-            const blankMockups = productMockups['#ffffff'] || productMockups[Object.keys(productMockups)[0]] || {};
+            const savedColor = savedDesign.color && productMockups[savedDesign.color]
+              ? savedDesign.color
+              : productMockups['#ffffff'] ? '#ffffff' : Object.keys(productMockups)[0];
+            const blankMockups = productMockups[savedColor] || productMockups[Object.keys(productMockups)[0]] || {};
             const frontPreview = hasSideArtwork('front')
               ? savedDesign.previews?.front || (savedDesign.activeSide === 'front' ? d.preview : undefined) || blankMockups.front || d.preview
               : blankMockups.front || d.preview;
             const backPreview = hasSideArtwork('back')
               ? savedDesign.previews?.back || (savedDesign.activeSide === 'back' ? d.preview : undefined) || blankMockups.back || d.preview
               : blankMockups.back || d.preview;
+            const frontHasArt = hasSideArtwork('front');
+            const backHasArt = hasSideArtwork('back');
+            const initialSide: 'front' | 'back' = frontHasArt && !backHasArt
+              ? 'front'
+              : backHasArt && !frontHasArt
+                ? 'back'
+                : savedDesign.activeSide || 'front';
+            const initialPreview = initialSide === 'front' ? frontPreview : backPreview;
 
             foundProduct = {
               id: d.id,
               name: d.name,
               description: 'An original design by ' + designerName + ', printed on demand' + (shop?.name ? ' and sold through ' + shop.name : '') + '.',
               price: d.price ?? 0,
-              image: d.preview,
+              image: initialPreview,
               category: d.productId as Product['category'],
               isCustomizable: false,
               images: { front: frontPreview, back: backPreview },
-              previewOrder: hasSideArtwork('back') && !hasSideArtwork('front') ? ['back', 'front'] : ['front', 'back'],
+              colors: productMockups[savedColor] ? [savedColor] : undefined,
+              garmentColor: savedColor,
+              previewOrder: initialSide === 'back' ? ['back', 'front'] : ['front', 'back'],
               designerEmail: designer?.email,
               designerId: d.designerId,
               designerName: designer?.name || undefined,
               shopName: shop?.name || undefined,
               shopSlug: shop?.slug || undefined,
             };
+          } else {
+            const response = await fetch(apiUrl('/api/limited-editions'));
+            const limitedRows = response.ok ? await response.json() : [];
+            const limited = limitedRows.find((row: any) => String(row.id) === productId);
+            if (limited) {
+              foundProduct = {
+                id: String(limited.id), name: limited.name,
+                description: limited.description || 'A Crownstroke limited edition collectible.',
+                price: limited.price, image: limited.front_image ?? limited.frontImage, category: 'art-design', isCustomizable: false,
+                images: { front: limited.front_image ?? limited.frontImage, back: limited.back_image ?? limited.backImage },
+                extraImages: limited.extra_images ?? limited.extraImages ?? [],
+              };
+            }
           }
         }
 
@@ -172,9 +220,19 @@ const ProductDetail: React.FC = () => {
   }
 
   const gallerySides = product.previewOrder || ['front', 'back'];
-  const galleryImages = product.images?.front || product.images?.back
-    ? gallerySides.map((side) => product.images?.[side] || product.image)
-    : [product.image];
+  const colorName = product.garmentColor === '#000000' ? 'Black' : product.garmentColor === '#ffffff' ? 'White' : product.garmentColor;
+  const galleryItems = (product.images?.front || product.images?.back
+    ? gallerySides.map((side) => ({ image: product.images?.[side] || product.image, side, label: `${side}${product.garmentColor ? ` · ${colorName}` : ''}` }))
+    : [{ image: product.image, side: undefined, label: 'Product' }])
+    .concat((product.extraImages || []).map((image, index) => ({ image, side: undefined, label: `Detail ${index + 1}` })));
+  const selectedGalleryIndex = Math.max(0, galleryItems.findIndex((item) => item.image === selectedImage));
+  const showGalleryItem = (index: number) => {
+    const safeIndex = (index + galleryItems.length) % galleryItems.length;
+    const item = galleryItems[safeIndex];
+    setSelectedImage(item.image);
+    if (item.side === 'front') setSelectedPrintOrientation('portrait');
+    if (item.side === 'back') setSelectedPrintOrientation('landscape');
+  };
 
   return (
     <Layout>
@@ -196,25 +254,25 @@ const ProductDetail: React.FC = () => {
                   alt={product.name} 
                   className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.025]"
                 />
+                {galleryItems.length > 1 && <>
+                  <button type="button" onClick={() => showGalleryItem(selectedGalleryIndex - 1)} aria-label="Show previous product image" className="absolute left-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/55 text-white shadow-lg backdrop-blur transition hover:bg-black/80"><ChevronLeft className="h-5 w-5" /></button>
+                  <button type="button" onClick={() => showGalleryItem(selectedGalleryIndex + 1)} aria-label="Show next product image" className="absolute right-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/55 text-white shadow-lg backdrop-blur transition hover:bg-black/80"><ChevronRight className="h-5 w-5" /></button>
+                  <span className="absolute bottom-4 right-4 rounded-full border border-white/15 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white backdrop-blur">{selectedGalleryIndex + 1} / {galleryItems.length} · {galleryItems[selectedGalleryIndex]?.label}</span>
+                </>}
               </motion.div>
 
-              {galleryImages.length > 1 && (
-                <div className="grid grid-cols-3 gap-3">
-                  {galleryImages.map((img, idx) => (
+              {galleryItems.length > 1 && (
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {galleryItems.map((item, idx) => (
                     <button
                       key={idx}
-                      onClick={() => {
-                        setSelectedImage(img!);
-                        if (product.category === 'poster' || product.category === 'art-design') {
-                          setSelectedPrintOrientation(gallerySides[idx] === 'back' ? 'landscape' : 'portrait');
-                        }
-                      }}
+                      onClick={() => showGalleryItem(idx)}
                       className={`relative aspect-[4/5] overflow-hidden rounded-lg border transition ${
-                        selectedImage === img ? 'border-primary-500' : 'border-white/25 hover:border-white/50'
+                        selectedGalleryIndex === idx ? 'border-primary-500' : 'border-white/25 hover:border-white/50'
                       }`}
                     >
-                      <img src={img} alt={`${product.name} ${gallerySides[idx] || 'product'} view`} className="h-full w-full object-contain bg-black/20" />
-                      <span className="absolute inset-x-1 bottom-1 rounded-md bg-black/70 px-1 py-1 text-center text-[8px] font-black uppercase tracking-widest text-white">{gallerySides[idx] || 'Product'}</span>
+                      <img src={item.image} alt={`${product.name} ${item.label} view`} className="h-full w-full object-contain bg-black/20" />
+                      <span className="absolute inset-x-1 bottom-1 rounded-md bg-black/70 px-1 py-1 text-center text-[8px] font-black uppercase tracking-widest text-white">{item.label}</span>
                     </button>
                   ))}
                 </div>
@@ -283,7 +341,7 @@ const ProductDetail: React.FC = () => {
                           if (product.category === 'poster' || product.category === 'art-design') {
                             const side = selectedPrintOrientation === 'portrait' ? 'front' : 'back';
                             setSelectedImage(colorImages?.[side] || (side === 'front' ? product.images?.front : product.images?.back) || product.image);
-                          } else if (!product.images || product.images.front === product.image) {
+                          } else if (product.isCustomizable && (!product.images || product.images.front === product.image)) {
                             setSelectedImage(colorImages?.front || product.image);
                           }
                         }}

@@ -3,9 +3,9 @@ import { useEffect } from 'react';
 type SeoParams = {
   title: string;
   description?: string;
-  keywords?: string;
   canonicalUrl?: string;
   ogImage?: string;
+  structuredData?: Record<string, unknown>;
   robots?: string;
   locale?: string;
 };
@@ -40,7 +40,7 @@ const upsertLink = (selector: string, create: () => HTMLLinkElement) => {
   return created;
 };
 
-export const useSeo = ({ title, description, keywords, canonicalUrl, ogImage, robots }: SeoParams) => {
+export const useSeo = ({ title, description, canonicalUrl, ogImage, structuredData, robots }: SeoParams) => {
   useEffect(() => {
     const baseTitle = title?.trim() ? title.trim() : 'Crownstroke';
     document.title = baseTitle;
@@ -49,17 +49,10 @@ export const useSeo = ({ title, description, keywords, canonicalUrl, ogImage, ro
       description?.trim() ||
       'Crownstroke — Elite custom design tools and a marketplace of designer drops. Create, deploy, and shop premium artifacts.';
 
-    const defaultKeywords =
-      keywords?.trim() ||
-      'custom design, design tools, marketplace, Crownstroke';
-
     upsertMeta({ type: 'name', value: 'description' }, defaultDescription);
-    upsertMeta({ type: 'name', value: 'keywords' }, defaultKeywords);
 
     // Robots
-    if (robots) {
-      upsertMeta({ type: 'name', value: 'robots' }, robots);
-    }
+    upsertMeta({ type: 'name', value: 'robots' }, robots || 'index,follow');
 
     const url = canonicalUrl || window.location.href;
 
@@ -81,10 +74,16 @@ export const useSeo = ({ title, description, keywords, canonicalUrl, ogImage, ro
     upsertMeta({ type: 'property', value: 'og:description' }, defaultDescription);
     upsertMeta({ type: 'property', value: 'og:type' }, 'website');
     upsertMeta({ type: 'property', value: 'og:url' }, url);
+    upsertMeta({ type: 'property', value: 'og:site_name' }, 'Crownstroke');
+    upsertMeta({ type: 'property', value: 'og:locale' }, 'en_KE');
 
-    const finalOgImage = ogImage || (window as any).__CROWNSTROKE_OG_IMAGE__;
+    const imageCandidate = ogImage || (window as any).__CROWNSTROKE_OG_IMAGE__;
+    const finalOgImage = typeof imageCandidate === 'string' && !imageCandidate.startsWith('data:')
+      ? imageCandidate
+      : 'https://i.imgur.com/1PBylbz.png';
     if (finalOgImage) {
       upsertMeta({ type: 'property', value: 'og:image' }, finalOgImage);
+      upsertMeta({ type: 'property', value: 'og:image:alt' }, `${baseTitle} — Crownstroke`);
     }
 
     // Twitter
@@ -102,6 +101,7 @@ export const useSeo = ({ title, description, keywords, canonicalUrl, ogImage, ro
       '@graph': [
         {
           '@type': 'Organization',
+          '@id': 'https://crownstroke.iyonicorp.com/#organization',
           name: 'Crownstroke',
           url: 'https://crownstroke.iyonicorp.com/',
           logo: 'https://i.imgur.com/1PBylbz.png'
@@ -110,12 +110,9 @@ export const useSeo = ({ title, description, keywords, canonicalUrl, ogImage, ro
           '@type': 'WebSite',
           name: 'Crownstroke',
           url: 'https://crownstroke.iyonicorp.com/',
-          potentialAction: {
-            '@type': 'SearchAction',
-            target: 'https://crownstroke.iyonicorp.com/#/shop',
-            'query-input': 'required name=search_term'
-          }
-        }
+          publisher: { '@id': 'https://crownstroke.iyonicorp.com/#organization' }
+        },
+        ...(structuredData ? [structuredData] : [])
       ]
     };
 
@@ -128,6 +125,6 @@ export const useSeo = ({ title, description, keywords, canonicalUrl, ogImage, ro
     } else {
       (existingLd as HTMLScriptElement).text = JSON.stringify(ld);
     }
-  }, [title, description, canonicalUrl, ogImage, robots]);
+  }, [title, description, canonicalUrl, ogImage, structuredData, robots]);
 };
 

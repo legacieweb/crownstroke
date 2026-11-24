@@ -20,11 +20,18 @@ import {
   Store,
   Trash2,
   Users,
-  X
+  X,
+  Upload,
+  Plus,
+  ImagePlus,
+  Sparkles,
+  Tag,
+  Pencil
 } from 'lucide-react';
 import Preloader from '../components/ui/Preloader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
+import { apiUrl } from '../services/apiUrl';
 
 interface Design {
   id: string;
@@ -100,12 +107,77 @@ const flagFields = [
 const designFlagFields = new Set(flagFields.map((field) => field.key));
 
 const tabs = [
+  { id: 'limited', label: 'Limited editions', icon: Sparkles },
   { id: 'designs', label: 'Designs', icon: Palette },
   { id: 'orders', label: 'Orders', icon: Package },
   { id: 'designers', label: 'Designers', icon: Store }
 ] as const;
 
 type AdminTab = typeof tabs[number]['id'];
+
+interface LimitedProduct {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  front: string;
+  back: string;
+  extras: string[];
+  createdAt: string;
+}
+
+
+const imageAsDataUrl = async (file: File): Promise<string> => {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 960 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Could not process image.');
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  let blob: Blob | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const quality = [0.58, 0.48, 0.4, 0.34, 0.3][attempt];
+    blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
+    if (!blob) throw new Error('Could not compress image.');
+    if (blob.size <= 140 * 1024) break;
+    canvas.width = Math.max(1, Math.round(canvas.width * 0.82));
+    canvas.height = Math.max(1, Math.round(canvas.height * 0.82));
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  }
+  bitmap.close();
+  if (!blob) throw new Error('Could not compress image.');
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Could not read optimized image.'));
+    reader.readAsDataURL(blob as Blob);
+  });
+};
+
+const limitedEditionsRequest = async (path: string, init: RequestInit = {}) => {
+  const session = JSON.parse(localStorage.getItem('pod_user') || 'null');
+  const response = await fetch(apiUrl(path), {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(session?.planToken ? { Authorization: `Bearer ${session.planToken}` } : {}),
+      ...init.headers,
+    },
+  });
+  if (response.status === 204) return null;
+  const responseText = await response.text();
+  let body: any = {};
+  try { body = responseText ? JSON.parse(responseText) : {}; } catch { /* Show a clear deployment/API error below. */ }
+  if (!response.ok) {
+    if (response.status === 404) throw new Error('The limited-edition API is not available on this server yet. Deploy the latest server update, then retry.');
+    throw new Error(body.error || `Request failed (${response.status})`);
+  }
+  if (!responseText) throw new Error('The server returned an empty response. Please retry.');
+  if (!body || typeof body !== 'object') throw new Error('The server returned an invalid response. Please retry.');
+  return body;
+};
 
 const normalizeUuid = (v: any): string => {
   if (v == null) return '';
@@ -143,6 +215,114 @@ const normalizeItems = (items: unknown): OrderItem[] => {
 };
 
 const money = (value: number | undefined) => `KES ${(value ?? 0).toLocaleString()}`;
+
+const LimitedEditionsPanel: React.FC = () => {
+  const [products, setProducts] = useState<LimitedProduct[]>([]);
+  const [editingProduct, setEditingProduct] = useState<LimitedProduct | null>(null);
+  const [productName, setProductName] = useState('');
+  const [productPrice, setProductPrice] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [front, setFront] = useState('');
+  const [back, setBack] = useState('');
+  const [extras, setExtras] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [processingImages, setProcessingImages] = useState(0);
+  const [error, setError] = useState('');
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+
+  const refreshProducts = async () => {
+    try {
+      const rows = await limitedEditionsRequest('/api/admin/limited-editions');
+      setProducts(rows.map((row: any) => ({ id: String(row.id), name: row.name, description: row.description || '', price: Number(row.price), front: row.front_image ?? row.frontImage, back: row.back_image ?? row.backImage, extras: row.extra_images ?? row.extraImages ?? [], createdAt: String(row.created_at ?? row.createdAt ?? '') })));
+    } catch (err) { setError(err instanceof Error ? err.message : 'Could not load limited editions from IyonicDB.'); }
+  };
+  useEffect(() => { void refreshProducts(); }, []);
+
+  const loadOne = async (file?: File) => {
+    if (!file) return '';
+    setProcessingImages((count) => count + 1);
+    try { return await imageAsDataUrl(file); }
+    finally { setProcessingImages((count) => Math.max(0, count - 1)); }
+  };
+  const saveProduct = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const name = String(form.get('name') || '').trim();
+    const price = Number(form.get('price'));
+    if (!name || (!editingProduct && (!front || !back)) || !Number.isFinite(price) || price <= 0) {
+      setError('Add a name, price, and both front and back images to continue.'); return;
+    }
+    setSaving(true); setError('');
+    try {
+      const payload = { name, description: String(form.get('description') || '').trim(), price, front_image: front, back_image: back, extra_images: extras };
+      if (editingProduct) {
+        await limitedEditionsRequest(`/api/admin/limited-editions/${encodeURIComponent(editingProduct.id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+      } else {
+        await limitedEditionsRequest('/api/admin/limited-editions', { method: 'POST', body: JSON.stringify(payload) });
+      }
+      await refreshProducts(); resetEditor(formElement);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save this edition to IyonicDB. Please try again.');
+    } finally { setSaving(false); }
+  };
+  const resetEditor = (form?: HTMLFormElement) => {
+    setEditingProduct(null); setProductName(''); setProductPrice(''); setProductDescription('');
+    setFront(''); setBack(''); setExtras([]); form?.reset();
+  };
+  const editProduct = (product: LimitedProduct) => {
+    setEditingProduct(product); setProductName(product.name); setProductPrice(String(product.price));
+    setProductDescription(product.description); setFront(product.front); setBack(product.back); setExtras(product.extras || []);
+    setError(''); document.getElementById('limited-edition-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const removeProduct = async (id: string) => {
+    const product = products.find((item) => item.id === id);
+    if (!window.confirm(`Delete “${product?.name || 'this edition'}” permanently?`)) return;
+    setDeletingProductId(id); setError('');
+    try {
+      await limitedEditionsRequest(`/api/admin/limited-editions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      setProducts((current) => current.filter((item) => item.id !== id));
+      if (editingProduct?.id === id) resetEditor();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove this edition from IyonicDB.');
+    } finally { setDeletingProductId(null); }
+  };
+  const imageField = (label: string, image: string, onImage: (value: string) => void, required = false) => (
+    <label className="group relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-white/20 bg-white/[.025] text-center transition hover:border-lime-200/50 hover:bg-white/[.05]">
+      {image ? <img src={image} alt={`${label} preview`} className="absolute inset-0 h-full w-full object-cover" /> : <><ImagePlus className="mb-3 h-7 w-7 text-lime-200" /><span className="text-xs font-bold text-white">{label}</span><span className="mt-1 text-[10px] text-white/40">PNG, JPG or WEBP · optimized on upload</span></>}
+      {image && <span className="absolute bottom-2 left-2 rounded-lg bg-black/70 px-2 py-1 text-[10px] font-bold text-white">Replace {label}</span>}
+      <input type="file" accept="image/*" required={required && !image} className="sr-only" onChange={async (e) => { const input = e.currentTarget; try { onImage(await loadOne(input.files?.[0])); } catch { setError('Could not process that image. Please choose another file.'); } }} />
+    </label>
+  );
+
+  return <section className="p-4 sm:p-7">
+    <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div><p className="text-[10px] font-extrabold uppercase tracking-[.2em] text-lime-200">The Crownstroke vault</p><h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Limited edition products</h2><p className="mt-2 max-w-xl text-sm leading-6 text-white/55">Build a collectible drop with a complete view of every detail, from both sides to the finishing shots.</p></div>
+      <span className="inline-flex w-fit items-center gap-2 rounded-full border border-lime-200/20 bg-lime-200/[.08] px-3 py-2 text-[10px] font-extrabold uppercase tracking-wider text-lime-100"><Sparkles className="h-3.5 w-3.5" /> {products.length} in the vault</span>
+    </div>
+    <form id="limited-edition-editor" onSubmit={saveProduct} className="grid scroll-mt-24 gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">
+        <div className="mb-4 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-lime-200/10 text-lime-200"><Upload className="h-4 w-4" /></span><div><h3 className="text-sm font-black text-white">Product imagery</h3><p className="text-[11px] text-white/45">Front and back are required. Add detail shots as needed.</p></div></div>
+        <div className="grid gap-3 sm:grid-cols-2">{imageField('Front image', front, setFront, true)}{imageField('Back image', back, setBack, true)}</div>
+        <label className="mt-4 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.03] px-4 text-xs font-bold text-white/70 transition hover:border-white/20 hover:text-white"><Plus className="h-4 w-4" /> Add extra images ({extras.length})<input type="file" accept="image/*" multiple className="sr-only" onChange={async (e) => { const input = e.currentTarget; const files = Array.from(input.files || []); try { const loaded = await Promise.all(files.map(loadOne)); setExtras((current) => [...current, ...loaded]); } catch { setError('Could not process one of those images.'); } input.value = ''; }} /></label>
+        {!!extras.length && <div className="mt-3 flex flex-wrap gap-2">{extras.map((src, i) => <button type="button" key={`${src.slice(-20)}-${i}`} onClick={() => setExtras((current) => current.filter((_, index) => index !== i))} title="Remove image" className="relative h-16 w-16 overflow-hidden rounded-xl border border-white/15"><img src={src} alt={`Extra product view ${i + 1}`} className="h-full w-full object-cover" /><span className="absolute inset-0 grid place-items-center bg-black/50 text-xs font-bold opacity-0 hover:opacity-100">Remove</span></button>)}</div>}
+      </div>
+      <div className="rounded-3xl border border-white/10 bg-white/[.025] p-4 sm:p-6">
+        <div className="mb-5"><h3 className="text-sm font-black text-white">Drop details</h3><p className="mt-1 text-[11px] text-white/45">Give this piece a name and a price.</p></div>
+        <label className="mb-4 block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Product name<input name="name" value={productName} onChange={(e) => setProductName(e.target.value)} required maxLength={100} placeholder="e.g. After Hours — No. 01" className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm font-semibold normal-case tracking-normal text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></label>
+        <label className="mb-4 block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Price · KES<div className="relative mt-2"><Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lime-200" /><input name="price" value={productPrice} onChange={(e) => setProductPrice(e.target.value)} type="number" min="1" step="1" required placeholder="4,500" className="h-12 w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-3 text-lg font-black text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></div></label>
+        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-white/50">Story <span className="font-medium normal-case tracking-normal text-white/30">· optional</span><textarea name="description" value={productDescription} onChange={(e) => setProductDescription(e.target.value)} rows={4} maxLength={500} placeholder="What makes this edition special?" className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-black/20 p-3 text-sm font-medium normal-case leading-6 tracking-normal text-white outline-none placeholder:text-white/25 focus:border-lime-200/50" /></label>
+        {error && <p role="alert" className="mt-4 text-xs font-semibold leading-5 text-rose-200">{error}</p>}
+        <button disabled={saving || processingImages > 0} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime-200 px-4 text-xs font-black uppercase tracking-wider text-slate-950 transition hover:bg-lime-100 disabled:opacity-60"><Sparkles className="h-4 w-4" />{processingImages ? `Optimizing ${processingImages} image${processingImages === 1 ? '' : 's'}…` : saving ? 'Saving drop…' : editingProduct ? 'Update edition' : 'Save limited edition'}</button>
+        {editingProduct && <button type="button" onClick={() => resetEditor()} className="mt-2 min-h-10 w-full rounded-xl border border-white/10 text-xs font-bold text-white/60 transition hover:bg-white/[.05] hover:text-white">Cancel editing</button>}
+        <p className="mt-3 text-center text-[10px] leading-4 text-white/35">Saved to the shared Crownstroke catalog.</p>
+      </div>
+    </form>
+    <div className="mt-9"><div className="mb-4 flex items-end justify-between"><div><h3 className="text-lg font-black text-white">Your editions</h3><p className="mt-1 text-xs text-white/45">Recently added pieces, ready to review and manage.</p></div><span className="text-[10px] font-bold uppercase tracking-wider text-white/35">Select a piece to update it</span></div>
+      {products.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 px-5 py-9 text-center text-sm text-white/45">Your vault is waiting for its first drop.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="grid h-44 grid-cols-2 gap-px bg-white/10"><img src={product.front} alt={`${product.name}, front`} className="h-full w-full object-cover" /><img src={product.back} alt={`${product.name}, back`} className="h-full w-full object-cover" /></div><div className="p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="font-black text-white">{product.name}</h4><p className="mt-1 text-xs text-lime-200">{money(product.price)}</p></div></div>{!!product.extras.length && <p className="mt-3 text-[10px] text-white/40">+ {product.extras.length} extra {product.extras.length === 1 ? 'view' : 'views'}</p>}<div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={() => editProduct(product)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] text-[10px] font-extrabold uppercase tracking-wider text-white/75 transition hover:border-lime-200/30 hover:bg-lime-200/10 hover:text-lime-100"><Pencil className="h-3.5 w-3.5" /> Edit edition</button><button type="button" disabled={deletingProductId === product.id} onClick={() => void removeProduct(product.id)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 text-[10px] font-extrabold uppercase tracking-wider text-white/50 transition hover:border-rose-300/20 hover:bg-rose-300/[.06] hover:text-rose-200 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" />{deletingProductId === product.id ? 'Deleting…' : 'Delete'}</button></div></div></article>)}</div>}
+    </div>
+  </section>;
+};
 
 const AdminDashboard: React.FC = () => {
   const { user, logout, isLoading: isAuthLoading } = useAuth();
@@ -454,6 +634,11 @@ const AdminDashboard: React.FC = () => {
 
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/70 shadow-[0_20px_70px_rgba(0,0,0,.22)] backdrop-blur-2xl">
             <AnimatePresence mode="wait">
+              {activeTab === 'limited' && (
+                <motion.div key="limited" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <LimitedEditionsPanel />
+                </motion.div>
+              )}
               {activeTab === 'designs' && (
                 <motion.section key="designs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 sm:p-6">
                   <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

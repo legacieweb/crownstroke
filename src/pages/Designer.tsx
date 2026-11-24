@@ -167,7 +167,7 @@ const Designer: React.FC = () => {
     title: 'Design Studio | Crownstroke',
     description:
       'Create premium designs in the Crownstroke studio. Customize products, preview in real time, deploy to your shop, and shop designer drops.',
-    canonicalUrl: `${CROWNSTROKE_BASE.url}/designer`,
+    canonicalUrl: `${CROWNSTROKE_BASE.url}/#/designer`,
     ogImage: CROWNSTROKE_BASE.ogImage,
     robots: 'index,follow'
   });
@@ -448,6 +448,9 @@ const Designer: React.FC = () => {
             const d = design[0];
             setActiveProduct(d.productId);
             const data = d.designData as any;
+            if (typeof data.color === 'string' && PRODUCT_DATA[d.productId]?.[data.color]) {
+              setActiveColor(data.color);
+            }
             const editSide = data.activeSide === 'back' ? 'back' : 'front';
             setActiveSide(editSide);
             designDataRef.current = data;
@@ -858,6 +861,7 @@ const Designer: React.FC = () => {
         ...sideDesigns,
         previews: { front: frontPreview, back: backPreview },
         activeSide,
+        color: activeColor,
       };
       
       const designPayload = {
@@ -897,7 +901,7 @@ const Designer: React.FC = () => {
   const saveAsDraft = () => {
     if (!fabricCanvas) return;
     const currentJSON = fabricCanvas.toJSON();
-    const updatedData = { ...designData, [activeSide]: currentJSON, activeSide };
+    const updatedData = { ...designData, [activeSide]: currentJSON, activeSide, color: activeColor };
     
     const draft = {
       id: Date.now().toString(),
@@ -992,6 +996,7 @@ const Designer: React.FC = () => {
       ...sideDesigns,
       previews: { front: frontPreview, back: backPreview },
       activeSide,
+      color: activeColor,
     };
     const mainPreview = (activeSide === 'front' ? frontPreview : backPreview) || frontPreview || backPreview || mirrorPreview;
 

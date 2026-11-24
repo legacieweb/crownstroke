@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 type UserPlan = 'free' | 'pro' | 'business';
-type PlanClaims = { userId: string; plan: UserPlan; expiresAt: number };
+type PlanClaims = { userId: string; plan: UserPlan; expiresAt: number; role?: 'admin' };
 
 const PLAN_BODY_LIMITS: Record<UserPlan, string> = {
   free: '300mb',
@@ -28,7 +28,7 @@ function normalizePlan(value: unknown): UserPlan {
   return plan === 'pro' || plan === 'business' ? plan : 'free';
 }
 
-function createPlanToken(userId: string, plan: UserPlan): string {
+function createPlanToken(userId: string, plan: UserPlan, role?: 'admin'): string {
   if (!PLAN_TOKEN_SECRET) {
     throw new Error('APP_AUTH_SECRET or IYONIC_DB_API_KEY must be configured to issue plan tokens');
   }
@@ -36,13 +36,14 @@ function createPlanToken(userId: string, plan: UserPlan): string {
   const payload = Buffer.from(JSON.stringify({
     userId,
     plan,
+    ...(role ? { role } : {}),
     expiresAt: Date.now() + 12 * 60 * 60 * 1000,
   } satisfies PlanClaims)).toString('base64url');
   const signature = createHmac('sha256', PLAN_TOKEN_SECRET).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }
 
-function readPlanToken(token: string | undefined): PlanClaims | null {
+function readPlanToken(token: string | undefined, allowExpired = false): PlanClaims | null {
   if (!token || !PLAN_TOKEN_SECRET) return null;
   const [payload, signature] = token.split('.');
   if (!payload || !signature) return null;
@@ -58,7 +59,7 @@ function readPlanToken(token: string | undefined): PlanClaims | null {
 
   try {
     const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as PlanClaims;
-    if (!claims.userId || !['free', 'pro', 'business'].includes(claims.plan) || claims.expiresAt <= Date.now()) {
+    if (!claims.userId || !['free', 'pro', 'business'].includes(claims.plan) || (!allowExpired && claims.expiresAt <= Date.now())) {
       return null;
     }
     return claims;
@@ -77,6 +78,18 @@ app.use((req, res, next) => {
   }
 
   const isDatabaseProxy = req.path === '/api/db' && req.method === 'POST';
+  const isLimitedProductApi = req.path.startsWith('/api/admin/limited-editions');
+  if (isLimitedProductApi) {
+    const authorization = req.header('Authorization');
+    const claims = authorization?.startsWith('Bearer ')
+      ? readPlanToken(authorization.slice('Bearer '.length))
+      : null;
+    const maxPayload = claims?.role === 'admin'
+      ? PLAN_BODY_LIMITS.business
+      : PLAN_BODY_LIMITS[claims?.plan ?? 'free'];
+    express.json({ limit: maxPayload })(req, res, next);
+    return;
+  }
   if (isDatabaseProxy) {
     const authorization = req.header('Authorization');
     const claims = authorization?.startsWith('Bearer ')
@@ -127,6 +140,51 @@ app.post('/api/auth/plan-token', async (req, res) => {
     });
   } catch (error) {
     iyonicDBErrorHandler(error, res);
+  }
+});
+
+// Renew a signed session after its short-lived upload token expires. The
+// signature is still verified, and regular users must still have an account.
+app.post('/api/auth/refresh-session', async (req, res) => {
+  const authorization = req.header('Authorization');
+  const oldToken = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : undefined;
+  const claims = readPlanToken(oldToken, true);
+  if (!claims) {
+    res.status(401).json({ error: 'Session could not be renewed. Please sign in again.' });
+    return;
+  }
+
+  if (claims.role === 'admin' && claims.userId === 'admin-id') {
+    res.json({ planToken: createPlanToken('admin-id', 'business', 'admin') });
+    return;
+  }
+
+  try {
+    const [account] = await iyonicDB.query('SELECT id, plan FROM users WHERE id = $1 LIMIT 1', [claims.userId]);
+    if (!account?.id) {
+      res.status(401).json({ error: 'Account could not be found. Please sign in again.' });
+      return;
+    }
+    const plan = normalizePlan(account.plan);
+    res.json({ planToken: createPlanToken(String(account.id), plan), plan });
+  } catch (error) {
+    iyonicDBErrorHandler(error, res);
+  }
+});
+
+app.post('/api/auth/admin-session', (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const configuredEmail = process.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com';
+  const configuredPassword = process.env.VITE_ADMIN_PASSWORD || 'AdminPass2026!';
+  if (!email || !password || email !== configuredEmail || password !== configuredPassword) {
+    res.status(401).json({ error: 'Invalid admin credentials.' });
+    return;
+  }
+  try {
+    res.json({ planToken: createPlanToken('admin-id', 'business', 'admin') });
+  } catch {
+    res.status(503).json({ error: 'Admin sessions are temporarily unavailable.' });
   }
 });
 
@@ -277,7 +335,9 @@ type EmailTemplate =
   | 'admin_order_notification'
   | 'designer_order_notification'
   | 'password_reset'
-  | 'account_deleted';
+  | 'account_deleted'
+  | 'newsletter_confirmation'
+  | 'newsletter_admin_notification';
 
 type EmailContent = {
   eyebrow: string;
@@ -506,6 +566,24 @@ const buildEmailContent = (template: EmailTemplate, subject: string, data: any):
         intro: `Hi ${data?.name || 'there'}, your Crownstroke account has been permanently deleted as requested.`,
         note: 'You can create a new account anytime with the same email address.',
       };
+    case 'newsletter_confirmation':
+      return {
+        eyebrow: 'Studio notes',
+        title: `You’re on the list${data?.name ? `, ${data.name}` : ''}`,
+        intro: 'Thanks for signing up for Crownstroke Studio Notes. We’ll send occasional updates about new products, creative ideas, and independent work worth discovering.',
+        cta: { label: 'Explore Crownstroke', href: process.env.SITE_URL || 'https://crownstroke.iyonicorp.com' },
+        note: 'You can opt out of future studio notes at any time by replying to this email.',
+      };
+    case 'newsletter_admin_notification':
+      return {
+        eyebrow: 'New subscriber',
+        title: 'A reader joined Studio Notes',
+        intro: 'A visitor subscribed to occasional Crownstroke product and creative updates.',
+        details: [
+          { label: 'Name', value: data?.name || 'Not provided' },
+          { label: 'Email', value: data?.email || 'Not provided' },
+        ],
+      };
     default:
       return {
         eyebrow: 'Update',
@@ -623,6 +701,7 @@ const generatedInsertColumns: Record<string, Set<string>> = {
   designers: new Set(['id', 'created_at']),
   shops: new Set(['id', 'created_at']),
   designer_designs: new Set(['id', 'created_at']),
+  limited_edition_products: new Set(['id', 'created_at']),
   orders: new Set(['id', 'created_at']),
 };
 
@@ -640,6 +719,7 @@ const columnDefaults: Record<string, Record<string, any>> = {
     is_minimalist: 'false',
     is_flash_sale: 'false',
   },
+  limited_edition_products: { description: '', extra_images: [] },
   orders: {
     status: 'pending',
     payment_status: 'pending',
@@ -1170,6 +1250,154 @@ app.delete('/api/iyonicdb/documents/:collection/:documentId', async (req, res) =
   }
 });
 
+async function authorizeAdmin(req: express.Request, res: express.Response): Promise<boolean> {
+  const authorization = req.header('Authorization');
+  const claims = authorization?.startsWith('Bearer ') ? readPlanToken(authorization.slice(7)) : null;
+  if (!claims) {
+    res.status(401).json({ error: 'Sign in again to manage limited editions.' });
+    return false;
+  }
+  if (claims.role === 'admin' && claims.userId === 'admin-id') return true;
+  try {
+    const users = await iyonicDB.query('SELECT role FROM users WHERE id = $1 LIMIT 1', [claims.userId]);
+    if (String(users[0]?.role || '').toLowerCase() !== 'admin') {
+      res.status(403).json({ error: 'Admin access is required.' });
+      return false;
+    }
+    return true;
+  } catch (err) {
+    iyonicDBErrorHandler(err, res);
+    return false;
+  }
+}
+
+app.get('/api/admin/limited-editions', async (req, res) => {
+  if (!await authorizeAdmin(req, res)) return;
+  try {
+    const rows = await iyonicDB.listRows('limited_edition_products', { limit: 100 });
+    res.json(rows);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
+app.get('/api/limited-editions', async (_req, res) => {
+  try {
+    const rows = await iyonicDB.listRows('limited_edition_products', { limit: 100 });
+    res.json(rows);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
+app.post('/api/admin/limited-editions', async (req, res) => {
+  if (!await authorizeAdmin(req, res)) return;
+  const { name, description = '', price, front_image, back_image, extra_images = [] } = req.body || {};
+  if (typeof name !== 'string' || !name.trim() || !Number.isFinite(Number(price)) || Number(price) <= 0 || typeof front_image !== 'string' || typeof back_image !== 'string' || !Array.isArray(extra_images)) {
+    res.status(400).json({ error: 'Provide a product name, positive price, front and back images, and an extra image list.' });
+    return;
+  }
+  try {
+    const row = await iyonicDB.insertRow('limited_edition_products', {
+      name: name.trim(), description: String(description).slice(0, 500), price: Number(price),
+      front_image, back_image, extra_images,
+    });
+    res.status(201).json(row);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
+app.put('/api/admin/limited-editions/:id', async (req, res) => {
+  if (!await authorizeAdmin(req, res)) return;
+  const body = req.body || {};
+  const row: Record<string, unknown> = {};
+  if (body.name !== undefined) {
+    if (typeof body.name !== 'string' || !body.name.trim()) {
+      res.status(400).json({ error: 'Product name cannot be empty.' }); return;
+    }
+    row.name = body.name.trim();
+  }
+  if (body.description !== undefined) row.description = String(body.description).slice(0, 500);
+  if (body.price !== undefined) {
+    if (!Number.isFinite(Number(body.price)) || Number(body.price) <= 0) {
+      res.status(400).json({ error: 'Price must be greater than zero.' }); return;
+    }
+    row.price = Number(body.price);
+  }
+  if (body.front_image !== undefined) {
+    if (typeof body.front_image !== 'string' || !body.front_image) { res.status(400).json({ error: 'Front image is invalid.' }); return; }
+    row.front_image = body.front_image;
+  }
+  if (body.back_image !== undefined) {
+    if (typeof body.back_image !== 'string' || !body.back_image) { res.status(400).json({ error: 'Back image is invalid.' }); return; }
+    row.back_image = body.back_image;
+  }
+  if (body.extra_images !== undefined) {
+    if (!Array.isArray(body.extra_images)) { res.status(400).json({ error: 'Extra images must be a list.' }); return; }
+    row.extra_images = body.extra_images;
+  }
+  if (Object.keys(row).length === 0) { res.status(400).json({ error: 'Provide at least one product field to update.' }); return; }
+  try {
+    const updated = await iyonicDB.updateRow('limited_edition_products', req.params.id, row);
+    res.json(updated);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
+app.delete('/api/admin/limited-editions/:id', async (req, res) => {
+  if (!await authorizeAdmin(req, res)) return;
+  try {
+    await iyonicDB.deleteRow('limited_edition_products', req.params.id);
+    res.sendStatus(204);
+  } catch (err) { iyonicDBErrorHandler(err, res); }
+});
+
+app.post('/api/newsletter-signup', async (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 100) : '';
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  // Quietly accept bot submissions without storing an address or sending mail.
+  if (typeof req.body?.website === 'string' && req.body.website.trim()) {
+    res.json({ success: true, message: 'You’re subscribed. Check your inbox for a note from us.' });
+    return;
+  }
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ error: 'Enter a valid email address.' });
+    return;
+  }
+
+  try {
+    let matches = await iyonicDB.query(
+      'SELECT email FROM newsletter_subscribers WHERE email = $1 LIMIT 1',
+      [email]
+    );
+    let alreadySubscribed = matches.length > 0;
+    if (!alreadySubscribed) {
+      try {
+        await iyonicDB.insertRow('newsletter_subscribers', { email, name: name || null });
+      } catch (insertError) {
+        // If another request subscribed the same address at the same time,
+        // treat the unique-email conflict as an existing subscription.
+        matches = await iyonicDB.query(
+          'SELECT email FROM newsletter_subscribers WHERE email = $1 LIMIT 1',
+          [email]
+        );
+        if (!matches.length) throw insertError;
+        alreadySubscribed = true;
+      }
+    }
+
+    const subscriberData = { name, email };
+    const adminEmail = (process.env.NEWSLETTER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com').trim();
+    const emails = [
+      sendEmailThroughMailer(email, 'Welcome to Crownstroke Studio Notes', 'newsletter_confirmation', subscriberData),
+    ];
+    if (!alreadySubscribed && adminEmail) {
+      emails.push(sendEmailThroughMailer(adminEmail, 'New Crownstroke Studio Notes subscriber', 'newsletter_admin_notification', subscriberData));
+    }
+    await Promise.all(emails);
+    res.json({ success: true, message: alreadySubscribed
+      ? 'You’re already on the list. We’ve sent you a fresh confirmation.'
+      : 'You’re subscribed. Check your inbox for a note from us.' });
+  } catch (error) {
+    console.error('Newsletter signup error:', error);
+    res.status(500).json({ error: 'We could not complete your signup. Please try again.' });
+  }
+});
+
 app.post('/api/db', async (req, res) => {
   const { query, params = [], isValues } = req.body;
   console.log('DB QUERY:', query.substring(0, 160) + (query.length > 160 ? '...' : ''), `(${params.length} params)`);
@@ -1210,19 +1438,40 @@ app.post('/api/db', async (req, res) => {
 
       case 'update': {
         const parsed = parseUpdate(query);
-        if (!parsed || parsed.whereParamIdx === null) {
+        if (!parsed || parsed.whereParamIdx === null || !parsed.whereColumn) {
           throw new Error('Unable to parse UPDATE query for IyonicDB routing');
         }
         if (parsed.table.toLowerCase() === 'users' && parsed.setColumns.some(({ name }) => name.toLowerCase() === 'plan')) {
           throw new Error('User plans must be changed in the IyonicDB admin console');
         }
+        if (!/^[a-z_][a-z0-9_]*$/i.test(parsed.table)) {
+          throw new Error('Invalid table name in UPDATE query');
+        }
         const row: Record<string, any> = {};
         parsed.setColumns.forEach(({ name, paramIdx }) => {
           row[name] = params[paramIdx - 1];
         });
-        const rowId = params[parsed.whereParamIdx - 1];
-        const updateResult = await iyonicDB.updateRow(parsed.table, String(rowId), row);
-        result = normalizeResult(updateResult);
+        const whereValue = params[parsed.whereParamIdx - 1];
+        if (parsed.whereColumn.toLowerCase() === 'id') {
+          const updateResult = await iyonicDB.updateRow(parsed.table, String(whereValue), row);
+          result = normalizeResult(updateResult);
+        } else {
+          // The table-row API updates by its generated row ID, while Drizzle
+          // updates can target any column (for example designers.user_id).
+          // Resolve the matching row IDs first, then apply the patch to each.
+          const allRows = await iyonicDB.query(`SELECT * FROM ${parsed.table}`, []);
+          const snakeToCamel = (value: string) => value.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+          const matchingRows = allRows.filter((candidate) => {
+            const actual = candidate[parsed.whereColumn!] ?? candidate[snakeToCamel(parsed.whereColumn!)];
+            return actual != null && String(actual) === String(whereValue);
+          });
+          const updatedRows = [];
+          for (const matchingRow of matchingRows) {
+            if (matchingRow.id == null) continue;
+            updatedRows.push(await iyonicDB.updateRow(parsed.table, String(matchingRow.id), row));
+          }
+          result = normalizeResult(updatedRows);
+        }
         break;
       }
 
@@ -1349,7 +1598,16 @@ const frontendDistDir = fs.existsSync(path.join(__dirname, 'dist'))
   ? path.join(__dirname, 'dist')
   : path.join(__dirname, '..', 'dist');
 
-app.use(express.static(frontendDistDir));
+app.use(express.static(frontendDistDir, {
+  setHeaders(res, filePath) {
+    // Vite fingerprints generated assets, so they can be cached across visits.
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 
 app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(frontendDistDir, 'index.html'));
