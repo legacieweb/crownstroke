@@ -22,7 +22,6 @@ import {
   Plus,
   LayoutGrid,
   RefreshCcw,
-  Eye,
   Link as LinkIcon,
   X,
   Menu,
@@ -108,6 +107,55 @@ const getPrintDimensions = (side: 'front' | 'back') => side === 'front'
   ? { orientation: 'Portrait', mockup: '1024 × 1536 px', ratio: '2:3', artwork: '4000 × 6000 px' }
   : { orientation: 'Landscape', mockup: '1536 × 1024 px', ratio: '3:2', artwork: '6000 × 4000 px' };
 
+const ProductMockupFallback: React.FC<{ product: string; color: string; side: 'front' | 'back' }> = ({ product, color, side }) => {
+  const outline = color.toLowerCase() === '#ffffff' ? '#cbd5e1' : 'rgba(0,0,0,.32)';
+  const isMug = product === 'mug';
+  const isFlat = isFlatPrint(product);
+  const bodyPath = product === 'tank-top'
+    ? 'M158 42h23l8 47h22l8-47h23l29 38 30 77-38 17-23-40v320H160V134l-23 40-38-17 30-77z'
+    : product === 'long-sleeve-tee'
+      ? 'M145 50l32-18h46l32 18 55 20 39 169-51 13-31-84-3 279H136l-3-279-31 84-51-13L90 70z'
+      : 'M145 50l32-18h46l32 18 82 38-34 89-44-18-3 282H144l-3-282-44 18-34-89z';
+
+  return (
+    <svg className="designer-fallback-surface" viewBox="0 0 400 500" role="img" aria-label={`${color} ${product.replace('-', ' ')} ${side} mockup`}>
+      <defs>
+        <linearGradient id="mockup-shade" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={color} />
+          <stop offset=".52" stopColor={color} />
+          <stop offset="1" stopColor={outline} />
+        </linearGradient>
+        <linearGradient id="mockup-paper" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#fff" />
+          <stop offset="1" stopColor="#dbe3ee" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="205" cy="466" rx="126" ry="15" fill="rgba(0,0,0,.28)" />
+      {isFlat ? (
+        <g filter="drop-shadow(0 18px 20px rgba(0,0,0,.28))">
+          <rect x={side === 'front' ? 102 : 40} y={side === 'front' ? 35 : 105} width={side === 'front' ? 196 : 320} height={side === 'front' ? 294 : 214} rx="4" fill="url(#mockup-paper)" stroke="#fff" strokeWidth="8" />
+          <rect x={side === 'front' ? 115 : 53} y={side === 'front' ? 48 : 118} width={side === 'front' ? 170 : 294} height={side === 'front' ? 268 : 188} fill="#111827" opacity=".08" />
+        </g>
+      ) : isMug ? (
+        <g filter="drop-shadow(0 18px 20px rgba(0,0,0,.28))">
+          <path d="M260 178h43a55 55 0 0 1 0 110h-43" fill="none" stroke={color} strokeWidth="25" />
+          <path d="M92 130h178v216a25 25 0 0 1-25 25h-128a25 25 0 0 1-25-25z" fill="url(#mockup-shade)" stroke={outline} strokeWidth="3" />
+          <path d="M96 141h170" stroke="rgba(255,255,255,.42)" strokeWidth="7" />
+        </g>
+      ) : (
+        <g filter="drop-shadow(0 18px 20px rgba(0,0,0,.28))">
+          <path d={bodyPath} transform="translate(0 4)" fill="url(#mockup-shade)" stroke={outline} strokeWidth="3" strokeLinejoin="round" />
+          {product === 'hoodie' && <><path d="M160 52q40-43 80 0l-10 46h-60z" fill={color} stroke={outline} strokeWidth="3" /><path d="M148 311q52-28 104 0l-9 65h-86z" fill="none" stroke={outline} strokeWidth="3" /></>}
+          {product !== 'tank-top' && <path d="M169 45q31 36 62 0" fill="none" stroke={outline} strokeWidth="5" />}
+          <path d="M151 446h98" stroke="rgba(255,255,255,.32)" strokeWidth="3" />
+          <path d="M145 178v242m110-242v242" stroke="rgba(255,255,255,.18)" strokeWidth="2" />
+        </g>
+      )}
+      <text x="200" y="486" textAnchor="middle" fill="rgba(255,255,255,.42)" fontFamily="sans-serif" fontSize="10" fontWeight="700" letterSpacing="2">CROWNSTROKE · {side.toUpperCase()}</text>
+    </svg>
+  );
+};
+
 const canvasToCompactDataUrl = (canvas: HTMLCanvasElement, quality = 0.82) => {
   const webp = canvas.toDataURL('image/webp', quality);
   if (webp.startsWith('data:image/webp')) return webp;
@@ -155,6 +203,7 @@ import { useSeo } from '../hooks/useSeo';
 import { CROWNSTROKE_BASE } from './SeoDefaults';
 
 const Designer: React.FC = () => {
+
   useEffect(() => {
     const fontStyles = document.createElement('link');
     fontStyles.rel = 'stylesheet';
@@ -180,6 +229,7 @@ const Designer: React.FC = () => {
   const [activeProduct, setActiveProduct] = useState(initialProduct);
   const [activeColor, setActiveColor] = useState('#ffffff');
   const [activeSide, setActiveSide] = useState<'front' | 'back'>('front');
+  const [mockupImageFailed, setMockupImageFailed] = useState(false);
   const flatProduct = isFlatPrint(activeProduct);
   const printSpec = getPrintDimensions(activeSide);
   const [activeTab, setActiveTab] = useState<'product' | 'text' | 'upload'>('product');
@@ -1029,6 +1079,19 @@ const Designer: React.FC = () => {
     { id: 'art-design', label: 'Elite Art Design' },
     { id: 'poster', label: 'Art Poster' },
   ];
+  const liveMockup = PRODUCT_DATA[activeProduct]?.[activeColor]?.[activeSide]
+    || PRODUCT_DATA['t-shirt']['#ffffff'].front;
+  useEffect(() => { setMockupImageFailed(false); }, [activeProduct, activeColor, activeSide, liveMockup]);
+  const liveMockupAspect = flatProduct ? (activeSide === 'front' ? '2 / 3' : '3 / 2') : '4 / 5';
+  const productCanvasConfig = DESIGN_CONFIG[activeProduct] || { top: 80, left: 210, scale: 1 };
+  const liveCanvasStyle: React.CSSProperties = flatProduct
+    ? { left: '3.5%', top: '3.5%', width: '93%', height: '93%' }
+    : {
+        left: `${(productCanvasConfig.left / 800) * 100}%`,
+        top: `${(productCanvasConfig.top / 1000) * 100}%`,
+        width: `${(380 * productCanvasConfig.scale / 800) * 100}%`,
+        height: `${(480 * productCanvasConfig.scale / 1000) * 100}%`,
+      };
 
   return (
     <Layout>
@@ -1089,7 +1152,9 @@ const Designer: React.FC = () => {
 
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             <button 
-              className="lg:hidden w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white"
+              className="lg:hidden grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/10 text-white active:scale-95"
+              aria-label={showMobileMenu ? "Close design tools" : "Open design tools"}
+              aria-expanded={showMobileMenu}
               onClick={() => setShowMobileMenu(!showMobileMenu)}
             >
               <Menu className="w-5 h-5" />
@@ -1131,14 +1196,14 @@ const Designer: React.FC = () => {
             
 {/* Redesigned Integrated Sidebar */}
              <AnimatePresence>
-               {(showMobileMenu || window.innerWidth >= 1024) && (
+               {(showMobileMenu || window.innerWidth >= 768) && (
                  <motion.div 
                    initial={showMobileMenu ? { x: -50, opacity: 0 } : false}
                    animate={{ x: 0, opacity: 1 }}
                    exit={{ x: -50, opacity: 0 }}
                    className={clsx(
                      "w-full lg:w-[400px] bg-black/60 backdrop-blur-3xl lg:rounded-[3rem] rounded-2xl flex flex-col border border-white/10 shadow-2xl shrink-0 z-30 transition-all",
-                     showMobileMenu ? "fixed left-4 top-24 bottom-24 right-4 lg:relative lg:inset-auto h-auto" : "hidden lg:flex"
+                     showMobileMenu ? "designer-mobile-panel fixed inset-x-3 top-20 bottom-[max(0.75rem,env(safe-area-inset-bottom))] h-auto lg:relative lg:inset-auto" : "hidden lg:flex"
                    )}
                  >
                    <div className="p-6 md:p-8 flex flex-col h-full">
@@ -1316,7 +1381,7 @@ const Designer: React.FC = () => {
                                 </div>
                               </>
                             ) : (
-                              <p className="mt-4 rounded-xl border border-dashed border-white/10 px-3 py-3 text-[9px] leading-relaxed text-white/45">Select an uploaded image on the Precision Pad to adjust its corners.</p>
+                              <p className="mt-4 rounded-xl border border-dashed border-white/10 px-3 py-3 text-[9px] leading-relaxed text-white/45">Select an uploaded image on the product to adjust its corners.</p>
                             )}
                           </section>
 
@@ -1389,162 +1454,37 @@ const Designer: React.FC = () => {
               )}
             </AnimatePresence>
 
-{/* Mobile/Desktop Flex Layout */}
-             <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 overflow-hidden">
-               
-               {/* Live Preview Panel - Top on Mobile, Right on Desktop */}
-               <div className="designer-preview-column w-full lg:w-[400px] flex flex-col gap-4 sm:gap-6 order-1 lg:order-2 shrink-0">
-                 <div className="flex-1 relative bg-black/60 backdrop-blur-3xl rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-2xl flex flex-col overflow-hidden min-h-[200px] sm:min-h-[250px] lg:min-h-0">
-                    <div className="p-4 sm:p-6 border-b border-white/5 flex items-center justify-between gap-3">
-                       <h3 className="text-[9px] sm:text-[10px] md:text-xs font-black text-white uppercase tracking-[0.2em] sm:tracking-[0.3em] flex items-center gap-2 sm:gap-3 italic">
-                         <Eye className="w-3 h-3 sm:w-4 sm:h-4 text-primary-500" />
-                         Live Preview
-                       </h3>
-                        <button
-                          type="button"
-                          onClick={() => setShowLargePreview(true)}
-                          disabled={!mirrorPreview || isPreviewLoading}
-                          aria-label="Open large preview"
-                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-[8px] font-black uppercase tracking-[.14em] text-white/75 transition hover:border-primary-300/40 hover:bg-primary-400/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
-                        >
-                          <Maximize2 className="h-3.5 w-3.5 text-primary-300" />
-                          <span className="hidden sm:inline">View large</span>
-                        </button>
-                   </div>
-                  
-                   <div className="flex-1 flex items-center justify-center p-4 sm:p-6 relative">
-                       <div className="relative w-full rounded-[1.5rem] sm:rounded-2xl md:rounded-[2rem] overflow-hidden bg-slate-900 shadow-2xl border border-white/5" style={{ aspectRatio: flatProduct ? (activeSide === 'front' ? '2 / 3' : '3 / 2') : '4 / 5' }}>
-                         {mirrorPreview ? (
-                           <motion.img 
-                             key={`${activeProduct}-${activeColor}-${activeSide}`}
-                             initial={{ opacity: 0.72, scale: 0.985 }}
-                             animate={{ opacity: 1, scale: 1 }}
-                             transition={{ duration: 0.18, ease: 'easeOut' }}
-                             src={mirrorPreview} 
-                             className="w-full h-full object-contain"
-                             alt={`${activeColor} ${activeProduct} ${activeSide} live design preview`}
-                           />
-                         ) : (
-                           <div className="w-full h-full flex flex-col items-center justify-center gap-3 sm:gap-4 text-white/10">
-                             <RefreshCcw className="w-6 h-6 sm:w-8 sm:h-8 animate-spin-slow" />
-                           </div>
-                         )}
-                          <AnimatePresence>
-                            {isPreviewLoading && (
-                              <motion.div
-                                key="preview-brand-loader"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: .16 }}
-                                className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md"
-                                role="status"
-                                aria-live="polite"
-                                aria-label={`Loading ${activeColor} ${activeProduct} ${activeSide} preview`}
-                              >
-                                <div className="relative mb-5 grid h-20 w-20 place-items-center rounded-full border border-white/10 bg-black/35">
-                                  <motion.div className="absolute inset-[-7px] rounded-full border border-primary-300/20 border-t-primary-300" animate={{ rotate: 360 }} transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }} />
-                                  <img src="https://i.imgur.com/1PBylbz.png" alt="" className="h-12 w-12 object-contain brightness-0 invert drop-shadow-[0_0_12px_rgba(56,189,248,.5)]" />
-                                </div>
-                                <span className="text-[9px] font-black uppercase tracking-[.22em] text-white/85">Updating preview</span>
-                                <span className="mt-2 text-[8px] font-semibold uppercase tracking-[.14em] text-white/45">{activeColor} · {activeProduct.replace('-', ' ')} · {activeSide}</span>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                       </div>
-                   </div>
+{/* The product itself is the interactive design surface. */}
+            <div className="designer-studio-canvas flex min-w-0 flex-1 flex-col overflow-hidden">
+              <section className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/25 px-3 py-2.5 sm:px-5 sm:py-3" aria-label="Live product canvas controls">
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[.2em] text-white/85 sm:text-[10px]">Live product canvas</p>
+                  <p className="mt-1 truncate text-[8px] font-semibold uppercase tracking-[.12em] text-white/40 sm:text-[9px]">{activeColor} · {activeProduct.replace('-', ' ')} · {activeSide} view</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button type="button" onClick={undo} disabled={historyIndex <= 0} aria-label="Undo" title="Undo" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[.05] text-white/65 hover:bg-white/10 disabled:opacity-30"><Undo2 className="h-4 w-4" /></button>
+                  <button type="button" onClick={redo} disabled={historyIndex >= history.length - 1} aria-label="Redo" title="Redo" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[.05] text-white/65 hover:bg-white/10 disabled:opacity-30"><Redo2 className="h-4 w-4" /></button>
+                  <button type="button" onClick={downloadCurrentDesign} aria-label="Download preview" title="Download preview" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[.05] text-white/65 hover:bg-white/10"><Download className="h-4 w-4" /></button>
+                  <button type="button" onClick={deleteObject} disabled={!hasSelection} aria-label="Delete selected object" title="Delete selected object" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[.05] text-white/65 hover:bg-red-400/10 hover:text-red-300 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => setShowLargePreview(true)} disabled={!mirrorPreview || isPreviewLoading} aria-label="Open large preview" title="Open large preview" className="ml-1 grid h-9 w-9 place-items-center rounded-lg border border-primary-300/20 bg-primary-400/10 text-primary-100 hover:bg-primary-400/20 disabled:opacity-30"><Maximize2 className="h-4 w-4" /></button>
+                </div>
+              </section>
 
-                   <div className="hidden sm:flex p-4 sm:p-6 bg-white/5 flex flex-col gap-2 sm:gap-3">
-                       <div className="flex justify-between items-center text-[7px] sm:text-[8px] font-black text-white/40 uppercase tracking-widest">
-                         <span>Render Status</span>
-                         <span className="text-green-500 animate-pulse">Synced</span>
-                       </div>
-                       <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
-                         <motion.div className="h-full bg-primary-500 w-full" initial={{ x: "-100%" }} animate={{ x: "0%" }} transition={{ duration: 1 }} />
-                       </div>
-                   </div>
-                 </div>
-                 {flatProduct && (
-                   <div className="mx-4 mb-4 rounded-2xl border border-lime-200/20 bg-[linear-gradient(120deg,rgba(190,242,100,.09),rgba(255,255,255,.035)_46%,rgba(255,255,255,.02))] p-4 sm:mx-6 sm:mb-6 sm:p-5">
-                     <div className="flex items-start justify-between gap-4">
-                       <div>
-                         <p className="text-[8px] font-black uppercase tracking-[.22em] text-lime-200/80">Print proof · {printSpec.orientation}</p>
-                         <p className="mt-2 text-sm font-black text-white">{printSpec.mockup} <span className="text-white/35">/ {printSpec.ratio}</span></p>
-                       </div>
-                       <div className={clsx('mt-1 grid shrink-0 place-items-center rounded-sm border border-lime-200/50 bg-lime-100/[.07]', activeSide === 'front' ? 'h-11 w-7' : 'h-7 w-11')} aria-hidden="true"><span className="h-1.5 w-1.5 rounded-full bg-lime-200 shadow-[0_0_12px_rgba(217,249,157,.8)]" /></div>
-                     </div>
-                     <div className="mt-3 flex items-baseline justify-between gap-2 border-t border-white/10 pt-3">
-                       <span className="text-[8px] font-bold uppercase tracking-[.14em] text-white/45">Recommended artwork</span>
-                       <span className="text-[10px] font-black tracking-wide text-white">{printSpec.artwork}</span>
-                     </div>
-                   </div>
-                 )}
-               </div>
-
-               {/* Main Interaction Area - Bottom on Mobile, Left/Center on Desktop */}
-               <div className="designer-pad-column flex-1 flex flex-col gap-4 sm:gap-6 order-2 lg:order-1 min-h-[250px] sm:min-h-[300px] lg:min-h-0 overflow-hidden">
-                 <div className="designer-pad relative flex-1 min-h-0 bg-black/40 backdrop-blur-2xl rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-2xl flex items-center justify-center overflow-hidden">
-                   <div className="absolute top-3 sm:top-4 md:top-8 left-4 sm:left-6 md:left-10 flex items-center gap-1 sm:gap-2 md:gap-3 z-10">
-                     <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]" />
-                     <span className="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white/75 uppercase tracking-[0.15em] sm:tracking-[0.25em]">Precision Pad <span className="text-white/35">/ {activeProduct.replace('-', ' ')}</span></span>
-                   </div>
-
-                   {/* Quick Actions Toolbar */}
-                   <div className="absolute top-3 sm:top-4 md:top-8 right-4 sm:right-6 md:right-10 flex items-center gap-1 sm:gap-2 z-10">
-                     <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl p-1 sm:p-1.5 flex items-center gap-0.5 sm:gap-1 shadow-2xl">
-                       <button 
-                         onClick={undo} 
-                         disabled={historyIndex <= 0}
-                         className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
-                         title="Undo"
-                       >
-                         <Undo2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                       </button>
-                       <button 
-                         onClick={redo} 
-                         disabled={historyIndex >= history.length - 1}
-                         className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
-                         title="Redo"
-                       >
-                         <Redo2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                       </button>
-                       <div className="w-px h-3 sm:h-4 bg-white/10 mx-0.5 sm:mx-1" />
-                       <button 
-                         onClick={downloadCurrentDesign}
-                         className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
-                         title="Download Preview"
-                       >
-                         <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-                       </button>
-                       <button 
-                         onClick={deleteObject}
-                         disabled={!hasSelection}
-                         className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white/40 hover:text-red-400 hover:bg-red-400/10 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
-                         title="Delete Selected"
-                       >
-                         <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                       </button>
-                     </div>
-                   </div>
-                   
-                   <div className="precision-canvas-shell relative z-10 rounded-xl sm:rounded-2xl md:rounded-[2rem] border border-white/10 bg-white/[0.035] shadow-[0_24px_70px_rgba(0,0,0,.3)] overflow-hidden" style={{ width: flatProduct ? (activeSide === 'front' ? 'min(100%, 320px)' : 'min(100%, 480px)') : 'min(100%, 380px)', aspectRatio: flatProduct ? (activeSide === 'front' ? '2 / 3' : '3 / 2') : '4 / 5' }}>
-                     <div className="w-full h-full overflow-hidden bg-transparent">
-                       <canvas ref={canvasRef} className="outline-none" />
-                     </div>
-                   </div>
-
-                   {/* Perspective Info */}
-                   <div className="absolute bottom-3 sm:bottom-4 md:bottom-8 left-4 sm:left-6 md:left-10 right-4 sm:right-6 md:right-10 flex justify-between items-end z-10">
-                     <div className="flex flex-col gap-0.5 sm:gap-1">
-                     </div>
-                     <div className="flex flex-col items-end">
-                       <span className="text-[6px] sm:text-[7px] md:text-[8px] font-black text-white/20 uppercase tracking-widest">Side</span>
-                       <span className="text-[8px] sm:text-[9px] md:text-[10px] font-black text-primary-400 uppercase tracking-widest italic">{activeSide}</span>
-                    </div>
+              <div className="designer-live-stage relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-2 sm:p-5">
+                <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.15em] text-white/65 backdrop-blur sm:left-5 sm:top-5">Drag to design</div>
+                <div className="designer-mockup-frame relative h-full max-h-full max-w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950/20 shadow-[0_24px_70px_rgba(0,0,0,.32)]" style={{ aspectRatio: liveMockupAspect, height: '100%', width: 'auto', maxWidth: '100%' }}>
+                  {mockupImageFailed ? (
+                    <ProductMockupFallback product={activeProduct} color={activeColor} side={activeSide} />
+                  ) : (
+                    <img src={liveMockup} alt={`${activeColor} ${activeProduct.replace('-', ' ')} ${activeSide} product mockup`} draggable={false} onError={() => setMockupImageFailed(true)} className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill" />
+                  )}
+                  <div className="designer-canvas-layer designer-live-canvas absolute z-10" style={liveCanvasStyle}>
+                    <canvas ref={canvasRef} className="outline-none" aria-label={`Design on the ${activeSide} of the ${activeColor} ${activeProduct.replace('-', ' ')}`} />
                   </div>
+                  <div className="pointer-events-none absolute bottom-3 right-3 z-20 rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-[8px] font-black uppercase tracking-[.16em] text-white/75 backdrop-blur">{activeSide} · {activeColor}</div>
                 </div>
               </div>
-
+            </div>
             </div>
           </div>
         </div>
@@ -1780,7 +1720,6 @@ const Designer: React.FC = () => {
             </div>
           )}
         </AnimatePresence>
-      </div>
     </Layout>
   );
 };

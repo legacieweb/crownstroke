@@ -147,23 +147,6 @@ export const authService = {
   },
 
   async login(email: string, pass: string): Promise<User> {
-    // Admin check from environment variables
-    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com';
-    const adminPass = import.meta.env.VITE_ADMIN_PASSWORD || 'AdminPass2026!';
-
-    if (email === adminEmail && pass === adminPass) {
-      const response = await fetch(`${getApiUrl()}/api/auth/admin-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass }),
-      });
-      const session = await response.json().catch(() => ({}));
-      if (!response.ok || typeof session.planToken !== 'string') {
-        throw new Error(session.error || 'Could not start the admin session. Check the server environment settings.');
-      }
-      return { id: 'admin-id', email, role: 'admin', name: 'System Admin', plan: 'business', planToken: session.planToken };
-    }
-
     let response: Response;
     try {
       response = await fetch(`${getApiUrl()}/api/auth/login`, {

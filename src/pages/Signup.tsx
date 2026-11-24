@@ -3,7 +3,7 @@ import { useAuth } from '../store/AuthContext';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
-import VideoBackground, { DEFAULT_BG_VIDEO_URL } from '../components/layout/VideoBackground';
+import PaintBackground from '../components/layout/PaintBackground';
 import { Mail, Lock, User, Plus, Eye, EyeOff, LayoutGrid, Palette, ArrowLeft } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -42,22 +42,12 @@ const Signup: React.FC = () => {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
-      <VideoBackground
-        videoUrl={DEFAULT_BG_VIDEO_URL}
-        className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]"
-        videoClassName="h-full w-full object-cover opacity-70"
-      />
+      <PaintBackground className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]" overlayClassName="bg-slate-950/35" />
 
       {/* Left Side - Image/Creative */}
       <div className="hidden lg:flex lg:w-1/2 relative">
-        <img 
-          src="https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=2000&auto=format&fit=crop" 
-          alt="Signup background" 
-          loading="lazy"
-          decoding="async"
-          className="absolute inset-0 w-full h-full object-cover opacity-60"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent flex flex-col justify-end p-20">
+        <div className="site-paint-backdrop absolute inset-0" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-black/20 flex flex-col justify-end p-20">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}

@@ -220,9 +220,10 @@ const ProductDetail: React.FC = () => {
   }
 
   const gallerySides = product.previewOrder || ['front', 'back'];
-  const colorName = product.garmentColor === '#000000' ? 'Black' : product.garmentColor === '#ffffff' ? 'White' : product.garmentColor;
+  const colorName = selectedColor === '#000000' ? 'Black' : selectedColor === '#ffffff' ? 'White' : selectedColor === '#ef4444' ? 'Red' : selectedColor;
+  const selectedColorImages = product.id.startsWith('template-') ? PRODUCT_DATA[product.category]?.[selectedColor] : undefined;
   const galleryItems = (product.images?.front || product.images?.back
-    ? gallerySides.map((side) => ({ image: product.images?.[side] || product.image, side, label: `${side}${product.garmentColor ? ` · ${colorName}` : ''}` }))
+    ? gallerySides.map((side) => ({ image: selectedColorImages?.[side] || product.images?.[side] || product.image, side, label: `${side}${product.colors?.length ? ` · ${colorName}` : ''}` }))
     : [{ image: product.image, side: undefined, label: 'Product' }])
     .concat((product.extraImages || []).map((image, index) => ({ image, side: undefined, label: `Detail ${index + 1}` })));
   const selectedGalleryIndex = Math.max(0, galleryItems.findIndex((item) => item.image === selectedImage));
@@ -338,9 +339,12 @@ const ProductDetail: React.FC = () => {
                           setSelectedColor(color);
                           const productImages = PRODUCT_DATA[product.category];
                           const colorImages = productImages?.[color];
+                          const activeSide = galleryItems[selectedGalleryIndex]?.side || 'front';
                           if (product.category === 'poster' || product.category === 'art-design') {
                             const side = selectedPrintOrientation === 'portrait' ? 'front' : 'back';
                             setSelectedImage(colorImages?.[side] || (side === 'front' ? product.images?.front : product.images?.back) || product.image);
+                          } else if (product.id.startsWith('template-')) {
+                            setSelectedImage(colorImages?.[activeSide] || product.images?.[activeSide] || product.image);
                           } else if (product.isCustomizable && (!product.images || product.images.front === product.image)) {
                             setSelectedImage(colorImages?.front || product.image);
                           }

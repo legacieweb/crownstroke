@@ -1,11 +1,9 @@
-import React, { useState, useEffect, createContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import VideoBackground from './VideoBackground';
-import { DEFAULT_BG_VIDEO_URL } from './VideoBackground';
-
-export const BgVideoContext = createContext<{ bgVideoUrl: string | null }>({ bgVideoUrl: DEFAULT_BG_VIDEO_URL });
+import PaintBackground from './PaintBackground';
+import { apiUrl } from '../../services/apiUrl';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,8 +12,13 @@ interface LayoutProps {
 // Add a simple context or just pass it down if needed, but for now we'll use a standard approach
 export const BackendStatusContext = React.createContext<{ isOnline: boolean }>({ isOnline: true });
 
+let siteBackgroundCache: { image: string | null; fetchedAt: number } | null = null;
+let siteBackgroundRequest: Promise<string | null> | null = null;
+const SITE_BACKGROUND_CACHE_MS = 60_000;
+
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isBackendOnline, setIsBackendOnline] = useState(true);
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(() => siteBackgroundCache?.image ?? null);
   const location = useLocation();
   const isShopRoute = location.pathname === '/shop' || location.pathname.startsWith('/shop/');
   const isArtistShopRoute = location.pathname.startsWith('/shop/') && location.pathname !== '/shop';
@@ -43,6 +46,45 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const loadBackground = async () => {
+      if (siteBackgroundCache && Date.now() - siteBackgroundCache.fetchedAt < SITE_BACKGROUND_CACHE_MS) {
+        setBackgroundImage(siteBackgroundCache.image);
+        return;
+      }
+      if (!siteBackgroundRequest) {
+        siteBackgroundRequest = (async () => {
+          try {
+            const response = await fetch(apiUrl('/api/site-background'));
+            if (!response.ok) return null;
+            const result = await response.json();
+            return typeof result.image === 'string' ? result.image : null;
+          } catch { return null; }
+        })();
+      }
+      try {
+        const image = await siteBackgroundRequest;
+        siteBackgroundCache = { image, fetchedAt: Date.now() };
+        if (active) setBackgroundImage(image);
+      } finally {
+        siteBackgroundRequest = null;
+      }
+    };
+    const handleBackgroundUpdate = (event: Event) => {
+      const image = (event as CustomEvent<{ image?: unknown }>).detail?.image;
+      const nextImage = typeof image === 'string' ? image : null;
+      siteBackgroundCache = { image: nextImage, fetchedAt: Date.now() };
+      setBackgroundImage(nextImage);
+    };
+    loadBackground();
+    window.addEventListener('site-background-updated', handleBackgroundUpdate);
+    return () => {
+      active = false;
+      window.removeEventListener('site-background-updated', handleBackgroundUpdate);
+    };
+  }, []);
+
   return (
     <BackendStatusContext.Provider value={{ isOnline: isBackendOnline }}>
       <div className={`flex flex-col min-h-screen relative overflow-x-hidden ${isShopRoute ? 'shop-static-ui' : ''}`}>
@@ -65,12 +107,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
         )}
        
-        {/* The shared local video loads after the route is ready, then plays behind each page. */}
-        <VideoBackground
-          videoUrl={DEFAULT_BG_VIDEO_URL}
+        {/* A CSS-only color wash keeps the shared backdrop fast and image-free. */}
+        <PaintBackground
           className="fixed inset-0 z-0 overflow-hidden bg-[#111318]"
           overlayClassName={`site-bg-overlay ${location.pathname === '/' ? 'site-bg-overlay-home' : ''}`}
-          videoClassName="h-full w-full object-cover opacity-90"
+          image={backgroundImage}
         />
 
 {(!isDesignerRoute || isDesignerDashboardRoute) && <Navbar />}

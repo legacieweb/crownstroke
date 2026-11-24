@@ -5,7 +5,6 @@ import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import Button from '../ui/Button';
-import { DEFAULT_BG_VIDEO_URL } from './VideoBackground';
 import { useCart } from '../../store/CartContext';
 import { useAuth } from '../../store/AuthContext';
 
@@ -143,7 +142,7 @@ const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile menu with its own full-screen video background */}
+      {/* Mobile menu shares the lightweight CSS paint treatment. */}
       {createPortal(
         <AnimatePresence>
           {isOpen && (
@@ -154,17 +153,7 @@ const Navbar: React.FC = () => {
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
               className="lg:hidden fixed inset-0 z-[9999] flex flex-col overflow-hidden bg-slate-950"
             >
-              <video
-                className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
-                src={DEFAULT_BG_VIDEO_URL}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                aria-hidden="true"
-                onCanPlay={(event) => { void event.currentTarget.play().catch(() => {}); }}
-              />
+              <div aria-hidden="true" className="site-paint-backdrop pointer-events-none absolute inset-0 z-0" />
               <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-slate-950/70 via-slate-950/55 to-slate-950/75" />
               {/* Header */}
               <div className="relative z-10 flex items-center justify-between p-6 border-b border-white/20 bg-slate-950/70 backdrop-blur-md">

@@ -23,6 +23,14 @@ const PLAN_BODY_LIMITS: Record<UserPlan, string> = {
 };
 const PLAN_TOKEN_SECRET = process.env.APP_AUTH_SECRET || process.env.IYONIC_DB_API_KEY || '';
 
+function configuredAdminEmail(): string {
+  return String(process.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com').trim().toLowerCase();
+}
+
+function configuredAdminPassword(): string {
+  return process.env.VITE_ADMIN_PASSWORD || 'AdminPass2026!';
+}
+
 function normalizePlan(value: unknown): UserPlan {
   const plan = String(value ?? '').trim().toLowerCase();
   return plan === 'pro' || plan === 'business' ? plan : 'free';
@@ -173,10 +181,10 @@ app.post('/api/auth/refresh-session', async (req, res) => {
 });
 
 app.post('/api/auth/admin-session', (req, res) => {
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  const configuredEmail = process.env.VITE_ADMIN_EMAIL || 'admin@crownstroke.com';
-  const configuredPassword = process.env.VITE_ADMIN_PASSWORD || 'AdminPass2026!';
+  const configuredEmail = configuredAdminEmail();
+  const configuredPassword = configuredAdminPassword();
   if (!email || !password || email !== configuredEmail || password !== configuredPassword) {
     res.status(401).json({ error: 'Invalid admin credentials.' });
     return;
@@ -190,9 +198,27 @@ app.post('/api/auth/admin-session', (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const normalizedEmail = email.toLowerCase();
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   if (!email || !password) {
     res.status(400).json({ error: 'Email and password are required.' });
+    return;
+  }
+
+  if (normalizedEmail === configuredAdminEmail() && password === configuredAdminPassword()) {
+    try {
+      const planToken = createPlanToken('admin-id', 'business', 'admin');
+      res.json({
+        id: 'admin-id',
+        email: configuredAdminEmail(),
+        name: 'System Admin',
+        role: 'admin',
+        plan: 'business',
+        planToken,
+      });
+    } catch {
+      res.status(503).json({ error: 'Admin sign-in is temporarily unavailable. Please try again.' });
+    }
     return;
   }
 
@@ -1270,6 +1296,42 @@ async function authorizeAdmin(req: express.Request, res: express.Response): Prom
     return false;
   }
 }
+
+const isBackgroundImageData = (value: unknown): value is string =>
+  typeof value === 'string' && value.length <= 900_000 && /^data:image\/(?:webp|png|jpe?g);base64,/i.test(value);
+
+app.get('/api/site-background', async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    const rows = await iyonicDB.listRows('site_settings', { limit: 100 });
+    const setting = rows.find((row: any) => String(row.id) === 'global') || rows[0];
+    const image = setting?.bg_video_url ?? setting?.bgVideoUrl ?? null;
+    res.json({ image: isBackgroundImageData(image) ? image : null });
+  } catch (err) {
+    iyonicDBErrorHandler(err, res);
+  }
+});
+
+app.put('/api/admin/site-background', async (req, res) => {
+  if (!await authorizeAdmin(req, res)) return;
+  const image = req.body?.image;
+  if (image !== null && !isBackgroundImageData(image)) {
+    res.status(400).json({ error: 'Upload a supported image under the optimized size limit.' });
+    return;
+  }
+  try {
+    const rows = await iyonicDB.listRows('site_settings', { limit: 100 });
+    const setting = rows.find((row: any) => String(row.id) === 'global') || rows[0];
+    if (setting?.id !== undefined && setting?.id !== null) {
+      await iyonicDB.updateRow('site_settings', String(setting.id), { bg_video_url: image });
+    } else {
+      await iyonicDB.insertRow('site_settings', { id: 'global', bg_video_url: image });
+    }
+    res.json({ image });
+  } catch (err) {
+    iyonicDBErrorHandler(err, res);
+  }
+});
 
 app.get('/api/admin/limited-editions', async (req, res) => {
   if (!await authorizeAdmin(req, res)) return;

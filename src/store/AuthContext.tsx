@@ -20,12 +20,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Basic local persistence check
-    const storedUser = localStorage.getItem('pod_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    try {
+      const storedUser = localStorage.getItem('pod_user');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser) as User;
+        if (parsed?.id && parsed?.email && ['user', 'admin', 'designer'].includes(parsed.role)) {
+          setUser(parsed);
+        } else {
+          localStorage.removeItem('pod_user');
+        }
+      }
+    } catch {
+      localStorage.removeItem('pod_user');
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const login = async (email: string, pass: string) => {

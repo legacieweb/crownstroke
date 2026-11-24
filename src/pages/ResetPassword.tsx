@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
-import VideoBackground, { DEFAULT_BG_VIDEO_URL } from '../components/layout/VideoBackground';
+import PaintBackground from '../components/layout/PaintBackground';
 import { Lock, Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
 import { authService } from '../services/auth';
 
@@ -47,7 +47,7 @@ const ResetPassword: React.FC = () => {
   if (!email) {
     return (
       <div className="relative isolate min-h-screen bg-transparent flex items-center justify-center p-8">
-        <VideoBackground videoUrl={DEFAULT_BG_VIDEO_URL} className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]" videoClassName="h-full w-full object-cover opacity-70" />
+        <PaintBackground className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]" overlayClassName="bg-slate-950/35" />
         <div className="site-glass-panel max-w-md w-full rounded-3xl border p-8 text-center">
           <h1 className="text-2xl font-black text-white mb-4 uppercase italic">Request a reset code</h1>
           <p className="text-gray-400 mb-8">Enter your email on the login page to receive a password reset code.</p>
@@ -61,7 +61,7 @@ const ResetPassword: React.FC = () => {
 
   return (
     <div className="relative isolate min-h-screen flex bg-transparent overflow-hidden">
-      <VideoBackground videoUrl={DEFAULT_BG_VIDEO_URL} className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]" videoClassName="h-full w-full object-cover opacity-70" />
+      <PaintBackground className="fixed inset-0 z-[-1] overflow-hidden bg-[#090b10]" overlayClassName="bg-slate-950/35" />
       {/* Left Side - Image */}
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img 

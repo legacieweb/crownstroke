@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowRight, ArrowUpRight, Mail, Palette } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight, ArrowUpRight, ChevronDown, Mail, Palette } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { apiUrl } from '../../services/apiUrl';
 
@@ -38,8 +38,18 @@ const footerLinks = [
 
 const Footer: React.FC<{ showNewsletterSignup?: boolean }> = ({ showNewsletterSignup = true }) => {
   const currentYear = new Date().getFullYear();
+  const [isMobileLayout, setIsMobileLayout] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches,
+  );
   const [newsletterStatus, setNewsletterStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 639px)');
+    const syncLayout = () => setIsMobileLayout(media.matches);
+    media.addEventListener('change', syncLayout);
+    return () => media.removeEventListener('change', syncLayout);
+  }, []);
 
   const handleNewsletterSignup = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -75,12 +85,18 @@ const Footer: React.FC<{ showNewsletterSignup?: boolean }> = ({ showNewsletterSi
     <footer className="site-footer relative isolate overflow-hidden border-t border-white/10 bg-transparent text-white">
       <div aria-hidden="true" className="pointer-events-none absolute -right-28 top-10 -z-10 h-72 w-72 rounded-full border border-white/[.04]" />
 
-      <div className="mx-auto max-w-7xl px-4 pb-6 pt-10 sm:px-8 sm:pb-8 sm:pt-14 lg:px-10 lg:pt-16">
-        <div className="grid gap-9 lg:grid-cols-[minmax(260px,.9fr)_1.6fr] lg:gap-16">
-          <section className="max-w-md">
+      <div className="footer-shell mx-auto max-w-7xl px-4 pb-6 pt-10 sm:px-8 sm:pb-8 sm:pt-14 lg:px-10 lg:pt-16">
+        <div className="footer-main grid gap-9 lg:grid-cols-[minmax(260px,.9fr)_1.6fr] lg:gap-16">
+          <section className="footer-brand max-w-md">
             <Link to="/" aria-label="Crownstroke home" className="group inline-flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime-300">
               <span className="grid h-12 w-12 place-items-center border border-lime-300/25 bg-lime-300/[.08] text-lime-200 transition-colors group-hover:bg-lime-300/[.14]">
-                <img src="https://i.imgur.com/1PBylbz.png" alt="" className="h-8 w-8 object-contain brightness-0 invert" />
+                <svg aria-hidden="true" viewBox="0 0 32 32" fill="none" className="h-7 w-7">
+                  <path d="m4 10 6.3 5.2L16 6l5.7 9.2L28 10l-3.4 14H7.4L4 10Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                  <path d="M9 27h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <circle cx="4" cy="9" r="1.5" fill="currentColor" />
+                  <circle cx="16" cy="5" r="1.5" fill="currentColor" />
+                  <circle cx="28" cy="9" r="1.5" fill="currentColor" />
+                </svg>
               </span>
               <span className="flex flex-col">
                 <span className="text-xl font-black leading-none tracking-[-.07em]">CROWN<span className="ml-1 text-lime-300">STROKE</span></span>
@@ -102,10 +118,12 @@ const Footer: React.FC<{ showNewsletterSignup?: boolean }> = ({ showNewsletterSi
             </div>
           </section>
 
-          <nav aria-label="Footer" className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 sm:gap-x-8">
+          <nav aria-label="Footer" className="footer-links-grid grid grid-cols-1 gap-x-6 gap-y-0 sm:grid-cols-3 sm:gap-x-8">
             {footerLinks.map((section) => (
-              <div key={section.title}>
-                <h2 className="mb-5 text-[10px] font-extrabold uppercase tracking-[.2em] text-lime-200">{section.title}</h2>
+              <details key={section.title} open={!isMobileLayout} className="footer-link-section">
+                <summary onClick={(event) => { if (!isMobileLayout) event.preventDefault(); }} className="mb-5 flex cursor-pointer list-none items-center justify-between gap-3 text-[10px] font-extrabold uppercase tracking-[.2em] text-lime-200">
+                  <span>{section.title}</span><ChevronDown aria-hidden="true" className="footer-link-chevron h-4 w-4 transition-transform" />
+                </summary>
                 <ul className="space-y-3">
                   {section.links.map((link) => (
                     <li key={link.name}>
@@ -115,12 +133,12 @@ const Footer: React.FC<{ showNewsletterSignup?: boolean }> = ({ showNewsletterSi
                     </li>
                   ))}
                 </ul>
-              </div>
+              </details>
             ))}
           </nav>
         </div>
 
-        {showNewsletterSignup && <section aria-labelledby="footer-newsletter-title" className="mt-10 grid gap-5 border-y border-white/10 py-6 sm:mt-12 sm:py-7 lg:grid-cols-[.85fr_1.15fr] lg:items-center lg:gap-8">
+        {showNewsletterSignup && <section aria-labelledby="footer-newsletter-title" className="footer-newsletter mt-10 grid gap-5 border-y border-white/10 py-6 sm:mt-12 sm:py-7 lg:grid-cols-[.85fr_1.15fr] lg:items-center lg:gap-8">
           <div className="flex items-start gap-4">
             <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center border border-white/10 bg-white/[.04] text-lime-200"><Mail className="h-4 w-4" /></span>
             <div>
@@ -142,14 +160,14 @@ const Footer: React.FC<{ showNewsletterSignup?: boolean }> = ({ showNewsletterSi
           </form>
         </section>}
 
-        <div className="flex flex-col gap-5 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-[.16em] text-white/75">© {currentYear} Crownstroke Studio</p>
-          <nav aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-semibold uppercase tracking-[.12em] text-white/75">
+        <div className="footer-bottom flex flex-col gap-5 pt-6">
+          <p className="footer-bottom-copy text-[10px] font-bold uppercase tracking-[.16em] text-white/75">© {currentYear} Crownstroke Studio</p>
+          <nav aria-label="Legal" className="footer-legal flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-semibold uppercase tracking-[.12em] text-white/75">
             <Link to="/privacy" className="transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300">Privacy</Link>
             <Link to="/terms" className="transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300">Terms</Link>
             <Link to="/cookies" className="transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300">Cookies</Link>
           </nav>
-          <span className="text-[10px] font-semibold uppercase tracking-[.12em] text-white/75">
+          <span className="footer-bottom-note text-[10px] font-semibold uppercase tracking-[.12em] text-white/75">
             Made for your ideas
           </span>
         </div>
