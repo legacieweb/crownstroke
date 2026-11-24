@@ -267,59 +267,8 @@
 .home-limited-info strong { flex: 0 0 auto; color: #d8f05b; font-size: 11px; }
 @media (max-width: 680px) { .home-limited-section { padding: 68px 0 76px; }.home-limited-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 12px; }.home-limited-info { flex-direction: column; } }
 
-/* CSS-only spray paint washes keep the shared background lightweight. */
-.site-paint-wash {
-  position: absolute;
-  inset: -25%;
-  pointer-events: none;
-  background-repeat: no-repeat;
-  opacity: .68;
-  transform: translate3d(0, 0, 0);
-  animation: paint-fall-one 28s linear infinite;
-  will-change: transform, filter;
-}
-.site-paint-wash-one {
-  background-image: radial-gradient(ellipse at 22% 0%, rgba(14,165,233,.48), transparent 38%), radial-gradient(ellipse at 76% 8%, rgba(99,102,241,.42), transparent 39%), radial-gradient(ellipse at 55% 3%, rgba(217,70,239,.28), transparent 40%), linear-gradient(180deg, rgba(14,165,233,.12), transparent 78%);
-}
-.site-paint-wash-two {
-  background-image: radial-gradient(ellipse at 78% 0%, rgba(34,197,94,.30), transparent 38%), radial-gradient(ellipse at 32% 4%, rgba(249,115,22,.34), transparent 39%), linear-gradient(180deg, rgba(249,115,22,.09), transparent 82%);
-  opacity: .55;
-  animation-name: paint-fall-two;
-  animation-duration: 35s;
-  animation-delay: -17s;
-}
-.site-paint-backdrop { position: absolute; inset: 0; overflow: hidden; background: #080c13; isolation: isolate; pointer-events: none; }
-.site-paint-backdrop::before,
-.site-paint-backdrop::after {
-  content: '';
-  position: absolute;
-  inset: -25%;
-  background-repeat: no-repeat;
-  mix-blend-mode: screen;
-  will-change: transform, filter;
-}
-.site-paint-backdrop::before {
-  background-image: radial-gradient(ellipse at 22% 0%, rgba(14,165,233,.48), transparent 38%), radial-gradient(ellipse at 76% 8%, rgba(99,102,241,.42), transparent 39%), radial-gradient(ellipse at 55% 3%, rgba(217,70,239,.28), transparent 40%), linear-gradient(180deg, rgba(14,165,233,.12), transparent 78%);
-  animation: paint-fall-one 28s linear infinite;
-}
-.site-paint-backdrop::after {
-  background-image: radial-gradient(ellipse at 78% 0%, rgba(34,197,94,.30), transparent 38%), radial-gradient(ellipse at 32% 4%, rgba(249,115,22,.34), transparent 39%), linear-gradient(180deg, rgba(249,115,22,.09), transparent 82%);
-  opacity: .55;
-  animation: paint-fall-two 35s linear -17s infinite;
-}
-@keyframes paint-fall-one {
-  0% { transform: translate3d(-1%, -12%, 0) scale(.99); filter: hue-rotate(0deg); opacity: 0; }
-  12%, 82% { opacity: .68; }
-  100% { transform: translate3d(1%, 14%, 0) scale(1.04); filter: hue-rotate(35deg); opacity: 0; }
-}
-@keyframes paint-fall-two {
-  0% { transform: translate3d(1%, -14%, 0) scale(1.02); filter: hue-rotate(0deg); opacity: 0; }
-  14%, 84% { opacity: .55; }
-  100% { transform: translate3d(-1%, 12%, 0) scale(1); filter: hue-rotate(-45deg); opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .site-paint-wash, .site-paint-backdrop::before, .site-paint-backdrop::after { animation: none; will-change: auto; }
-}
+/* Use a quiet, solid surface behind the shared layout. */
+.site-paint-backdrop { position: absolute; inset: 0; overflow: hidden; background: #080c13; pointer-events: none; }
 
 .site-bg-overlay-home {
   background: linear-gradient(180deg, rgba(4, 8, 14, .38), rgba(4, 8, 14, .24) 38%, rgba(4, 8, 14, .48));
@@ -847,7 +796,7 @@
   animation: float 8s ease-in-out infinite;
 }
 
-/* Shared page surfaces remain clear over the animated CSS paint background. */
+/* Shared page surfaces remain clear over the static site background. */
 body { background-color: #080c13; }
 .site-main { min-width: 0; background: transparent; color: #f8fafc; }
 .site-main > :first-child:not([data-preloader="true"]) { background-color: transparent !important; }
