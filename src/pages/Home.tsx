@@ -7,8 +7,8 @@ import { useSeo } from '../hooks/useSeo';
 import { CROWNSTROKE_BASE } from './SeoDefaults';
 import { PRODUCT_DATA } from '../data/seed';
 import { db } from '../db';
-import { designerDesigns, designers, shops } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { designers, shops } from '../db/schema';
+import { desc, eq } from 'drizzle-orm';
 import { apiUrl } from '../services/apiUrl';
 
 const products = [
@@ -18,7 +18,7 @@ const products = [
   { name: 'Art prints', detail: 'Bring it off the screen', image: PRODUCT_DATA.poster['#ffffff'].front, query: 'poster' },
 ];
 
-type FeaturedDesign = { id: string; name: string; designer: string; preview: string; shopSlug: string; productId: string };
+type FeaturedShop = { id: string; name: string; designer: string; image: string | null; slug: string };
 type LimitedEdition = { id: string; name: string; description: string; price: number; frontImage: string; backImage: string; extraImages: string[] };
 
 const toShopSlug = (value: unknown): string =>
@@ -27,7 +27,7 @@ const toShopSlug = (value: unknown): string =>
     : '';
 
 const Home: React.FC = () => {
-  const [featuredDesigns, setFeaturedDesigns] = useState<FeaturedDesign[]>([]);
+  const [featuredShops, setFeaturedShops] = useState<FeaturedShop[]>([]);
   const [limitedEditions, setLimitedEditions] = useState<LimitedEdition[]>([]);
 
   useEffect(() => {
@@ -36,27 +36,25 @@ const Home: React.FC = () => {
       if (active) setLimitedEditions(rows.slice(0, 4).map((row) => ({ ...row, id: String(row.id), frontImage: row.front_image ?? row.frontImage, backImage: row.back_image ?? row.backImage, extraImages: row.extra_images ?? row.extraImages ?? [] })));
     }).catch(() => { if (active) setLimitedEditions([]); });
     db.select({
-      id: designerDesigns.id,
-      name: designerDesigns.name,
-      preview: designerDesigns.preview,
-      productId: designerDesigns.productId,
+      id: shops.id,
+      name: shops.name,
+      slug: shops.slug,
       designer: designers.name,
-      shopSlug: shops.slug,
-      shopName: shops.name,
+      image: designers.heroImage,
     })
-      .from(designerDesigns)
-      .innerJoin(designers, eq(designerDesigns.designerId, designers.id))
-      .innerJoin(shops, eq(designerDesigns.shopId, shops.id))
+      .from(shops)
+      .innerJoin(designers, eq(shops.designerId, designers.id))
+      .orderBy(desc(shops.createdAt))
       .limit(3)
-      .then((designs) => {
+      .then((shopsList) => {
         if (!active) return;
-        const validDesigns = designs
-          .map((design) => ({ ...design, shopSlug: toShopSlug(design.shopSlug) || toShopSlug(design.shopName) }))
-          .filter((design) => design.shopSlug && design.shopSlug !== 'null');
-        setFeaturedDesigns(validDesigns);
+        const validShops = shopsList
+          .map((shop) => ({ ...shop, id: String(shop.id), slug: toShopSlug(shop.slug) || toShopSlug(shop.name), image: shop.image || null }))
+          .filter((shop) => shop.slug && shop.slug !== 'null');
+        setFeaturedShops(validShops);
       })
       .catch(() => {
-        if (active) setFeaturedDesigns([]);
+        if (active) setFeaturedShops([]);
       });
     return () => { active = false; };
   }, []);
@@ -104,8 +102,8 @@ const Home: React.FC = () => {
 
         <section className="home-designers-section">
           <div className="home-shell home-designers-layout">
-            <div className="home-designers-copy"><p className="home-kicker home-kicker-light">THE ARTIST MARKETPLACE</p><h2>Original art.<br /><span>Made by people.</span></h2><p>Independent artists upload their designs for you to discover and wear. Find your next favourite, or join the community and share your work.</p><div className="home-designer-actions"><Link to="/shop" className="home-button home-button-paper">Browse artist designs <ArrowRight size={17} /></Link><Link to="/designer-signup" className="home-light-link">Upload your artwork <ArrowUpRight size={16} /></Link></div></div>
-            <div className="home-featured-designs"><div className="home-board-top"><span>FEATURED DESIGNERS</span><span>SHOP ORIGINAL WORK</span></div><div className="home-featured-rail">{featuredDesigns.map((design, index) => <Link to={'/shop/' + design.shopSlug} key={design.id} className="home-featured-card"><div className={`home-featured-image home-featured-image-${index + 1}`}><img src={design.preview} alt={`${design.name}, by designer ${design.designer}`} loading="lazy" decoding="async" /><span className="home-featured-mark">✳</span></div><h3>{design.name}</h3><p>By <b>{design.designer}</b></p></Link>)}</div><Link to="/shop" className="home-featured-all">View all designs <ArrowRight size={16} /></Link></div>
+            <div className="home-designers-copy"><p className="home-kicker home-kicker-light">THE ARTIST MARKETPLACE</p><h2>Original art.<br /><span>Made by people.</span></h2><p>Independent artists open their own shops for you to discover and wear. Find your next favourite, or join the community and share your work.</p><div className="home-designer-actions"><Link to="/shop" className="home-button home-button-paper">Browse artist shops <ArrowRight size={17} /></Link><Link to="/designer-signup" className="home-light-link">Upload your artwork <ArrowUpRight size={16} /></Link></div></div>
+            <div className="home-featured-designs home-featured-shops"><div className="home-board-top"><span>FEATURED DESIGNERS</span><span>SHOP ORIGINAL WORK</span></div><div className="home-featured-rail">{featuredShops.map((shop, index) => <Link to={'/shop/' + shop.slug} key={shop.id} className="home-featured-card home-shop-card"><div className={`home-shop-image home-shop-image-${index + 1}`}>{shop.image ? <img src={shop.image} alt={`${shop.name} shop by ${shop.designer}`} loading="lazy" decoding="async" /> : <span aria-hidden="true">{shop.name.trim().slice(0, 1).toUpperCase() || '✳'}</span>}<span className="home-featured-mark">✳</span></div><h3>{shop.name}</h3><p>By <b>{shop.designer}</b></p><span className="home-shop-visit">Visit shop <ArrowUpRight size={13} /></span></Link>)}</div><Link to="/shop" className="home-featured-all">View all shops <ArrowRight size={16} /></Link></div>
           </div>
         </section>
 

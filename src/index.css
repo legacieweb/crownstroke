@@ -641,6 +641,17 @@
 .home-featured-image-3 {
   background: transparent;
 }
+.home-featured-shops { padding: clamp(16px, 2.3vw, 24px); }
+.home-featured-shops .home-featured-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(8px, 1.2vw, 14px); }
+.home-shop-card { display: flex; flex-direction: column; min-width: 0; }
+.home-shop-image { aspect-ratio: .82; position: relative; display: grid; place-items: center; overflow: hidden; background: linear-gradient(145deg, rgba(63,90,81,.92), rgba(33,45,47,.94)); }
+.home-shop-image-2 { background: linear-gradient(145deg, rgba(114,79,70,.92), rgba(48,38,43,.94)); }
+.home-shop-image-3 { background: linear-gradient(145deg, rgba(71,77,112,.92), rgba(34,38,56,.94)); }
+.home-shop-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
+.home-shop-card:hover .home-shop-image img { transform: scale(1.05); }
+.home-shop-image > span:first-child { color: rgba(255,255,255,.88); font-family: 'Playfair Display', Georgia, serif; font-size: clamp(40px, 6vw, 76px); font-style: italic; }
+.home-shop-visit { display: inline-flex; align-items: center; gap: 5px; margin-top: auto; padding-top: 10px; color: rgba(255,255,255,.72); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+.home-shop-card:hover .home-shop-visit { color: var(--home-acid); }
 .home-featured-card,
 .home-featured-card h3,
 .home-featured-card p,

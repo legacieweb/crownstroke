@@ -210,7 +210,6 @@ const SiteAppearancePanel: React.FC = () => {
     setError(''); setMessage('');
     if (file.type.startsWith('video/')) {
       if (!['video/mp4', 'video/webm'].includes(file.type)) { setError('Choose an MP4 or WebM video.'); return; }
-      if (file.size > 8 * 1024 * 1024) { setError('Background videos must be 8 MB or smaller.'); return; }
       try { setDraftMedia(await fileAsDataUrl(file)); setDraftType('video'); }
       catch (err) { setError(err instanceof Error ? err.message : 'Could not prepare that video.'); }
       return;
@@ -246,7 +245,7 @@ const SiteAppearancePanel: React.FC = () => {
         </div>
         <div className="flex flex-col justify-center rounded-2xl border border-white/10 bg-white/[.025] p-4 sm:p-5">
           <h3 className="text-sm font-black text-white">Upload a background</h3>
-          <p className="mt-2 text-xs leading-5 text-white/50">Wide images or short, muted looping clips work best. Images are optimized automatically; MP4 and WebM videos can be up to 8 MB.</p>
+          <p className="mt-2 text-xs leading-5 text-white/50">Wide images or short, muted looping clips work best. Images are optimized automatically; MP4 and WebM videos are supported.</p>
           <label className="mt-5 inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-lime-200/25 bg-lime-200/10 px-4 text-xs font-extrabold uppercase tracking-wider text-lime-100 transition hover:bg-lime-200/15">
             <Upload className="h-4 w-4" /> {draftMedia ? 'Choose another background' : 'Choose image or video'}
             <input type="file" accept="image/*,video/mp4,video/webm" className="sr-only" onChange={chooseMedia} disabled={isSaving} />

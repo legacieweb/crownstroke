@@ -93,7 +93,8 @@ app.use((req, res, next) => {
     const claims = authorization?.startsWith('Bearer ')
       ? readPlanToken(authorization.slice('Bearer '.length))
       : null;
-    express.json({ limit: claims?.role === 'admin' ? '12mb' : '1mb' })(req, res, next);
+    // Background media is sent as a base64 data URL. Leave room for the encoding overhead.
+    express.json({ limit: claims?.role === 'admin' ? '100mb' : '1mb' })(req, res, next);
     return;
   }
   if (isLimitedProductApi) {
@@ -1311,8 +1312,8 @@ async function authorizeAdmin(req: express.Request, res: express.Response): Prom
 type BackgroundMediaType = 'image' | 'video';
 const getBackgroundMediaType = (value: unknown): BackgroundMediaType | null => {
   if (typeof value !== 'string') return null;
-  if (value.length <= 900_000 && /^data:image\/(?:webp|png|jpe?g);base64,/i.test(value)) return 'image';
-  if (value.length <= 12_000_000 && /^data:video\/(?:mp4|webm);base64,/i.test(value)) return 'video';
+  if (/^data:image\/(?:webp|png|jpe?g);base64,/i.test(value)) return 'image';
+  if (/^data:video\/(?:mp4|webm);base64,/i.test(value)) return 'video';
   return null;
 };
 
@@ -1334,7 +1335,7 @@ app.put('/api/admin/site-background', async (req, res) => {
   const media = Object.prototype.hasOwnProperty.call(req.body || {}, 'media') ? req.body.media : req.body?.image;
   const type = media === null ? null : getBackgroundMediaType(media);
   if (media !== null && !type) {
-    res.status(400).json({ error: 'Upload an optimized image or an MP4/WebM video under the size limit.' });
+    res.status(400).json({ error: 'Upload a supported image or MP4/WebM video.' });
     return;
   }
   try {
@@ -1625,6 +1626,10 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
   }
 
   if (error?.type === 'entity.too.large' || error?.status === 413) {
+    if (req.path === '/api/admin/site-background') {
+      res.status(413).json({ error: 'This background file exceeds the 100 MB upload allowance. Choose a smaller file.' });
+      return;
+    }
     const plan = (req as express.Request & { userPlan?: UserPlan }).userPlan ?? 'free';
     res.status(413).json({
       error: `Payload exceeds the ${PLAN_BODY_LIMITS[plan]} limit for the ${plan} plan.`,
