@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, ArrowUpRight, Brush, PackageCheck, Palette, Sparkles, Upload, WandSparkles } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, PackageCheck, Palette, Sparkles, Upload, WandSparkles, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import HomeHeroProductMockup from '../components/home/HomeHeroProductMockup';
@@ -7,8 +7,8 @@ import { useSeo } from '../hooks/useSeo';
 import { CROWNSTROKE_BASE } from './SeoDefaults';
 import { PRODUCT_DATA } from '../data/seed';
 import { db } from '../db';
-import { designers, shops } from '../db/schema';
-import { desc, eq } from 'drizzle-orm';
+import { designerDesigns, designers, shops } from '../db/schema';
+import { desc, eq, or } from 'drizzle-orm';
 import { apiUrl } from '../services/apiUrl';
 
 const products = [
@@ -19,6 +19,7 @@ const products = [
 ];
 
 type FeaturedShop = { id: string; name: string; designer: string; image: string | null; slug: string };
+type CuratedDesign = { id: string; name: string; preview: string; product: string; price: number; designer: string; pick: 'EDITOR’S PICK' | 'FEATURED' };
 type LimitedEdition = { id: string; name: string; description: string; price: number; frontImage: string; backImage: string; extraImages: string[] };
 
 const toShopSlug = (value: unknown): string =>
@@ -28,6 +29,8 @@ const toShopSlug = (value: unknown): string =>
 
 const Home: React.FC = () => {
   const [featuredShops, setFeaturedShops] = useState<FeaturedShop[]>([]);
+  const [curatedDesigns, setCuratedDesigns] = useState<CuratedDesign[]>([]);
+  const [isCuratedLoading, setIsCuratedLoading] = useState(true);
   const [limitedEditions, setLimitedEditions] = useState<LimitedEdition[]>([]);
 
   useEffect(() => {
@@ -35,6 +38,36 @@ const Home: React.FC = () => {
     fetch(apiUrl('/api/limited-editions')).then((response) => response.ok ? response.json() : []).then((rows: any[]) => {
       if (active) setLimitedEditions(rows.slice(0, 4).map((row) => ({ ...row, id: String(row.id), frontImage: row.front_image ?? row.frontImage, backImage: row.back_image ?? row.backImage, extraImages: row.extra_images ?? row.extraImages ?? [] })));
     }).catch(() => { if (active) setLimitedEditions([]); });
+    db.select({
+      id: designerDesigns.id,
+      name: designerDesigns.name,
+      preview: designerDesigns.preview,
+      product: designerDesigns.productId,
+      price: designerDesigns.price,
+      designer: designers.name,
+      featured: designerDesigns.isFeatured,
+      editorsPick: designerDesigns.isEditorsPick,
+    })
+      .from(designerDesigns)
+      .innerJoin(designers, eq(designerDesigns.designerId, designers.id))
+      .where(or(
+        eq(designerDesigns.isFeatured, 'true'),
+        eq(designerDesigns.isFeatured, 'home'),
+        eq(designerDesigns.isEditorsPick, 'true'),
+      ))
+      .orderBy(desc(designerDesigns.createdAt))
+      .limit(4)
+      .then((rows) => {
+        if (!active) return;
+        setCuratedDesigns(rows.map((row) => ({
+          id: String(row.id), name: row.name, preview: row.preview,
+          product: String(row.product || 'Original design').replace(/[-_]/g, ' '),
+          price: Number(row.price) || 0, designer: row.designer || 'Independent artist',
+          pick: row.editorsPick === 'true' ? 'EDITOR’S PICK' : 'FEATURED',
+        })));
+      })
+      .catch(() => { if (active) setCuratedDesigns([]); })
+      .finally(() => { if (active) setIsCuratedLoading(false); });
     db.select({
       id: shops.id,
       name: shops.name,
@@ -82,21 +115,16 @@ const Home: React.FC = () => {
           <Link className="home-scroll-cue" to="/ways-to-make"><span>EXPLORE WAYS TO MAKE</span><ArrowUpRight size={14} /></Link>
         </section>
 
-        <section className="home-custom-section">
-          <div className="home-shell home-custom-grid">
-            <div className="home-editorial-art">
-              <div className="home-editorial-label">THE CROWNSTROKE STUDIO <span>✳</span> OPEN CANVAS</div>
-              <img src={PRODUCT_DATA['t-shirt']['#000000'].front} alt="Black T-shirt product mockup in the custom design studio" loading="lazy" decoding="async" />
-              <div className="home-art-note"><Brush size={16} /><span>YOUR ART, YOUR CALL</span></div>
-              <div className="home-art-number">01 / 03</div>
+        <section className="home-curated-section">
+          <div className="home-shell">
+            <div className="home-curated-heading">
+              <div><p className="home-kicker"><Star size={14} /> THE CROWNSTROKE EDIT</p><h2>Made to be<br /><em>seen.</em></h2><p>Original designs picked by our editors and featured by the Crownstroke team.</p></div>
+              <Link to="/shop" className="home-curated-all">Explore the collection <ArrowRight size={17} /></Link>
             </div>
-            <div className="home-editorial-copy">
-              <p className="home-kicker">DESIGN YOUR OWN</p>
-              <h2>From blank<br />to <em>one of one.</em></h2>
-              <p>Choose a product, upload your artwork or add text, then arrange your design in the studio preview.</p>
-              <ol className="home-steps"><li><span>01</span><div><b>Choose a product</b><small>Start with a T-shirt, hoodie, mug or print.</small></div></li><li><span>02</span><div><b>Add your design</b><small>Upload artwork or make something with text.</small></div></li><li><span>03</span><div><b>Place your order</b><small>We print your design and deliver it to you.</small></div></li></ol>
-              <Link to="/designer" className="home-text-link">Start designing <ArrowRight size={17} /></Link>
-            </div>
+            {curatedDesigns.length ? <div className="home-curated-grid">{curatedDesigns.map((design, index) => <Link className="home-curated-card" to={`/shop?design=${encodeURIComponent(design.id)}`} key={design.id}>
+              <div className={`home-curated-art home-curated-art-${index + 1}`}><img src={design.preview} alt={`${design.name}, created by ${design.designer}`} loading="lazy" decoding="async" /><span className="home-curated-badge"><Star size={11} /> {design.pick}</span><span className="home-curated-open"><ArrowUpRight size={17} /></span></div>
+              <div className="home-curated-meta"><span>{design.product}</span><span>BY {design.designer}</span></div><div className="home-curated-title"><h3>{design.name}</h3><strong>KES {design.price.toLocaleString()}</strong></div>
+            </Link>)}</div> : <div className="home-curated-empty" aria-live="polite">{isCuratedLoading ? 'Curating the latest picks…' : 'Our next featured designs are on their way.'}</div>}
           </div>
         </section>
 
