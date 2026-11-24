@@ -6,9 +6,6 @@ import HomeHeroProductMockup from '../components/home/HomeHeroProductMockup';
 import { useSeo } from '../hooks/useSeo';
 import { CROWNSTROKE_BASE } from './SeoDefaults';
 import { PRODUCT_DATA } from '../data/seed';
-import { db } from '../db';
-import { designerDesigns, designers, shops } from '../db/schema';
-import { desc, eq, or } from 'drizzle-orm';
 import { apiUrl } from '../services/apiUrl';
 
 const products = [
@@ -38,57 +35,25 @@ const Home: React.FC = () => {
     fetch(apiUrl('/api/limited-editions')).then((response) => response.ok ? response.json() : []).then((rows: any[]) => {
       if (active) setLimitedEditions(rows.slice(0, 4).map((row) => ({ ...row, id: String(row.id), frontImage: row.front_image ?? row.frontImage, backImage: row.back_image ?? row.backImage, extraImages: row.extra_images ?? row.extraImages ?? [] })));
     }).catch(() => { if (active) setLimitedEditions([]); });
-    db.select({
-      id: designerDesigns.id,
-      name: designerDesigns.name,
-      preview: designerDesigns.preview,
-      product: designerDesigns.productId,
-      price: designerDesigns.price,
-      designer: designers.name,
-      featured: designerDesigns.isFeatured,
-      editorsPick: designerDesigns.isEditorsPick,
-    })
-      .from(designerDesigns)
-      .innerJoin(designers, eq(designerDesigns.designerId, designers.id))
-      .where(or(
-        eq(designerDesigns.isFeatured, 'true'),
-        eq(designerDesigns.isFeatured, 'home'),
-        eq(designerDesigns.isEditorsPick, 'true'),
-      ))
-      .orderBy(desc(designerDesigns.createdAt))
-      .limit(4)
-      .then((rows) => {
+    fetch(apiUrl('/api/homepage-curation'))
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Could not load the homepage picks.');
+        return response.json();
+      })
+      .then((result: { shops?: any[]; designs?: any[] }) => {
         if (!active) return;
-        setCuratedDesigns(rows.map((row) => ({
-          id: String(row.id), name: row.name, preview: row.preview,
-          product: String(row.product || 'Original design').replace(/[-_]/g, ' '),
-          price: Number(row.price) || 0, designer: row.designer || 'Independent artist',
-          pick: row.editorsPick === 'true' ? 'EDITOR’S PICK' : 'FEATURED',
+        setFeaturedShops((Array.isArray(result.shops) ? result.shops : [])
+          .map((shop) => ({ ...shop, id: String(shop.id), slug: toShopSlug(shop.slug) || toShopSlug(shop.name), image: shop.image || null }))
+          .filter((shop) => shop.slug && shop.slug !== 'null'));
+        setCuratedDesigns((Array.isArray(result.designs) ? result.designs : []).map((design) => ({
+          ...design, id: String(design.id), price: Number(design.price) || 0,
+          pick: design.pick === 'EDITOR’S PICK' ? 'EDITOR’S PICK' : 'FEATURED',
         })));
       })
-      .catch(() => { if (active) setCuratedDesigns([]); })
-      .finally(() => { if (active) setIsCuratedLoading(false); });
-    db.select({
-      id: shops.id,
-      name: shops.name,
-      slug: shops.slug,
-      designer: designers.name,
-      image: designers.heroImage,
-    })
-      .from(shops)
-      .innerJoin(designers, eq(shops.designerId, designers.id))
-      .orderBy(desc(shops.createdAt))
-      .limit(3)
-      .then((shopsList) => {
-        if (!active) return;
-        const validShops = shopsList
-          .map((shop) => ({ ...shop, id: String(shop.id), slug: toShopSlug(shop.slug) || toShopSlug(shop.name), image: shop.image || null }))
-          .filter((shop) => shop.slug && shop.slug !== 'null');
-        setFeaturedShops(validShops);
-      })
       .catch(() => {
-        if (active) setFeaturedShops([]);
-      });
+        if (active) { setFeaturedShops([]); setCuratedDesigns([]); }
+      })
+      .finally(() => { if (active) setIsCuratedLoading(false); });
     return () => { active = false; };
   }, []);
 

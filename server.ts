@@ -1310,6 +1310,9 @@ async function authorizeAdmin(req: express.Request, res: express.Response): Prom
 }
 
 type BackgroundMediaType = 'image' | 'video';
+const BACKGROUND_CHUNK_PREFIX = 'cs_bg_';
+const BACKGROUND_CHUNK_SIZE = 700_000;
+const BACKGROUND_CHUNK_MARKER = /^crownstroke:chunks:([a-z0-9]+):(image|video):(\d+)$/i;
 const getBackgroundMediaType = (value: unknown): BackgroundMediaType | null => {
   if (typeof value !== 'string') return null;
   if (/^data:image\/(?:webp|png|jpe?g);base64,/i.test(value)) return 'image';
@@ -1317,14 +1320,63 @@ const getBackgroundMediaType = (value: unknown): BackgroundMediaType | null => {
   return null;
 };
 
+function getBackgroundParts(rows: any[]): { media: string | null; type: BackgroundMediaType | null } {
+  const setting = rows.find((row: any) => String(row.id) === 'global') || rows[0];
+  const stored = setting?.bg_video_url ?? setting?.bgVideoUrl ?? null;
+  if (typeof stored !== 'string') return { media: null, type: null };
+  const marker = stored.match(BACKGROUND_CHUNK_MARKER);
+  if (!marker) {
+    const type = getBackgroundMediaType(stored);
+    return { media: type ? stored : null, type };
+  }
+
+  const [, version, type, rawCount] = marker;
+  const count = Number(rawCount);
+  if (!Number.isSafeInteger(count) || count < 1 || count > 200) return { media: null, type: null };
+  const parts = rows
+    .map((row: any) => {
+      const match = String(row.id).match(new RegExp(`^${BACKGROUND_CHUNK_PREFIX}${version}_(\\d+)$`));
+      const value = row.bg_video_url ?? row.bgVideoUrl;
+      return match && typeof value === 'string' ? { index: Number(match[1]), value } : null;
+    })
+    .filter((part: any): part is { index: number; value: string } => part !== null)
+    .sort((a, b) => a.index - b.index);
+  if (parts.length !== count || parts.some((part, index) => part.index !== index)) return { media: null, type: null };
+  const media = parts.map((part) => part.value).join('');
+  return getBackgroundMediaType(media) === type ? { media, type } : { media: null, type: null };
+}
+
+async function saveBackgroundSetting(rows: any[], value: string | null): Promise<void> {
+  const globalSetting = rows.find((row: any) => String(row.id) === 'global');
+  if (globalSetting) {
+    await iyonicDB.updateRow('site_settings', 'global', { bg_video_url: value });
+  } else {
+    await iyonicDB.insertRow('site_settings', { id: 'global', bg_video_url: value });
+  }
+}
+
+async function removeBackgroundChunks(rows: any[], exceptVersion?: string): Promise<void> {
+  const keepPrefix = exceptVersion ? `${BACKGROUND_CHUNK_PREFIX}${exceptVersion}_` : null;
+  for (const row of rows) {
+    const id = String(row.id ?? '');
+    if (!id.startsWith(BACKGROUND_CHUNK_PREFIX) || (keepPrefix && id.startsWith(keepPrefix))) continue;
+    await iyonicDB.deleteRow('site_settings', id);
+  }
+}
+
+async function removeBackgroundVersion(rows: any[], version: string): Promise<void> {
+  const versionPrefix = `${BACKGROUND_CHUNK_PREFIX}${version}_`;
+  for (const row of rows) {
+    const id = String(row.id ?? '');
+    if (id.startsWith(versionPrefix)) await iyonicDB.deleteRow('site_settings', id);
+  }
+}
+
 app.get('/api/site-background', async (_req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   try {
-    const rows = await iyonicDB.listRows('site_settings', { limit: 100 });
-    const setting = rows.find((row: any) => String(row.id) === 'global') || rows[0];
-    const media = setting?.bg_video_url ?? setting?.bgVideoUrl ?? null;
-    const type = getBackgroundMediaType(media);
-    res.json({ media: type ? media : null, type });
+    const rows = await iyonicDB.listRows('site_settings', { limit: 1000 });
+    res.json(getBackgroundParts(rows));
   } catch (err) {
     iyonicDBErrorHandler(err, res);
   }
@@ -1338,15 +1390,70 @@ app.put('/api/admin/site-background', async (req, res) => {
     res.status(400).json({ error: 'Upload a supported image or MP4/WebM video.' });
     return;
   }
+  let version: string | undefined;
+  let pointerSaved = false;
   try {
-    const rows = await iyonicDB.listRows('site_settings', { limit: 100 });
-    const setting = rows.find((row: any) => String(row.id) === 'global') || rows[0];
-    if (setting?.id !== undefined && setting?.id !== null) {
-      await iyonicDB.updateRow('site_settings', String(setting.id), { bg_video_url: media });
+    const rows = await iyonicDB.listRows('site_settings', { limit: 1000 });
+    if (typeof media === 'string' && media.length > BACKGROUND_CHUNK_SIZE) {
+      version = `${Date.now().toString(36)}${randomInt(0, 36 ** 5).toString(36)}`;
+      const count = Math.ceil(media.length / BACKGROUND_CHUNK_SIZE);
+      for (let index = 0; index < count; index++) {
+        await iyonicDB.insertRow('site_settings', {
+          id: `${BACKGROUND_CHUNK_PREFIX}${version}_${index}`,
+          bg_video_url: media.slice(index * BACKGROUND_CHUNK_SIZE, (index + 1) * BACKGROUND_CHUNK_SIZE),
+        });
+      }
+      await saveBackgroundSetting(rows, `crownstroke:chunks:${version}:${type}:${count}`);
+      pointerSaved = true;
     } else {
-      await iyonicDB.insertRow('site_settings', { id: 'global', bg_video_url: media });
+      await saveBackgroundSetting(rows, media);
     }
-    res.json({ media, type });
+    await removeBackgroundChunks(rows, version).catch((cleanupError) => {
+      console.warn('Background media saved; old media cleanup deferred:', cleanupError instanceof Error ? cleanupError.message : 'unknown error');
+    });
+    res.json({ saved: true, type });
+  } catch (err) {
+    if (version && !pointerSaved) {
+      const partialRows = await iyonicDB.listRows('site_settings', { limit: 1000 }).catch(() => []);
+      await removeBackgroundVersion(partialRows, version).catch(() => undefined);
+    }
+    iyonicDBErrorHandler(err, res);
+  }
+});
+
+app.get('/api/homepage-curation', async (_req, res) => {
+  try {
+    const [shopRows, designerRows, editorRows, featuredRows, homeRows] = await Promise.all([
+      iyonicDB.query('SELECT id, name, slug, designer_id FROM shops ORDER BY created_at DESC LIMIT 3'),
+      iyonicDB.query('SELECT id, name, hero_image FROM designers LIMIT 500'),
+      iyonicDB.query('SELECT id, name, preview, product_id, price, designer_id, is_editors_pick FROM designer_designs WHERE is_editors_pick = $1 ORDER BY created_at DESC LIMIT 4', ['true']),
+      iyonicDB.query('SELECT id, name, preview, product_id, price, designer_id, is_featured, is_editors_pick FROM designer_designs WHERE is_featured = $1 ORDER BY created_at DESC LIMIT 4', ['true']),
+      iyonicDB.query('SELECT id, name, preview, product_id, price, designer_id, is_featured, is_editors_pick FROM designer_designs WHERE is_featured = $1 ORDER BY created_at DESC LIMIT 4', ['home']),
+    ]);
+    const designerById = new Map(designerRows.map((designer: any) => [String(designer.id), designer]));
+    const shops = shopRows.map((shop: any) => {
+      const designer: any = designerById.get(String(shop.designer_id ?? shop.designerId));
+      return {
+        id: String(shop.id), name: shop.name, slug: shop.slug,
+        designer: designer?.name || 'Independent artist', image: designer?.hero_image ?? designer?.heroImage ?? null,
+      };
+    });
+
+    const seen = new Set<string>();
+    const designs = [...editorRows, ...featuredRows, ...homeRows].filter((design: any) => {
+      const id = String(design.id);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    }).slice(0, 4).map((design: any) => ({
+      id: String(design.id), name: design.name, preview: design.preview,
+      product: String(design.product_id ?? design.productId ?? 'Original design').replace(/[-_]/g, ' '),
+      price: Number(design.price) || 0,
+      designer: (designerById.get(String(design.designer_id ?? design.designerId)) as any)?.name || 'Independent artist',
+      pick: (design.is_editors_pick ?? design.isEditorsPick) === 'true' ? 'EDITOR’S PICK' : 'FEATURED',
+    }));
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    res.json({ shops, designs });
   } catch (err) {
     iyonicDBErrorHandler(err, res);
   }

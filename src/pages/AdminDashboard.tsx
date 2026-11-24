@@ -223,9 +223,11 @@ const SiteAppearancePanel: React.FC = () => {
     setIsSaving(true); setError(''); setMessage('');
     try {
       const result = await siteBackgroundRequest('PUT', media, type);
-      setSavedMedia(result.media); setDraftMedia(result.media); setSavedType(result.type); setDraftType(result.type);
-      window.dispatchEvent(new CustomEvent('site-background-updated', { detail: { media: result.media, type: result.type } }));
-      setMessage(result.media ? 'Background saved and applied across the site.' : 'Custom background removed from the site.');
+      const appliedMedia = Object.prototype.hasOwnProperty.call(result, 'media') ? result.media : media;
+      const appliedType = Object.prototype.hasOwnProperty.call(result, 'type') ? result.type : type;
+      setSavedMedia(appliedMedia); setDraftMedia(appliedMedia); setSavedType(appliedType); setDraftType(appliedType);
+      window.dispatchEvent(new CustomEvent('site-background-updated', { detail: { media: appliedMedia, type: appliedType } }));
+      setMessage(appliedMedia ? 'Background saved and applied across the site.' : 'Custom background removed from the site.');
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not save the site background.'); }
     finally { setIsSaving(false); }
   };
