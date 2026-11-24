@@ -123,7 +123,7 @@
 }
 .site-bg-overlay { background: linear-gradient(180deg, rgba(5,7,12,.25), rgba(5,7,12,.12) 48%, rgba(5,7,12,.35)); }
 .site-bg-image { opacity: .3; filter: saturate(.88); transition: opacity .35s ease; }
-.site-bg-video { opacity: .24; filter: saturate(.9) brightness(.82); }
+.site-bg-video { opacity: .62; filter: saturate(1) brightness(.96); }
 .site-bg-overlay-home { background: radial-gradient(ellipse at 70% 20%, rgba(25,73,219,.025), transparent 46%), linear-gradient(180deg, rgba(245,241,232,.07), rgba(245,241,232,.1)); }
 .home-shell { width: min(1240px, calc(100% - 48px)); margin-inline: auto; }
 .home-hero { min-height: min(760px, calc(100svh - 108px)); position: relative; display: flex; align-items: center; padding: 56px 0 80px; background: radial-gradient(ellipse at 72% 42%, rgba(226,218,196,.14), transparent 42%), rgba(245,241,232,.12); }
@@ -172,8 +172,8 @@
 .home-strip-inner > p { margin: 0; color: #737369; font-size: 9px; font-weight: 800; letter-spacing: .17em; }
 .home-strip-item { display: inline-flex; align-items: center; gap: 8px; color: var(--home-ink); font-size: 12px; font-weight: 700; text-decoration: none; }.home-strip-item:hover { color: var(--home-blue); }
 .home-custom-section { padding: 112px 0; background: rgba(245,241,232,.12); }
-.home-curated-section { position: relative; overflow: hidden; padding: clamp(72px, 9vw, 120px) 0; color: #fff; background: rgba(6,9,14,.52); border-block: 1px solid rgba(255,255,255,.12); }
-.home-curated-section::before { content: ''; position: absolute; width: 48vw; height: 48vw; max-width: 680px; max-height: 680px; top: -42%; right: -9%; border-radius: 50%; background: radial-gradient(circle, rgba(40,111,228,.18), rgba(116,49,145,.1) 42%, transparent 70%); pointer-events: none; }
+.home-curated-section { position: relative; overflow: hidden; padding: clamp(72px, 9vw, 120px) 0; color: #fff; background: transparent; border-block: 1px solid rgba(255,255,255,.12); }
+.home-curated-section::before { content: none; }
 .home-curated-section > .home-shell { position: relative; z-index: 1; }
 .home-curated-heading { display: flex; align-items: end; justify-content: space-between; gap: 28px; margin-bottom: 34px; }
 .home-curated-heading .home-kicker { display: inline-flex; align-items: center; gap: 8px; color: #b8d6ff; }
