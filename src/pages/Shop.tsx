@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import React, { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout/Layout';
 import { useSeo } from '../hooks/useSeo';
@@ -7,8 +6,6 @@ import { CROWNSTROKE_BASE } from './SeoDefaults';
 import ProductCard from '../components/catalog/ProductCard';
 import { Product } from '../types';
 import { CheckCircle2, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal, X } from 'lucide-react';
-import { db } from '../db';
-import { designerDesigns, designers, shops } from '../db/schema';
 import { PRODUCT_DATA } from '../data/seed';
 import { apiUrl } from '../services/apiUrl';
 
@@ -70,7 +67,7 @@ const Shop: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('all');
 
   const [products, setProducts] = useState<Product[]>(blankProducts);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('featured');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -81,29 +78,14 @@ const Shop: React.FC = () => {
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const [featured, designerRows, shopRows, limitedResponse] = await Promise.all([
-          db.select({
-            id: designerDesigns.id,
-            name: designerDesigns.name,
-            productId: designerDesigns.productId,
-            preview: designerDesigns.preview,
-            designData: designerDesigns.designData,
-            price: designerDesigns.price,
-            designerId: designerDesigns.designerId,
-            shopId: designerDesigns.shopId,
-          }).from(designerDesigns),
-          db.select({ id: designers.id, name: designers.name, email: designers.email }).from(designers),
-          db.select({ id: shops.id, name: shops.name, slug: shops.slug }).from(shops),
-          fetch(apiUrl('/api/limited-editions')).then((response) => response.ok ? response.json() : []).catch(() => []),
-        ]);
-
-        const designersById = new Map(designerRows.map((designer) => [String(designer.id).toLowerCase(), designer]));
-        const shopsById = new Map(shopRows.map((shop) => [String(shop.id).toLowerCase(), shop]));
+        const response = await fetch(apiUrl('/api/catalog'));
+        if (!response.ok) throw new Error(`Catalog request failed (${response.status})`);
+        const catalog: { designs?: any[]; limitedEditions?: any[] } = await response.json();
+        const featured = Array.isArray(catalog.designs) ? catalog.designs : [];
         const dbProducts: Product[] = featured.map((f) => {
-          const designer = designersById.get(String(f.designerId).toLowerCase());
-          const shop = shopsById.get(String(f.shopId).toLowerCase());
-          const designData = (f.designData || {}) as { activeSide?: 'front' | 'back'; color?: string; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
-          const productMockups = PRODUCT_DATA[f.productId] || {};
+          const designData = (f.designData || f.design_data || {}) as { activeSide?: 'front' | 'back'; color?: string; front?: { objects?: unknown[] } | null; back?: { objects?: unknown[] } | null; previews?: { front?: string | null; back?: string | null } };
+          const productId = f.productId || f.product_id;
+          const productMockups = PRODUCT_DATA[productId] || {};
           const garmentColor = designData.color && productMockups[designData.color]
             ? designData.color
             : Object.keys(productMockups)[0];
@@ -115,24 +97,24 @@ const Shop: React.FC = () => {
           return {
             id: f.id,
             name: f.name,
-            description: 'An original design by ' + (designer?.name || 'an independent designer') + '.',
+            description: 'An original design by ' + (f.designerName || 'an independent designer') + '.',
             price: f.price ?? 0,
             image: sideImage(designData.activeSide || 'front'),
-            category: f.productId as Product['category'],
+            category: productId as Product['category'],
             isCustomizable: false,
             images: { front: sideImage('front'), back: sideImage('back') },
             garmentColor,
             previewOrder: designData.back?.objects?.length && !designData.front?.objects?.length ? ['back', 'front'] : ['front', 'back'],
-            designerEmail: designer?.email,
+            designerEmail: f.designerEmail,
             designerId: f.designerId,
-            designerName: designer?.name || undefined,
-            shopSlug: shop?.slug || undefined,
-            shopName: shop?.name || undefined,
+            designerName: f.designerName || undefined,
+            shopSlug: f.shopSlug || undefined,
+            shopName: f.shopName || undefined,
             designId: f.id,
           };
         });
 
-        const limitedProducts: Product[] = limitedResponse.map((row: any) => ({
+        const limitedProducts: Product[] = (catalog.limitedEditions || []).map((row: any) => ({
           id: String(row.id), name: row.name, description: row.description || 'A Crownstroke limited edition collectible.',
           price: row.price, image: row.front_image ?? row.frontImage, category: 'art-design', isCustomizable: false,
           images: { front: row.front_image ?? row.frontImage, back: row.back_image ?? row.backImage },

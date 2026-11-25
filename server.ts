@@ -12,6 +12,41 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+type ServerCacheEntry<T> = { value?: T; expiresAt: number; pending?: Promise<T> };
+const serverResponseCache = new Map<string, ServerCacheEntry<any>>();
+
+async function cachedServerValue<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const current = serverResponseCache.get(key) as ServerCacheEntry<T> | undefined;
+  if (current?.value !== undefined && current.expiresAt > now) return current.value;
+  if (current?.pending) return current.value !== undefined ? current.value : current.pending;
+
+  const staleValue = current?.value;
+  const entry: ServerCacheEntry<T> = { value: staleValue, expiresAt: 0 };
+  entry.pending = load().then((value) => {
+    entry.value = value;
+    entry.expiresAt = Date.now() + ttlMs;
+    entry.pending = undefined;
+    serverResponseCache.set(key, entry);
+    return value;
+  }).catch((error) => {
+    if (staleValue !== undefined) {
+      entry.value = staleValue;
+      entry.expiresAt = Date.now() + Math.min(ttlMs, 30_000);
+      entry.pending = undefined;
+      serverResponseCache.set(key, entry);
+      return staleValue;
+    }
+    serverResponseCache.delete(key);
+    throw error;
+  });
+  serverResponseCache.set(key, entry);
+  return staleValue !== undefined ? staleValue : entry.pending;
+}
+
+function invalidateServerCache(...keys: string[]): void {
+  for (const key of keys) serverResponseCache.delete(key);
+}
 
 type UserPlan = 'free' | 'pro' | 'business';
 type PlanClaims = { userId: string; plan: UserPlan; expiresAt: number; role?: 'admin' };
@@ -1373,10 +1408,13 @@ async function removeBackgroundVersion(rows: any[], version: string): Promise<vo
 }
 
 app.get('/api/site-background', async (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=1800');
   try {
-    const rows = await iyonicDB.listRows('site_settings', { limit: 1000 });
-    res.json(getBackgroundParts(rows));
+    const background = await cachedServerValue('site-background', 5 * 60_000, async () => {
+      const rows = await iyonicDB.listRows('site_settings', { limit: 1000 });
+      return getBackgroundParts(rows);
+    });
+    res.json(background);
   } catch (err) {
     iyonicDBErrorHandler(err, res);
   }
@@ -1411,6 +1449,7 @@ app.put('/api/admin/site-background', async (req, res) => {
     await removeBackgroundChunks(rows, version).catch((cleanupError) => {
       console.warn('Background media saved; old media cleanup deferred:', cleanupError instanceof Error ? cleanupError.message : 'unknown error');
     });
+    invalidateServerCache('site-background');
     res.json({ saved: true, type });
   } catch (err) {
     if (version && !pointerSaved) {
@@ -1423,6 +1462,8 @@ app.put('/api/admin/site-background', async (req, res) => {
 
 app.get('/api/homepage-curation', async (_req, res) => {
   try {
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    const result = await cachedServerValue('homepage-curation', 60_000, async () => {
     const [shopRows, designerRows, editorRows, featuredRows, homeRows] = await Promise.all([
       iyonicDB.query('SELECT id, name, slug, designer_id FROM shops ORDER BY created_at DESC LIMIT 3'),
       iyonicDB.query('SELECT id, name, hero_image FROM designers LIMIT 500'),
@@ -1452,8 +1493,45 @@ app.get('/api/homepage-curation', async (_req, res) => {
       designer: (designerById.get(String(design.designer_id ?? design.designerId)) as any)?.name || 'Independent artist',
       pick: (design.is_editors_pick ?? design.isEditorsPick) === 'true' ? 'EDITOR’S PICK' : 'FEATURED',
     }));
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-    res.json({ shops, designs });
+    return { shops, designs };
+    });
+    res.json(result);
+  } catch (err) {
+    iyonicDBErrorHandler(err, res);
+  }
+});
+
+app.get('/api/catalog', async (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  try {
+    const catalog = await cachedServerValue('catalog', 60_000, async () => {
+      const [designRows, designerRows, shopRows, limitedRows] = await Promise.all([
+        iyonicDB.query('SELECT id, name, product_id, preview, design_data, price, designer_id, shop_id FROM designer_designs ORDER BY created_at DESC LIMIT 500'),
+        iyonicDB.query('SELECT id, name, email FROM designers LIMIT 500'),
+        iyonicDB.query('SELECT id, name, slug FROM shops LIMIT 500'),
+        iyonicDB.listRows('limited_edition_products', { limit: 100 }),
+      ]);
+      const designersById = new Map(designerRows.map((designer: any) => [String(designer.id).toLowerCase(), designer]));
+      const shopsById = new Map(shopRows.map((shop: any) => [String(shop.id).toLowerCase(), shop]));
+      const designs = designRows.map((design: any) => {
+        const designer: any = designersById.get(String(design.designer_id ?? design.designerId).toLowerCase());
+        const shop: any = shopsById.get(String(design.shop_id ?? design.shopId).toLowerCase());
+        return {
+          ...design,
+          id: String(design.id),
+          productId: design.product_id ?? design.productId,
+          designData: design.design_data ?? design.designData ?? {},
+          designerId: design.designer_id ?? design.designerId,
+          shopId: design.shop_id ?? design.shopId,
+          designerName: designer?.name,
+          designerEmail: designer?.email,
+          shopName: shop?.name,
+          shopSlug: shop?.slug,
+        };
+      });
+      return { designs, limitedEditions: limitedRows };
+    });
+    res.json(catalog);
   } catch (err) {
     iyonicDBErrorHandler(err, res);
   }
@@ -1468,8 +1546,9 @@ app.get('/api/admin/limited-editions', async (req, res) => {
 });
 
 app.get('/api/limited-editions', async (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   try {
-    const rows = await iyonicDB.listRows('limited_edition_products', { limit: 100 });
+    const rows = await cachedServerValue('limited-editions', 60_000, () => iyonicDB.listRows('limited_edition_products', { limit: 100 }));
     res.json(rows);
   } catch (err) { iyonicDBErrorHandler(err, res); }
 });
@@ -1486,6 +1565,7 @@ app.post('/api/admin/limited-editions', async (req, res) => {
       name: name.trim(), description: String(description).slice(0, 500), price: Number(price),
       front_image, back_image, extra_images,
     });
+    invalidateServerCache('catalog', 'limited-editions');
     res.status(201).json(row);
   } catch (err) { iyonicDBErrorHandler(err, res); }
 });
@@ -1522,6 +1602,7 @@ app.put('/api/admin/limited-editions/:id', async (req, res) => {
   if (Object.keys(row).length === 0) { res.status(400).json({ error: 'Provide at least one product field to update.' }); return; }
   try {
     const updated = await iyonicDB.updateRow('limited_edition_products', req.params.id, row);
+    invalidateServerCache('catalog', 'limited-editions');
     res.json(updated);
   } catch (err) { iyonicDBErrorHandler(err, res); }
 });
@@ -1530,6 +1611,7 @@ app.delete('/api/admin/limited-editions/:id', async (req, res) => {
   if (!await authorizeAdmin(req, res)) return;
   try {
     await iyonicDB.deleteRow('limited_edition_products', req.params.id);
+    invalidateServerCache('catalog', 'limited-editions');
     res.sendStatus(204);
   } catch (err) { iyonicDBErrorHandler(err, res); }
 });
@@ -1703,6 +1785,14 @@ app.post('/api/db', async (req, res) => {
         break;
     }
 
+    if (queryType === 'insert' || queryType === 'update' || queryType === 'delete') {
+      const table = query.match(/(?:INTO|UPDATE|FROM)\s+"?([a-z_][a-z0-9_]*)/i)?.[1]?.toLowerCase();
+      if (table === 'designer_designs' || table === 'designers' || table === 'shops') {
+        invalidateServerCache('catalog', 'homepage-curation');
+      }
+      if (table === 'limited_edition_products') invalidateServerCache('catalog', 'limited-editions');
+    }
+
     if (isValues && result.length > 0 && !Array.isArray(result[0])) {
       result = toValues(result);
     }
@@ -1806,8 +1896,23 @@ app.get(/^\/(?!api).*/, (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log('-------------------------------------------');
   console.log(`SERVER RUNNING ON PORT ${PORT}`);
   console.log('-------------------------------------------');
+});
+
+server.on('listening', () => {
+  const warm = () => {
+    const origin = `http://127.0.0.1:${PORT}`;
+    void Promise.all(['/api/catalog', '/api/homepage-curation', '/api/site-background'].map(async (path) => {
+      try {
+        const response = await fetch(`${origin}${path}`);
+        if (response.ok) await response.body?.cancel();
+      } catch {
+        // A later page request will populate the cache if the database is unavailable at startup.
+      }
+    }));
+  };
+  setTimeout(warm, 1500).unref?.();
 });
